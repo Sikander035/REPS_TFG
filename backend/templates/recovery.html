@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .email-container {
+            background-color: #ffffff;
+            padding: 20px;
+            margin: 50px auto;
+            max-width: 600px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .email-header {
+            background-color: #e94e4f;
+            color: #ffffff;
+            text-align: center;
+            padding: 10px 0;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .email-header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .email-body {
+            padding: 20px;
+            text-align: left;
+            color: #333333;
+        }
+
+        .email-body p {
+            margin: 10px 0;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .email-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #999999;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            margin-top: 20px;
+            color: #ffffff;
+            background-color: #e94e4f;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .button:hover {
+            background-color: #e93e3f;
+        }
+
+        p {
+            color: black;
+        }
+
+        h1 {
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>Restablecimiento de Contraseña</h1>
+        </div>
+        <div class="email-body">
+            <p>Hola,</p>
+            <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en REPS. Si fuiste tú quien
+                realizó esta solicitud, por favor haz clic en el siguiente enlace para restablecer tu contraseña:</p>
+            <p style="text-align: center; margin-bottom: 20px;">
+                <a style="color: #FFFFFF; text-decoration: none;"
+                    href="http://localhost:3000/reset-password?token={{ token }}" class="button">
+                    <span style="color: #FFFFFF; text-decoration: none;">Restablecer contraseña</span>
+                </a>
+            </p>
+            <p>Si no solicitaste este cambio, puedes ignorar este correo. Tu contraseña seguirá siendo la misma.</p>
+            <p>Si tienes alguna duda o necesitas ayuda adicional, no dudes en contactarnos.</p>
+            <p>Atentamente,</p>
+            <p>El equipo de REPS.</p>
+        </div>
+        <div class="email-footer">
+            <p>&copy; 2024 Reps. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+
+</html>
+"""

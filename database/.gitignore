@@ -1,0 +1,18 @@
+# MongoDB database files
+*.wt
+collection-*
+index-*
+_mdb_catalog.wt
+WiredTiger*
+journal/
+diagnostic.data/
+mongod.lock
+mongod.log
+
+# MongoDB temporary files and cache
+_tmp/
+
+# Virtual Environment
+.env/
+.venv/
+.env
