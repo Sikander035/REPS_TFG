@@ -1,0 +1,62 @@
+{
+    "ejercicio": "press_militar",
+    "puntuacion_global": 77.2,
+    "nivel": "Bueno",
+    "areas_mejora": [
+        "Tu rango de movimiento es insuficiente. Intenta bajar más las pesas y subirlas más arriba."
+    ],
+    "puntos_fuertes": [
+        "Buen ángulo de codos durante el ejercicio.",
+        "Buena simetría bilateral en el movimiento.",
+        "Buena trayectoria vertical del movimiento.",
+        "Buena velocidad en la fase de subida.",
+        "Buen control en la fase de bajada.",
+        "Buena posición de hombros durante el ejercicio."
+    ],
+    "feedback_detallado": {
+        "amplitud": "Tu rango de movimiento es insuficiente. Intenta bajar más las pesas y subirlas más arriba.",
+        "codos": "Buen ángulo de codos durante el ejercicio.",
+        "simetria": "Buena simetría bilateral en el movimiento.",
+        "trayectoria": "Buena trayectoria vertical del movimiento.",
+        "velocidad_subida": "Buena velocidad en la fase de subida.",
+        "velocidad_bajada": "Buen control en la fase de bajada.",
+        "hombros": "Buena posición de hombros durante el ejercicio."
+    },
+    "metricas": {
+        "amplitud": {
+            "rom_usuario": -0.26396187061355236,
+            "rom_experto": -0.26323339696318393,
+            "rom_ratio": 0,
+            "diferencia_posicion_baja": 0
+        },
+        "angulos_codo": {
+            "angulo_minimo_usuario": 99.08120861511024,
+            "angulo_minimo_experto": 96.25945115373231,
+            "diferencia_angulo": 2.8217574613779277
+        },
+        "simetria": {
+            "diferencia_altura": 0.0052639964001200195,
+            "diferencia_normalizada": 0.019942260554088355
+        },
+        "trayectoria": {
+            "desviacion_lateral": 0.005824285845947386,
+            "desviacion_normalizada": 0.019607438274546297
+        },
+        "velocidad": {
+            "velocidad_subida_usuario": 0.007114937916086369,
+            "velocidad_subida_experto": 0.008538297455781546,
+            "ratio_subida": 0.833297030577053,
+            "velocidad_bajada_usuario": 0.005410456450532383,
+            "velocidad_bajada_experto": 0.004752861154969412,
+            "ratio_bajada": 1.13835777526878
+        },
+        "hombros": {
+            "ratio_hombros_caderas_usuario": 0.6647887707465329,
+            "ratio_hombros_caderas_experto": 0.662812782014502,
+            "diferencia_ratio": 0.0019759887320308644
+        }
+    },
+    "recomendaciones": [
+        "Practica el movimiento completo con menos peso para mejorar la amplitud."
+    ]
+}

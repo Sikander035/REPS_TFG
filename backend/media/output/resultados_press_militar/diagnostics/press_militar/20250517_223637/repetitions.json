@@ -1,0 +1,23 @@
+[
+  {
+    "repetition": 1,
+    "start_frame": 121,
+    "mid_frame": 178,
+    "end_frame": 211,
+    "duration": 90
+  },
+  {
+    "repetition": 2,
+    "start_frame": 211,
+    "mid_frame": 259,
+    "end_frame": 299,
+    "duration": 88
+  },
+  {
+    "repetition": 3,
+    "start_frame": 299,
+    "mid_frame": 343,
+    "end_frame": 370,
+    "duration": 71
+  }
+]

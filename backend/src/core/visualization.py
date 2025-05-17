@@ -239,7 +239,7 @@ def extract_frame_ranges(
     try:
         if detect_repetitions_fn is None:
             try:
-                from detect_repetitions import detect_repetitions
+                from src.core.detect_repetitions import detect_repetitions
 
                 detect_repetitions_fn = detect_repetitions
             except ImportError:

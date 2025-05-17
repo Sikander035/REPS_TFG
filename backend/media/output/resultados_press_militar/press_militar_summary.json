@@ -1,0 +1,47 @@
+{
+  "exercise": "press_militar",
+  "timestamp": "20250517_223637",
+  "processing_time": 129.00471568107605,
+  "frames": {
+    "original_user": 399,
+    "original_expert": 84,
+    "processed": 249,
+    "normalized": 249,
+    "aligned": 249
+  },
+  "videos": {
+    "user": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\videos\\Press_Militar_Cerca_Usuario.mp4",
+    "expert": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\videos\\Press_Militar_Cerca_Monitor.mp4"
+  },
+  "files": {
+    "landmarks": {
+      "user": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_Usuario.csv",
+      "expert": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_Experto.csv"
+    },
+    "processed": {
+      "user_sync": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_user_synchronized.csv",
+      "expert_sync": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_expert_synchronized.csv",
+      "expert_norm": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_expert_normalized.csv",
+      "expert_aligned": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_expert_aligned.csv"
+    },
+    "visualizations": {
+      "video": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_comparison_video.mp4",
+      "frame": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_frame_comparison.png"
+    },
+    "analysis": {
+      "report": "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\press_militar_informe.json",
+      "visualizations": [
+        "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\amplitud_movimiento.png",
+        "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\angulos_codo.png",
+        "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\trayectoria_frontal.png",
+        "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\simetria_bilateral.png",
+        "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\velocidad.png",
+        "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\puntuacion_categorias.png",
+        "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\analisis_radar.png",
+        "C:\\Users\\usuario\\Desktop\\MARCELO\\TFG\\REPS_TFG\\backend\\media\\output\\resultados_press_militar\\press_militar_analysis\\resumen_visual.png"
+      ],
+      "score": 77.23686065239765,
+      "level": "Bueno"
+    }
+  }
+}
