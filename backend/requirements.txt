@@ -1,15 +1,18 @@
+# Dependencias principales
 pymongo==4.10.1
 fastapi==0.115.5
 uvicorn==0.32.1
 python-dotenv==1.0.1
 Jinja2==3.1.4
 python-multipart==0.0.19
-opencv-python==4.10.0.84
 argparse
-mediapipe==0.10.20
 pandas==2.2.3
 scipy==1.14.1
 aiofiles
 typing==3.7.4.3
 moviepy==1.0.3
 imageio>=2.5.0
+
+# MediaPipe y OpenCV con versiones específicas
+opencv-python==4.10.0.84
+mediapipe==0.10.20
