@@ -26,10 +26,10 @@ def detect_repetitions(
     positive_distance: int = 20,
     negative_distance: int = 50,
     peak_height_threshold: float = -0.8,
-    plot_graph: bool = True,
+    plot_graph: bool = False,
     config: Optional[Dict[str, Any]] = None,
     exercise_name: Optional[str] = None,
-    config_path: str = "config_expanded.json",
+    config_path: str = "config.json",
     output_dir: Optional[str] = None,
 ) -> List[Dict[str, int]]:
     """

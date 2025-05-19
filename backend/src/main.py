@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 VIDEOS_DIR = os.path.join(BASE_DIR, "media", "videos")
 CONFIG_PATH = os.path.join(BASE_DIR, "src", "config", "config.json")
-MODEL_PATH = os.path.join(BASE_DIR, "models", "pose_landmarker_heavy.task")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "pose_landmarker_lite.task")
 
 # Leer el nombre del ejercicio desde config.json
 nombre_ejercicio = "press_militar"
