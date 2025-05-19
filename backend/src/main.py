@@ -31,7 +31,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
 try:
-    from core.data_extraction import extract_landmarks_from_video
+    from src.core.data_extraction.data_extraction import extract_landmarks_from_video
     from core.detect_repetitions import detect_repetitions
     from core.synchronise_by_interpolation import (
         synchronize_data_by_height as synchronize_data,
@@ -158,6 +158,7 @@ def process_exercise(
                 exercise_name,
                 config_path=config_path,
                 model_path=model_path,
+                force_model_reload=False,
             )
 
             logger.info(f"Extrayendo landmarks del video del experto: {video_experto}")
@@ -167,6 +168,7 @@ def process_exercise(
                 exercise_name,
                 config_path=config_path,
                 model_path=model_path,
+                force_model_reload=True,
             )
 
             results["output"]["landmarks"]["user"] = csv_usuario
