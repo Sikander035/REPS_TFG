@@ -9,14 +9,14 @@ import numpy as np
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision as mp_vision
 
-# Importar la nueva clase PoseLandmarker desde el mismo directorio
+# Importar la clase PoseLandmarker desde el mismo directorio
 from src.core.data_extraction.pose_landmarker import PoseLandmarker
 
 # Asegúrate de que el path a las configuraciones es correcto
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 )
-from src.config.config_manager import load_exercise_config, get_landmark_mapping
+from src.config.config_manager import config_manager
 
 # Logging configuration
 logging.basicConfig(
@@ -24,25 +24,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Singleton global para el modelo
-_pose_landmarker = None
-
 
 def get_pose_landmarker(model_path=None):
-    """Obtiene o crea la instancia singleton del PoseLandmarker."""
-    global _pose_landmarker
-
-    if _pose_landmarker is None and model_path is not None:
-        _pose_landmarker = PoseLandmarker(model_path)
-    elif (
-        _pose_landmarker is not None
-        and model_path is not None
-        and _pose_landmarker.model_path != model_path
-    ):
-        # Si se solicita un modelo diferente al actual, recargar
-        _pose_landmarker.load_model(model_path)
-
-    return _pose_landmarker
+    """Obtiene la instancia singleton del PoseLandmarker."""
+    return PoseLandmarker.get_instance(model_path)
 
 
 def extract_landmarks_from_video(
@@ -72,21 +57,24 @@ def extract_landmarks_from_video(
     Returns:
         DataFrame: The processed landmarks data.
     """
-    global _pose_landmarker
-
     logger.info(
         f"Extracting landmarks for exercise '{exercise}' from video: {video_path}"
     )
 
     # Forzar recarga del modelo si se solicita
-    if force_model_reload and _pose_landmarker:
+    if force_model_reload:
         logger.info("Forzando recarga del modelo según lo solicitado")
-        _pose_landmarker.release_resources()
-        _pose_landmarker = None
+        PoseLandmarker.reset_instance()
 
-    # Configuration and initialization
-    selected_landmarks = get_exercise_landmarks(exercise, config_path)
-    landmark_mapping = get_landmark_mapping()
+    # Obtener configuración usando el singleton directamente
+    exercise_config = config_manager.get_exercise_config(exercise, config_path)
+    selected_landmarks = exercise_config.get("landmarks", [])
+    landmark_mapping = config_manager.get_landmark_mapping()
+
+    # Verificar landmarks
+    if not selected_landmarks:
+        raise ValueError(f"No landmarks configured for exercise '{exercise}'")
+    logger.info(f"Selected landmarks: {selected_landmarks}")
 
     # Obtener o inicializar el landmarker
     landmarker = get_pose_landmarker(model_path)
@@ -174,19 +162,7 @@ def extract_landmarks_from_video(
     return df
 
 
-# Helper functions - estas funciones permanecen sin cambios
-
-
-def get_exercise_landmarks(exercise, config_path):
-    """
-    Load the landmark configuration for the exercise.
-    """
-    exercise_config = load_exercise_config(exercise, config_path)
-    selected_landmarks = exercise_config.get("landmarks", [])
-    if not selected_landmarks:
-        raise ValueError(f"No landmarks configured for exercise '{exercise}'")
-    logger.info(f"Selected landmarks: {selected_landmarks}")
-    return selected_landmarks
+# Helper functions
 
 
 def open_video(video_path):

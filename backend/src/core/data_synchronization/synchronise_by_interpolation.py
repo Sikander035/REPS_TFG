@@ -12,34 +12,20 @@ import logging
 import os
 from typing import List, Dict, Tuple, Optional, Union, Any
 
-# Ensure path includes parent directory for imports
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# Configuración de logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+logger = logging.getLogger(__name__)
 
 # Import utility functions from the utilities module
 from src.utils.synchronization_utils import (
     validate_input_data,
     preprocess_dataframe,
-    get_repetitions,
     match_repetitions,
     process_all_repetitions,
     combine_and_validate,
 )
-
-# Import from detect_repetitions to maintain compatibility
-try:
-    from src.core.data_segmentation.detect_repetitions import detect_repetitions
-except ImportError:
-    logging.warning(
-        "Could not import detect_repetitions, some functions may be limited"
-    )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
 
 
 def synchronize_data(
@@ -53,55 +39,31 @@ def synchronize_data(
     Synchronizes expert data with user data using a flexible, configurable strategy.
 
     This is the main entry point for the synchronization process. It orchestrates
-    the entire synchronization workflow, including preprocessing, repetition
-    detection, phase identification, and interpolation.
+    the entire synchronization workflow, including preprocessing, repetition detection,
+    phase identification, and interpolation.
 
     Args:
         user_data: DataFrame with user data
         expert_data: DataFrame with expert data
         config: Dictionary with configuration (optional if exercise_name is provided)
         exercise_name: Exercise name to load configuration (optional if config is provided)
-        config_path: Path to configuration file (default: "config_expanded.json")
+        config_path: Path to configuration file (default: "config.json")
 
     Returns:
         Tuple (user_data_sync, expert_data_sync) with synchronized data
-
-    Raises:
-        ValueError: If configuration cannot be obtained
-
-    Example:
-        # Option 1: Pass configuration directly
-        >>> user_df = pd.read_csv("user_landmarks.csv")
-        >>> expert_df = pd.read_csv("expert_landmarks.csv")
-        >>> config = {"landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
-                      "division_strategy": "height",
-                      "num_divisions": 7}
-        >>> user_sync, expert_sync = synchronize_data(
-        ...     user_df, expert_df, config=config
-        ... )
-
-        # Option 2: Load configuration from exercise_name
-        >>> user_sync, expert_sync = synchronize_data(
-        ...     user_df, expert_df, exercise_name="press_militar"
-        ... )
     """
     logger.info("Starting synchronization process...")
 
-    # Get configuration - either provided directly or from exercise name
+    # Obtener configuración - CARGA ÚNICA
     if config is None:
         if exercise_name is None:
             raise ValueError("Either config or exercise_name must be provided")
 
         try:
-            # Try to import from config_manager
-            try:
-                from src.config.config_manager import load_exercise_config
+            # Importar solo una vez
+            from src.config.config_manager import load_exercise_config
 
-                exercise_config = load_exercise_config(exercise_name, config_path)
-            except ImportError as e:
-                raise ImportError(
-                    "No se pudo importar load_exercise_config desde src.config.config_manager"
-                ) from e
+            exercise_config = load_exercise_config(exercise_name, config_path)
 
             if not exercise_config or "sync_config" not in exercise_config:
                 raise ValueError(f"No sync_config found for exercise {exercise_name}")
@@ -113,10 +75,10 @@ def synchronize_data(
     else:
         logger.info("Using provided configuration")
 
-    # 1. Validate input data
+    # 1. Validar datos de entrada
     validate_input_data(user_data, expert_data, config)
 
-    # 2. Preprocess data (optional)
+    # 2. Preprocesar datos (opcional)
     if config.get("preprocess", True):
         logger.info("Preprocessing data...")
         user_data_prep = preprocess_dataframe(user_data, config)
@@ -125,23 +87,50 @@ def synchronize_data(
         user_data_prep = user_data.copy()
         expert_data_prep = expert_data.copy()
 
-    # 3. Detect and match repetitions
-    logger.info("Detecting repetitions...")
-    user_repetitions = get_repetitions(user_data_prep, config, is_user=True)
-    expert_repetitions = get_repetitions(expert_data_prep, config, is_user=False)
+    # 3. Detectar repeticiones usando detect_repetitions pero pasando solo el config
+    try:
+        # Importar función de detección
+        from src.core.data_segmentation.detect_repetitions import detect_repetitions
 
+        logger.info("Detecting repetitions in user data...")
+        user_repetitions = detect_repetitions(
+            user_data_prep,
+            plot_graph=False,
+            config=config,  # Solo pasar la configuración ya cargada
+        )
+
+        logger.info("Detecting repetitions in expert data...")
+        expert_repetitions = detect_repetitions(
+            expert_data_prep,
+            plot_graph=False,
+            config=config,  # Solo pasar la configuración ya cargada
+        )
+
+        if not user_repetitions:
+            raise ValueError("No repetitions detected in user data")
+        if not expert_repetitions:
+            raise ValueError("No repetitions detected in expert data")
+
+        logger.info(
+            f"Detected {len(user_repetitions)} user repetitions and {len(expert_repetitions)} expert repetitions"
+        )
+    except Exception as e:
+        logger.error(f"Error detecting repetitions: {e}")
+        raise
+
+    # 4. Emparejar repeticiones
     logger.info("Matching repetitions...")
     repetition_pairs = match_repetitions(
         user_repetitions, expert_repetitions, user_data_prep, expert_data_prep, config
     )
 
-    # 4. Process all repetitions
+    # 5. Procesar todas las repeticiones
     logger.info(f"Processing {len(repetition_pairs)} repetition pairs...")
     user_segments, expert_segments = process_all_repetitions(
         user_data_prep, expert_data_prep, repetition_pairs, config
     )
 
-    # 5. Combine and validate
+    # 6. Combinar y validar
     logger.info("Combining results...")
     final_user_data, final_expert_data = combine_and_validate(
         user_segments, expert_segments

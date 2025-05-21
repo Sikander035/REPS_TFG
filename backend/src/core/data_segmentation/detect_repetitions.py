@@ -7,7 +7,6 @@ import os
 from typing import List, Dict, Tuple, Optional, Union, Any
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from src.config.config_manager import load_exercise_config
 from src.utils.repetition_utils import (
     detect_repetitions_from_landmarks,
     visualize_repetitions,
@@ -48,18 +47,21 @@ def detect_repetitions(
         negative_distance (int): Distancia mínima entre picos.
         peak_height_threshold (float): Umbral de altura para considerar un pico.
         plot_graph (bool): Si es True, genera una gráfica de las repeticiones detectadas.
-        config (dict, optional): Configuración personalizada. Si es None, se usa ejercicio o valores por defecto.
-        exercise_name (str, optional): Nombre del ejercicio para cargar configuración.
+        config (dict, optional): Configuración personalizada. Si es None y exercise_name no es None,
+                               se cargará del archivo de configuración.
+        exercise_name (str, optional): Nombre del ejercicio para cargar configuración si config es None.
         config_path (str): Ruta al archivo de configuración expandida.
         output_dir (str, optional): Directorio para guardar visualizaciones. Si None, usa directorio actual.
 
     Returns:
         list[dict]: Lista de diccionarios con información sobre las repeticiones.
     """
-    # Cargar configuración basada en nombre de ejercicio si no hay config explícita
+    # Cargar configuración SOLO si no se proporciona config
     if config is None and exercise_name is not None:
         try:
             logger.debug(f"Cargando configuración para ejercicio: {exercise_name}")
+            from src.config.config_manager import load_exercise_config
+
             exercise_config = load_exercise_config(exercise_name, config_path)
             config = exercise_config.get("sync_config", {})
         except Exception as e:
@@ -126,131 +128,5 @@ def detect_repetitions(
             landmark_name=landmark_name,
             smoothed_signal=smoothed_signal,
         )
-
-    return repetitions
-
-
-# Función original para mantener compatibilidad
-def detect_repetitions_legacy(
-    data,
-    prominence=0.2,
-    smoothing_window=11,
-    polyorder=2,
-    positive_distance=20,
-    negative_distance=50,
-    peak_height_threshold=-0.8,
-    plot_graph=True,
-):
-    """
-    Versión original de la función para compatibilidad.
-    Esta función sigue la implementación original exactamente.
-    """
-    # Extraer las posiciones Y de las muñecas e invertir la señal
-    wrist_y = -(
-        data[["landmark_right_wrist_y", "landmark_left_wrist_y"]].min(axis=1).values
-    )
-
-    # Suavizar la señal
-    from scipy.signal import savgol_filter
-
-    smoothed_wrist_y = savgol_filter(wrist_y, smoothing_window, polyorder)
-
-    # Añadir valores artificiales al inicio y al final
-    padding_value = smoothed_wrist_y.mean()
-    padded_signal = np.concatenate(
-        ([padding_value - 10], smoothed_wrist_y, [padding_value - 10])
-    )
-
-    # Encontrar picos usando la señal extendida
-    from scipy.signal import find_peaks
-
-    peaks, _ = find_peaks(
-        padded_signal,
-        prominence=prominence,
-        distance=negative_distance,
-        height=peak_height_threshold,
-    )
-
-    # Encontrar valles usando la señal extendida (invertida)
-    valleys, _ = find_peaks(
-        -padded_signal,
-        prominence=prominence,
-        distance=positive_distance,
-        height=peak_height_threshold,
-    )
-
-    # Ajustar los índices de los picos y valles al rango original
-    peaks = peaks - 1
-    valleys = valleys - 1
-    peaks = peaks[(peaks >= 0) & (peaks < len(smoothed_wrist_y))]
-    valleys = valleys[(valleys >= 0) & (valleys < len(smoothed_wrist_y))]
-
-    # Construir las repeticiones
-    repetitions = []
-    for i in range(len(peaks) - 1):
-        start_frame = peaks[i]
-        end_frame = peaks[i + 1]
-
-        # Buscar el primer valle entre dos picos consecutivos
-        valley_candidates = valleys[(valleys > start_frame) & (valleys < end_frame)]
-        if len(valley_candidates) > 0:
-            mid_frame = valley_candidates[0]
-        else:
-            mid_frame = np.nan
-
-        repetitions.append(
-            {
-                "start_frame": start_frame,
-                "mid_frame": mid_frame,
-                "end_frame": end_frame,
-            }
-        )
-
-    # Graficar la señal y las líneas en los frames importantes
-    if plot_graph:
-        plt.figure(figsize=(10, 6))
-        plt.plot(smoothed_wrist_y, label="Posición Y suavizada")
-
-        # Agregar líneas verticales en los picos y valles
-        for repetition in repetitions:
-            if not np.isnan(repetition["start_frame"]):
-                plt.axvline(
-                    x=repetition["start_frame"],
-                    color="g",
-                    linestyle="--",
-                    label=(
-                        "Pico Inicio"
-                        if repetition["start_frame"] == repetitions[0]["start_frame"]
-                        else ""
-                    ),
-                )
-            if not np.isnan(repetition["mid_frame"]):
-                plt.axvline(
-                    x=repetition["mid_frame"],
-                    color="r",
-                    linestyle="--",
-                    label=(
-                        "Valle"
-                        if repetition["mid_frame"] == repetitions[0]["mid_frame"]
-                        else ""
-                    ),
-                )
-            if not np.isnan(repetition["end_frame"]):
-                plt.axvline(
-                    x=repetition["end_frame"],
-                    color="b",
-                    linestyle="--",
-                    label=(
-                        "Pico Fin"
-                        if repetition["end_frame"] == repetitions[0]["end_frame"]
-                        else ""
-                    ),
-                )
-
-        plt.title("Detección de Repeticiones")
-        plt.xlabel("Frame")
-        plt.ylabel("Posición Y suavizada")
-        plt.legend(loc="upper right")
-        plt.show()
 
     return repetitions

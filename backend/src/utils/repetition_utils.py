@@ -1,4 +1,4 @@
-# backend/src/core/repetition_utils.py
+# backend/src/utils/repetition_utils.py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt

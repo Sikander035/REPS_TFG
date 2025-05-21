@@ -13,8 +13,38 @@ logger = logging.getLogger(__name__)
 class PoseLandmarker:
     """
     Clase que encapsula el ciclo de vida del modelo de detección de poses de MediaPipe.
-    Mantiene una única instancia del modelo cargado para múltiples videos.
+    Implementada con patrón singleton para mantener una única instancia.
     """
+
+    # Variable de clase para almacenar la instancia singleton
+    _instance = None
+
+    @classmethod
+    def get_instance(cls, model_path=None):
+        """
+        Método de clase para obtener la instancia singleton.
+
+        Args:
+            model_path: Ruta al modelo de pose (opcional)
+
+        Returns:
+            Instancia única de PoseLandmarker
+        """
+        if cls._instance is None:
+            cls._instance = cls(model_path)
+        elif model_path is not None and cls._instance.model_path != model_path:
+            cls._instance.load_model(model_path)
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls):
+        """
+        Reinicia la instancia singleton, liberando recursos.
+        Útil cuando se necesita forzar una recarga completa.
+        """
+        if cls._instance is not None:
+            cls._instance.release_resources()
+            cls._instance = None
 
     def __init__(self, model_path=None):
         """
