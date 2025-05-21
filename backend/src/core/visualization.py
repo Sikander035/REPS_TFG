@@ -239,7 +239,9 @@ def extract_frame_ranges(
     try:
         if detect_repetitions_fn is None:
             try:
-                from src.core.detect_repetitions import detect_repetitions
+                from src.core.data_segmentation.detect_repetitions import (
+                    detect_repetitions,
+                )
 
                 detect_repetitions_fn = detect_repetitions
             except ImportError:
@@ -787,7 +789,7 @@ def generate_comparison_grid(
     elif frame_selection == "key_points":
         # Intentar identificar frames clave (inicio, medio, final de repeticiones)
         try:
-            from detect_repetitions import detect_repetitions
+            from src.core.data_segmentation.detect_repetitions import detect_repetitions
 
             repetitions = detect_repetitions(user_data, plot_graph=False)
             if repetitions:
@@ -1534,7 +1536,9 @@ def process_visualizations(
 
             # Añadir líneas para repeticiones si están disponibles
             try:
-                from detect_repetitions import detect_repetitions
+                from src.core.data_segmentation.detect_repetitions import (
+                    detect_repetitions,
+                )
 
                 repetitions = detect_repetitions(user_data, plot_graph=False)
 

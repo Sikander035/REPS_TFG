@@ -32,9 +32,9 @@ sys.path.append(current_dir)
 
 try:
     from src.core.data_extraction.data_extraction import extract_landmarks_from_video
-    from core.detect_repetitions import detect_repetitions
-    from core.synchronise_by_interpolation import (
-        synchronize_data_by_height as synchronize_data,
+    from src.core.data_segmentation.detect_repetitions import detect_repetitions
+    from src.core.data_synchronization.synchronise_by_interpolation import (
+        synchronize_data,
     )
     from core.min_square_normalization import normalize_skeletons_with_affine_method
     from core.align_data import align_skeletons_dataframe
@@ -235,9 +235,7 @@ def process_exercise(
     logger.info("3. FASE DE SINCRONIZACIÓN DE DATOS")
     try:
         user_processed_data, expert_processed_data = synchronize_data(
-            user_data,
-            expert_data,
-            num_divisions=7,
+            user_data, expert_data, exercise_name=exercise_name, config_path=config_path
         )
         user_sync_path = os.path.join(
             output_dir, f"{exercise_name}_user_synchronized.csv"
