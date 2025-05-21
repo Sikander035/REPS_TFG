@@ -33,19 +33,21 @@ sys.path.append(current_dir)
 try:
     from src.core.data_extraction.data_extraction import extract_landmarks_from_video
     from src.core.data_segmentation.detect_repetitions import detect_repetitions
-    from src.core.data_synchronization.synchronise_by_interpolation import (
+    from src.core.data_synchronization.synchronize_data import (
         synchronize_data,
     )
-    from core.min_square_normalization import normalize_skeletons_with_affine_method
-    from core.align_data import align_skeletons_dataframe
-    from core.visualization import (
+    from src.core.data_transformation.min_square_normalization import (
+        normalize_skeletons_with_affine_method,
+    )
+    from src.core.data_transformation.align_data import align_skeletons_dataframe
+    from src.feedback.visualization import (
         generate_dual_skeleton_video,
         visualize_frame_dual_skeletons,
     )
-    from config.config_manager import load_exercise_config, config_manager
+    from src.config.config_manager import load_exercise_config, config_manager
 
     config_manager.load_config_file(CONFIG_PATH)
-    from core.exercise_analyzer import ExerciseAnalyzer
+    from src.feedback.exercise_analyzer import ExerciseAnalyzer
 
     logger.info("Usando módulos existentes")
 

@@ -2,13 +2,12 @@
 import numpy as np
 import pandas as pd
 import logging
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 import matplotlib.pyplot as plt
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from src.config.config_manager import load_exercise_config
+from src.config.config_manager import config_manager  # Usar directamente el singleton
 from src.utils.landmark_utils import (
     extract_landmarks_as_matrix,
     solve_affine_transform_3d,
@@ -90,60 +89,12 @@ def normalize_skeleton_with_affine_transform(
 
         # Visualizar si se solicita
         if visualize and output_dir:
-            os.makedirs(output_dir, exist_ok=True)
-            viz_path = os.path.join(output_dir, "normalization_visualization.png")
-
-            plt.figure(figsize=(15, 5))
-
-            # Antes de normalización
-            ax1 = plt.subplot(131, projection="3d")
-            ax1.scatter(
-                user_matched[:, 0],
-                user_matched[:, 1],
-                user_matched[:, 2],
-                c="blue",
-                label="Usuario",
+            _visualize_transformation(
+                user_matched,
+                expert_matched,
+                normalized_points[expert_indices],
+                output_dir,
             )
-            ax1.scatter(
-                expert_matched[:, 0],
-                expert_matched[:, 1],
-                expert_matched[:, 2],
-                c="red",
-                label="Experto",
-            )
-            ax1.set_title("Antes de normalización")
-            ax1.legend()
-
-            # Después de normalización
-            ax2 = plt.subplot(132, projection="3d")
-            ax2.scatter(
-                user_matched[:, 0],
-                user_matched[:, 1],
-                user_matched[:, 2],
-                c="blue",
-                label="Usuario",
-            )
-            ax2.scatter(
-                normalized_points[expert_indices, 0],
-                normalized_points[expert_indices, 1],
-                normalized_points[expert_indices, 2],
-                c="green",
-                label="Experto normalizado",
-            )
-            ax2.set_title("Después de normalización")
-            ax2.legend()
-
-            # Errores
-            errors = np.sqrt(
-                np.sum((normalized_points[expert_indices] - user_matched) ** 2, axis=1)
-            )
-            ax3 = plt.subplot(133)
-            ax3.bar(range(len(errors)), errors)
-            ax3.set_title("Errores de alineación")
-
-            plt.tight_layout()
-            plt.savefig(viz_path)
-            plt.close()
 
         return (result, error_metrics) if compute_error else result
 
@@ -152,14 +103,73 @@ def normalize_skeleton_with_affine_transform(
         return (expert_frame.copy(), None) if compute_error else expert_frame.copy()
 
 
+def _visualize_transformation(
+    user_points, expert_points, normalized_points, output_dir
+):
+    """
+    Visualiza la transformación antes y después.
+    Esta función auxiliar simplifica normalize_skeleton_with_affine_transform.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    viz_path = os.path.join(output_dir, "normalization_visualization.png")
+
+    plt.figure(figsize=(15, 5))
+
+    # Antes de normalización
+    ax1 = plt.subplot(131, projection="3d")
+    ax1.scatter(
+        user_points[:, 0],
+        user_points[:, 1],
+        user_points[:, 2],
+        c="blue",
+        label="Usuario",
+    )
+    ax1.scatter(
+        expert_points[:, 0],
+        expert_points[:, 1],
+        expert_points[:, 2],
+        c="red",
+        label="Experto",
+    )
+    ax1.set_title("Antes de normalización")
+    ax1.legend()
+
+    # Después de normalización
+    ax2 = plt.subplot(132, projection="3d")
+    ax2.scatter(
+        user_points[:, 0],
+        user_points[:, 1],
+        user_points[:, 2],
+        c="blue",
+        label="Usuario",
+    )
+    ax2.scatter(
+        normalized_points[:, 0],
+        normalized_points[:, 1],
+        normalized_points[:, 2],
+        c="green",
+        label="Experto normalizado",
+    )
+    ax2.set_title("Después de normalización")
+    ax2.legend()
+
+    # Errores
+    errors = np.sqrt(np.sum((normalized_points - user_points) ** 2, axis=1))
+    ax3 = plt.subplot(133)
+    ax3.bar(range(len(errors)), errors)
+    ax3.set_title("Errores de alineación")
+
+    plt.tight_layout()
+    plt.savefig(viz_path)
+    plt.close()
+
+
 def normalize_skeletons_with_affine_method(
     user_data,
     expert_data,
     config=None,
     exercise_name=None,
-    config_path="config_expanded.json",
-    use_parallel=False,
-    max_workers=4,
+    config_path="config.json",
     compute_error=False,
     visualize=False,
     visualize_frames=None,
@@ -176,10 +186,12 @@ def normalize_skeletons_with_affine_method(
             f"Los DataFrames deben tener la misma longitud. Usuario: {len(user_data)}, Experto: {len(expert_data)}"
         )
 
-    # Cargar configuración
+    # Cargar configuración usando singleton
     if exercise_name and not config:
         try:
-            exercise_config = load_exercise_config(exercise_name, config_path)
+            exercise_config = config_manager.get_exercise_config(
+                exercise_name, config_path
+            )
             config = exercise_config.get("sync_config", {})
         except Exception as e:
             logger.warning(f"Error al cargar configuración: {e}")
@@ -231,22 +243,19 @@ def normalize_skeletons_with_affine_method(
     if visualize and output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-    # Procesamiento en paralelo o secuencial
-    if use_parallel and len(usr_coords) > 10:
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            futures = []
+    # Procesamiento secuencial - Eliminamos el procesamiento paralelo para simplificar
+    logger.info(f"Normalizando {len(exp_coords)} frames...")
+    for i in range(len(usr_coords)):
+        should_visualize = visualize and i in visualize_frames
+        frame_dir = (
+            os.path.join(output_dir, f"frame_{i}")
+            if should_visualize and output_dir
+            else None
+        )
 
-            # Enviar trabajos
-            for i in range(len(usr_coords)):
-                should_visualize = visualize and i in visualize_frames
-                frame_dir = (
-                    os.path.join(output_dir, f"frame_{i}")
-                    if should_visualize and output_dir
-                    else None
-                )
-
-                future = executor.submit(
-                    normalize_skeleton_with_affine_transform,
+        try:
+            if compute_error:
+                result, metrics = normalize_skeleton_with_affine_transform(
                     exp_coords.iloc[i],
                     usr_coords.iloc[i],
                     landmarks_to_use,
@@ -255,87 +264,52 @@ def normalize_skeletons_with_affine_method(
                     should_visualize,
                     frame_dir,
                 )
-                future.frame_idx = i
-                futures.append(future)
 
-            # Procesar resultados
-            for future in as_completed(futures):
-                i = future.frame_idx
-                try:
-                    if compute_error:
-                        result, metrics = future.result()
-                        normalized.iloc[i] = result
-                        if metrics:
-                            error_metrics_df.loc[i] = [
-                                metrics["initial_error"],
-                                metrics["final_error"],
-                                metrics["improvement"],
-                            ]
-                    else:
-                        normalized.iloc[i] = future.result()
-                except Exception:
-                    normalized.iloc[i] = exp_coords.iloc[i]
-    else:
-        # Procesamiento secuencial
-        for i in range(len(usr_coords)):
-            should_visualize = visualize and i in visualize_frames
-            frame_dir = (
-                os.path.join(output_dir, f"frame_{i}")
-                if should_visualize and output_dir
-                else None
-            )
-
-            try:
-                if compute_error:
-                    result, metrics = normalize_skeleton_with_affine_transform(
-                        exp_coords.iloc[i],
-                        usr_coords.iloc[i],
-                        landmarks_to_use,
-                        regularization,
-                        compute_error,
-                        should_visualize,
-                        frame_dir,
-                    )
-
-                    normalized.iloc[i] = result
-                    if metrics:
-                        error_metrics_df.loc[i, "initial_error"] = metrics[
-                            "initial_error"
-                        ]
-                        error_metrics_df.loc[i, "final_error"] = metrics["final_error"]
-                        error_metrics_df.loc[i, "improvement"] = metrics["improvement"]
-                else:
-                    normalized.iloc[i] = normalize_skeleton_with_affine_transform(
-                        exp_coords.iloc[i],
-                        usr_coords.iloc[i],
-                        landmarks_to_use,
-                        regularization,
-                        compute_error,
-                        should_visualize,
-                        frame_dir,
-                    )
-            except Exception as e:
-                logger.error(f"Error procesando frame {i}: {e}")
-                normalized.iloc[i] = exp_coords.iloc[i]
+                normalized.iloc[i] = result
+                if metrics:
+                    error_metrics_df.loc[i, "initial_error"] = metrics["initial_error"]
+                    error_metrics_df.loc[i, "final_error"] = metrics["final_error"]
+                    error_metrics_df.loc[i, "improvement"] = metrics["improvement"]
+            else:
+                normalized.iloc[i] = normalize_skeleton_with_affine_transform(
+                    exp_coords.iloc[i],
+                    usr_coords.iloc[i],
+                    landmarks_to_use,
+                    regularization,
+                    compute_error,
+                    should_visualize,
+                    frame_dir,
+                )
+        except Exception as e:
+            logger.error(f"Error procesando frame {i}: {e}")
+            normalized.iloc[i] = exp_coords.iloc[i]
 
     # Añadir columna de frame
     normalized.insert(0, "frame", frames.values)
 
     # Visualizar resumen
     if compute_error and visualize and output_dir:
-        try:
-            plt.figure(figsize=(10, 6))
-            plt.plot(error_metrics_df["initial_error"], label="Error inicial")
-            plt.plot(error_metrics_df["final_error"], label="Error final")
-            plt.title("Errores de normalización por frame")
-            plt.xlabel("Frame")
-            plt.ylabel("Error (distancia)")
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            plt.savefig(os.path.join(output_dir, "normalization_errors.png"))
-            plt.close()
-        except Exception:
-            pass
+        _visualize_error_summary(error_metrics_df, output_dir)
 
     logger.info(f"Normalización completada para {len(normalized)} frames")
     return (normalized, error_metrics_df) if compute_error else normalized
+
+
+def _visualize_error_summary(error_metrics_df, output_dir):
+    """
+    Visualiza un resumen de errores de normalización.
+    Función auxiliar separada para simplificar el código principal.
+    """
+    try:
+        plt.figure(figsize=(10, 6))
+        plt.plot(error_metrics_df["initial_error"], label="Error inicial")
+        plt.plot(error_metrics_df["final_error"], label="Error final")
+        plt.title("Errores de normalización por frame")
+        plt.xlabel("Frame")
+        plt.ylabel("Error (distancia)")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.savefig(os.path.join(output_dir, "normalization_errors.png"))
+        plt.close()
+    except Exception as e:
+        logger.warning(f"Error al crear resumen visual: {e}")
