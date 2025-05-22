@@ -45,7 +45,11 @@ try:
         visualize_frame_dual_skeletons,
     )
     from src.config.config_manager import load_exercise_config, config_manager
-    from src.feedback.exercise_analyzer import ExerciseAnalyzer
+    from src.feedback.exercise_analysis import (
+        run_exercise_analysis,
+        generate_analysis_report,
+        visualize_analysis_results,
+    )
 
     config_manager.load_config_file(CONFIG_PATH)
 
@@ -381,21 +385,39 @@ def process_exercise(
         try:
             analysis_dir = os.path.join(output_dir, f"{exercise_name}_analysis")
             os.makedirs(analysis_dir, exist_ok=True)
-            analyzer = ExerciseAnalyzer(
+
+            # Ejecutar análisis completo usando las nuevas funciones
+            analysis_results = run_exercise_analysis(
                 user_data=user_processed_data,
                 expert_data=aligned_expert_data,
                 exercise_name=exercise_name,
             )
-            analysis_results = analyzer.run_full_analysis()
+
+            # Generar reporte
             report_path = os.path.join(analysis_dir, f"{exercise_name}_informe.json")
-            report = analyzer.generate_report(output_path=report_path)
-            viz_paths = analyzer.visualize_analysis(output_dir=analysis_dir)
+            report = generate_analysis_report(
+                analysis_results=analysis_results,
+                exercise_name=exercise_name,
+                output_path=report_path,
+            )
+
+            # Generar visualizaciones
+            viz_paths = visualize_analysis_results(
+                analysis_results=analysis_results,
+                user_data=user_processed_data,
+                expert_data=aligned_expert_data,
+                exercise_name=exercise_name,
+                output_dir=analysis_dir,
+            )
+
+            # Almacenar resultados
             results["output"]["analysis"] = {
                 "report": report_path,
                 "visualizations": viz_paths,
                 "score": analysis_results["score"],
-                "level": report["nivel"],
+                "level": analysis_results["level"],
             }
+
             logger.info(
                 f"Análisis completado - Puntuación: {report['puntuacion_global']:.1f}/100 - Nivel: {report['nivel']}"
             )
@@ -407,37 +429,12 @@ def process_exercise(
                 logger.info("Puntos fuertes:")
                 for punto in report["puntos_fuertes"]:
                     logger.info(f"  + {punto}")
+
         except Exception as e:
             logger.error(f"Error en análisis detallado del ejercicio: {e}")
             import traceback
 
             logger.error(traceback.format_exc())
-
-    elapsed_time = time.time() - start_time
-    logger.info(
-        f"Procesamiento completo de {exercise_name} en {elapsed_time:.2f} segundos"
-    )
-    summary = {
-        "exercise": exercise_name,
-        "timestamp": run_id,
-        "processing_time": elapsed_time,
-        "frames": {
-            "original_user": len(user_data_original),
-            "original_expert": len(expert_data_original),
-            "processed": len(user_processed_data),
-            "normalized": len(normalized_expert_data),
-            "aligned": (
-                len(aligned_expert_data)
-                if "aligned_expert_data" in locals()
-                else len(normalized_expert_data)
-            ),
-        },
-        "videos": {"user": video_usuario, "expert": video_experto},
-        "files": results["output"],
-    }
-    summary_path = os.path.join(output_dir, f"{exercise_name}_summary.json")
-    with open(summary_path, "w") as f:
-        json.dump(summary, f, indent=2)
 
     return results
 

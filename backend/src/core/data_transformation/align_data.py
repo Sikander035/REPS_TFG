@@ -326,27 +326,3 @@ def visualize_alignment(
         plt.close(fig)
 
     return fig
-
-
-# Función legacy para compatibilidad
-def align_skeletons_dataframe_legacy(user_data, expert_data):
-    """Implementación original para compatibilidad."""
-    if len(user_data) != len(expert_data):
-        raise ValueError(
-            f"Los DataFrames deben tener la misma longitud. Usuario: {len(user_data)}, Experto: {len(expert_data)}"
-        )
-
-    aligned_expert_data = pd.DataFrame(columns=expert_data.columns)
-
-    for i in tqdm(range(len(user_data)), desc="Alineando frames"):
-        aligned_frame = align_skeleton_frame(
-            expert_data.iloc[i].to_dict(), user_data.iloc[i].to_dict()
-        )
-        aligned_expert_data = pd.concat(
-            [aligned_expert_data, pd.DataFrame([aligned_frame])], ignore_index=True
-        )
-
-    if "frame" in expert_data.columns:
-        aligned_expert_data["frame"] = expert_data["frame"].values
-
-    return aligned_expert_data
