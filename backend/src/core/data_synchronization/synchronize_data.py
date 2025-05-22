@@ -34,6 +34,8 @@ def synchronize_data(
     config: Optional[Dict[str, Any]] = None,
     exercise_name: Optional[str] = None,
     config_path: str = "config.json",
+    user_repetitions: Optional[List[Dict]] = None,  # NUEVO PARÁMETRO
+    expert_repetitions: Optional[List[Dict]] = None,  # NUEVO PARÁMETRO
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Synchronizes expert data with user data using a flexible, configurable strategy.
@@ -48,11 +50,24 @@ def synchronize_data(
         config: Dictionary with configuration (optional if exercise_name is provided)
         exercise_name: Exercise name to load configuration (optional if config is provided)
         config_path: Path to configuration file (default: "config.json")
+        user_repetitions: Pre-detected user repetitions (optional)
+        expert_repetitions: Pre-detected expert repetitions (optional)
 
     Returns:
         Tuple (user_data_sync, expert_data_sync) with synchronized data
     """
     logger.info("Starting synchronization process...")
+
+    # Validar repeticiones si se proporcionan
+    if user_repetitions is not None:
+        if not isinstance(user_repetitions, list):
+            raise ValueError("user_repetitions debe ser una lista")
+        logger.info(f"Using {len(user_repetitions)} pre-detected user repetitions")
+
+    if expert_repetitions is not None:
+        if not isinstance(expert_repetitions, list):
+            raise ValueError("expert_repetitions debe ser una lista")
+        logger.info(f"Using {len(expert_repetitions)} pre-detected expert repetitions")
 
     # Obtener configuración - CARGA ÚNICA
     if config is None:
@@ -87,36 +102,43 @@ def synchronize_data(
         user_data_prep = user_data.copy()
         expert_data_prep = expert_data.copy()
 
-    # 3. Detectar repeticiones usando detect_repetitions pero pasando solo el config
-    try:
-        # Importar función de detección
-        from src.core.data_segmentation.detect_repetitions import detect_repetitions
+    # 3. Detectar repeticiones (solo si no se proporcionaron)
+    if user_repetitions is None or expert_repetitions is None:
+        try:
+            # Importar función de detección
+            from src.core.data_segmentation.detect_repetitions import detect_repetitions
 
-        logger.info("Detecting repetitions in user data...")
-        user_repetitions = detect_repetitions(
-            user_data_prep,
-            plot_graph=False,
-            config=config,  # Solo pasar la configuración ya cargada
-        )
+            if user_repetitions is None:
+                logger.info("Detecting repetitions in user data...")
+                user_repetitions = detect_repetitions(
+                    user_data_prep,
+                    plot_graph=False,
+                    config=config,
+                )
 
-        logger.info("Detecting repetitions in expert data...")
-        expert_repetitions = detect_repetitions(
-            expert_data_prep,
-            plot_graph=False,
-            config=config,  # Solo pasar la configuración ya cargada
-        )
+            if expert_repetitions is None:
+                logger.info("Detecting repetitions in expert data...")
+                expert_repetitions = detect_repetitions(
+                    expert_data_prep,
+                    plot_graph=False,
+                    config=config,
+                )
 
-        if not user_repetitions:
-            raise ValueError("No repetitions detected in user data")
-        if not expert_repetitions:
-            raise ValueError("No repetitions detected in expert data")
+            if not user_repetitions:
+                raise ValueError("No repetitions detected in user data")
+            if not expert_repetitions:
+                raise ValueError("No repetitions detected in expert data")
 
+            logger.info(
+                f"Detected {len(user_repetitions)} user repetitions and {len(expert_repetitions)} expert repetitions"
+            )
+        except Exception as e:
+            logger.error(f"Error detecting repetitions: {e}")
+            raise
+    else:
         logger.info(
-            f"Detected {len(user_repetitions)} user repetitions and {len(expert_repetitions)} expert repetitions"
+            f"Using provided repetitions: {len(user_repetitions)} user, {len(expert_repetitions)} expert"
         )
-    except Exception as e:
-        logger.error(f"Error detecting repetitions: {e}")
-        raise
 
     # 4. Emparejar repeticiones
     logger.info("Matching repetitions...")

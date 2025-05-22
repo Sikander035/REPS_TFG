@@ -40,14 +40,14 @@ try:
         normalize_skeletons_with_affine_method,
     )
     from src.core.data_transformation.align_data import align_skeletons_dataframe
-    from src.feedback.visualization import (
+    from src.feedback.dual_body_visualization import (
         generate_dual_skeleton_video,
         visualize_frame_dual_skeletons,
     )
     from src.config.config_manager import load_exercise_config, config_manager
+    from src.feedback.exercise_analyzer import ExerciseAnalyzer
 
     config_manager.load_config_file(CONFIG_PATH)
-    from src.feedback.exercise_analyzer import ExerciseAnalyzer
 
     logger.info("Usando módulos existentes")
 
@@ -205,12 +205,28 @@ def process_exercise(
     user_data_original = user_data.copy()
     expert_data_original = expert_data.copy()
 
-    # 2. DETECCIÓN DE REPETICIONES
+    # 2. DETECCIÓN DE REPETICIONES (UNA SOLA VEZ)
     logger.info("2. FASE DE DETECCIÓN DE REPETICIONES")
     try:
+        # Detectar repeticiones del usuario
         user_repetitions = detect_repetitions(user_data)
-        num_reps = len(user_repetitions) if user_repetitions else 0
-        logger.info(f"Repeticiones detectadas: {num_reps}")
+        num_user_reps = len(user_repetitions) if user_repetitions else 0
+        logger.info(f"Repeticiones detectadas en usuario: {num_user_reps}")
+
+        # Detectar repeticiones del experto
+        expert_repetitions = detect_repetitions(expert_data)
+        num_expert_reps = len(expert_repetitions) if expert_repetitions else 0
+        logger.info(f"Repeticiones detectadas en experto: {num_expert_reps}")
+
+        # Calcular rango de ejercicio para visualización (del usuario)
+        exercise_frame_range = None
+        if user_repetitions:
+            min_frame = min(rep["start_frame"] for rep in user_repetitions)
+            max_frame = max(rep["end_frame"] for rep in user_repetitions)
+            exercise_frame_range = (int(min_frame), int(max_frame))
+            logger.info(f"Rango de ejercicio: frames {min_frame} a {max_frame}")
+        else:
+            logger.warning("No se detectaron repeticiones - usando video completo")
 
         if diagnostics_dir and user_repetitions:
             rep_info = []
@@ -232,12 +248,20 @@ def process_exercise(
                 json.dump(rep_info, f, indent=2)
     except Exception as e:
         logger.error(f"Error en detección de repeticiones: {e}")
+        user_repetitions = None
+        expert_repetitions = None
+        exercise_frame_range = None
 
-    # 3. SINCRONIZACIÓN DE DATOS
+    # 3. SINCRONIZACIÓN DE DATOS (CON REPETICIONES PRE-DETECTADAS)
     logger.info("3. FASE DE SINCRONIZACIÓN DE DATOS")
     try:
         user_processed_data, expert_processed_data = synchronize_data(
-            user_data, expert_data, exercise_name=exercise_name, config_path=config_path
+            user_data,
+            expert_data,
+            exercise_name=exercise_name,
+            config_path=config_path,
+            user_repetitions=user_repetitions,  # PASAR REPETICIONES
+            expert_repetitions=expert_repetitions,  # PASAR REPETICIONES
         )
         user_sync_path = os.path.join(
             output_dir, f"{exercise_name}_user_synchronized.csv"
@@ -311,7 +335,7 @@ def process_exercise(
         aligned_expert_data = normalized_expert_data
         logger.warning("Usando datos normalizados sin alineación final")
 
-    # 6. GENERACIÓN DE VISUALIZACIONES
+    # 6. GENERACIÓN DE VISUALIZACIONES (CON RANGO DE EJERCICIO)
     if not skip_visualization:
         logger.info("6. FASE DE GENERACIÓN DE VISUALIZACIONES")
         try:
@@ -326,6 +350,7 @@ def process_exercise(
                 output_video_path=output_video_path,
                 config_path=CONFIG_PATH,
                 original_user_data=user_data_original,
+                exercise_frame_range=exercise_frame_range,  # PASAR RANGO DE EJERCICIO
             )
             results["output"]["visualizations"]["video"] = output_video_path
             logger.info(f"Video comparativo generado: {output_video_path}")

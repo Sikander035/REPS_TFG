@@ -35,11 +35,13 @@ def generate_dual_skeleton_video(
     output_video_path: str,
     config_path: str,
     original_user_data: pd.DataFrame = None,
+    exercise_frame_range: tuple = None,  # NUEVO PARÁMETRO
     frame_range: tuple = None,
     fps_factor: float = 1.0,
 ) -> str:
     """
     Genera video con esqueletos del usuario y experto superpuestos.
+    Automáticamente recorta el video al rango de repeticiones detectadas.
 
     Args:
         original_video_path: Ruta al video original - OBLIGATORIO
@@ -48,6 +50,7 @@ def generate_dual_skeleton_video(
         output_video_path: Ruta de salida - OBLIGATORIO
         config_path: Ruta a configuración JSON - OBLIGATORIO
         original_user_data: DataFrame con datos originales (para mapeo)
+        exercise_frame_range: Tupla (min_frame, max_frame) del ejercicio
         frame_range: Tupla (inicio, fin) para procesar solo parte del video
         fps_factor: Factor para ajustar FPS
 
@@ -134,11 +137,12 @@ def generate_dual_skeleton_video(
         cap.release()
         raise RuntimeError("No se pudo inicializar el escritor de video")
 
-    # Mapear frames procesados a frames originales
+    # Mapear frames procesados a frames originales (usando rango de ejercicio para recortar)
     try:
         original_frames = extract_frame_ranges(
             original_user_data if original_user_data is not None else user_data,
             user_data,
+            exercise_frame_range,  # PASAR RANGO DE EJERCICIO
         )
     except Exception as e:
         cap.release()

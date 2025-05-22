@@ -183,14 +183,18 @@ def draw_skeleton(
 
 
 def extract_frame_ranges(
-    user_data_orig: pd.DataFrame, user_processed_data: pd.DataFrame
+    user_data_orig: pd.DataFrame,
+    user_processed_data: pd.DataFrame,
+    exercise_frame_range: tuple = None,  # NUEVO PARÁMETRO
 ) -> List[int]:
     """
-    Mapea frames procesados a frames del video original.
+    Mapea frames procesados a frames del video original,
+    usando el rango de frames donde se realiza el ejercicio.
 
     Args:
         user_data_orig: DataFrame con datos originales del usuario
         user_processed_data: DataFrame con datos procesados/sincronizados
+        exercise_frame_range: Tupla (min_frame, max_frame) del ejercicio
 
     Returns:
         Lista de números de frame originales
@@ -207,18 +211,25 @@ def extract_frame_ranges(
     if "frame" not in user_data_orig.columns:
         raise ValueError("Columna 'frame' no encontrada en user_data_orig")
 
-    # Obtener frame mínimo y máximo
-    min_frame = user_data_orig["frame"].min()
-    max_frame = user_data_orig["frame"].max()
+    # Usar el rango de ejercicio si se proporciona, sino usar el rango completo
+    if exercise_frame_range:
+        min_frame, max_frame = exercise_frame_range
+        logger.info(f"Usando rango de ejercicio: frames {min_frame} a {max_frame}")
+    else:
+        min_frame = user_data_orig["frame"].min()
+        max_frame = user_data_orig["frame"].max()
+        logger.warning("No se proporcionó rango de ejercicio, usando rango completo")
 
     if pd.isna(min_frame) or pd.isna(max_frame):
-        raise ValueError("Valores NaN encontrados en la columna 'frame'")
+        raise ValueError("Valores NaN encontrados en los frames")
 
-    # Crear mapeo
+    # Crear mapeo lineal entre frames procesados y frames originales del ejercicio
     frame_count = len(user_processed_data)
     original_frames = np.linspace(min_frame, max_frame, frame_count, dtype=int)
 
-    logger.info(f"Mapeo de frames: {min_frame} → {max_frame}, {frame_count} frames")
+    logger.info(
+        f"Mapeo de frames: {min_frame} → {max_frame}, {frame_count} frames procesados"
+    )
     return original_frames.tolist()
 
 
