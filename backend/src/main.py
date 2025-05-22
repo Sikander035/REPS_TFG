@@ -45,11 +45,11 @@ try:
         visualize_frame_dual_skeletons,
     )
     from src.config.config_manager import load_exercise_config, config_manager
-    from src.feedback.exercise_analysis import (
+    from src.feedback.analysis_report import (
         run_exercise_analysis,
         generate_analysis_report,
-        visualize_analysis_results,
     )
+    from src.feedback.analysis_graphics import visualize_analysis_results
 
     config_manager.load_config_file(CONFIG_PATH)
 

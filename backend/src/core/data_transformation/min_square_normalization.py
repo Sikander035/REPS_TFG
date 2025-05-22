@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from src.config.config_manager import config_manager  # Usar directamente el singleton
+from src.config.config_manager import config_manager
 from src.utils.landmark_utils import (
     extract_landmarks_as_matrix,
     solve_affine_transform_3d,

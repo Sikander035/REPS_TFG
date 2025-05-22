@@ -19,6 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import utility functions from the utilities module
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.utils.synchronization_utils import (
     validate_input_data,
     preprocess_dataframe,
