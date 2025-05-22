@@ -1,4 +1,31 @@
 {
+    "global_visualization": {
+        "user_color": [0, 255, 0],
+        "expert_color": [0, 0, 255],
+        "user_alpha": 0.7,
+        "expert_alpha": 0.9,
+        "user_thickness": 2,
+        "expert_thickness": 3,
+        "show_labels": false,
+        "show_progress": true,
+        "text_info": true,
+        "resize_factor": 1.0,
+        "highlight_landmarks": null
+    },
+    "global_connections": [
+        ["landmark_left_shoulder", "landmark_right_shoulder"],
+        ["landmark_left_shoulder", "landmark_left_hip"],
+        ["landmark_right_shoulder", "landmark_right_hip"],
+        ["landmark_left_hip", "landmark_right_hip"],
+        ["landmark_left_shoulder", "landmark_left_elbow"],
+        ["landmark_left_elbow", "landmark_left_wrist"],
+        ["landmark_right_shoulder", "landmark_right_elbow"],
+        ["landmark_right_elbow", "landmark_right_wrist"],
+        ["landmark_left_hip", "landmark_left_knee"],
+        ["landmark_right_hip", "landmark_right_knee"],
+        ["landmark_left_knee", "landmark_left_ankle"],
+        ["landmark_right_knee", "landmark_right_ankle"]
+    ],
     "press_militar": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
         "sync_config": {

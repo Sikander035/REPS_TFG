@@ -324,16 +324,8 @@ def process_exercise(
                 user_data=user_processed_data,
                 expert_data=aligned_expert_data,
                 output_video_path=output_video_path,
+                config_path=CONFIG_PATH,
                 original_user_data=user_data_original,
-                user_color=(0, 255, 0),
-                expert_color=(0, 0, 255),
-                user_alpha=0.7,
-                expert_alpha=0.9,
-                user_thickness=2,
-                expert_thickness=3,
-                resize_factor=1.0,
-                show_progress=True,
-                text_info=True,
             )
             results["output"]["visualizations"]["video"] = output_video_path
             logger.info(f"Video comparativo generado: {output_video_path}")
@@ -347,6 +339,7 @@ def process_exercise(
                     original_image=np.zeros((480, 640, 3), dtype=np.uint8),
                     user_frame_data=user_processed_data.iloc[mid_frame],
                     expert_frame_data=aligned_expert_data.iloc[mid_frame],
+                    config_path=CONFIG_PATH,
                     save_path=frame_image_path,
                     show_image=False,
                 )

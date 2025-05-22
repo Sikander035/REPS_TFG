@@ -242,6 +242,98 @@ class ConfigManager:
         # Devolver las claves (nombres de ejercicios)
         return list(self._loaded_files[config_path].keys())
 
+    def get_global_visualization_config(self, config_path):
+        """
+        Obtiene la configuración global de visualización.
+
+        Args:
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            dict: Configuración de visualización global
+
+        Raises:
+            ValueError: Si no se encuentra la configuración requerida
+        """
+        # Cargar el archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        config_data = self._loaded_files[config_path]
+
+        # Verificar que existe la configuración global de visualización
+        if "global_visualization" not in config_data:
+            raise ValueError(
+                "Configuración 'global_visualization' no encontrada en el archivo"
+            )
+
+        viz_config = config_data["global_visualization"]
+
+        # Verificar campos obligatorios
+        required_fields = [
+            "user_color",
+            "expert_color",
+            "user_alpha",
+            "expert_alpha",
+            "user_thickness",
+            "expert_thickness",
+            "show_labels",
+            "show_progress",
+            "text_info",
+            "resize_factor",
+        ]
+
+        missing_fields = [field for field in required_fields if field not in viz_config]
+        if missing_fields:
+            raise ValueError(
+                f"Campos obligatorios faltantes en 'global_visualization': {', '.join(missing_fields)}"
+            )
+
+        return viz_config
+
+    def get_global_connections(self, config_path):
+        """
+        Obtiene las conexiones globales para dibujar esqueletos.
+
+        Args:
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            list: Lista de tuplas con conexiones entre landmarks
+
+        Raises:
+            ValueError: Si no se encuentra la configuración requerida
+        """
+        # Cargar el archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        config_data = self._loaded_files[config_path]
+
+        # Verificar que existe la configuración de conexiones globales
+        if "global_connections" not in config_data:
+            raise ValueError(
+                "Configuración 'global_connections' no encontrada en el archivo"
+            )
+
+        connections_data = config_data["global_connections"]
+
+        # Verificar que es una lista y no está vacía
+        if not isinstance(connections_data, list) or len(connections_data) == 0:
+            raise ValueError("'global_connections' debe ser una lista no vacía")
+
+        # Verificar que cada conexión tiene exactamente 2 elementos
+        for i, conn in enumerate(connections_data):
+            if not isinstance(conn, list) or len(conn) != 2:
+                raise ValueError(
+                    f"Conexión {i} debe ser una lista de exactamente 2 elementos"
+                )
+            if not all(isinstance(item, str) for item in conn):
+                raise ValueError(f"Conexión {i} debe contener solo strings")
+
+        # Convertir listas a tuplas
+        return [tuple(conn) for conn in connections_data]
+
     def clear_cache(self):
         """Limpia todas las configuraciones cargadas (útil para pruebas)."""
         self._loaded_files.clear()
