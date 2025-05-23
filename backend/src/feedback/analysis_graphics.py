@@ -28,44 +28,44 @@ def visualize_analysis_results(
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-    # 1. Gráfico de amplitud de movimiento
+    # 1. Gráfico de amplitud de movimiento (ACTUALIZADO para codos)
     visualizations.append(
         _create_amplitude_chart(
             metrics, user_data, expert_data, exercise_name, output_dir
         )
     )
 
-    # 2. Gráfico de ángulos de codo
+    # 2. Gráfico de abducción de codos (ACTUALIZADO)
     visualizations.append(
-        _create_angles_chart(user_data, expert_data, exercise_name, output_dir)
+        _create_abduction_chart(user_data, expert_data, exercise_name, output_dir)
     )
 
-    # 3. Gráfico de trayectorias
+    # 3. Gráfico de trayectorias (SIN CAMBIOS)
     visualizations.append(
         _create_trajectory_chart(user_data, expert_data, exercise_name, output_dir)
     )
 
-    # 4. Gráfico de simetría
+    # 4. Gráfico de simetría (ACTUALIZADO para codos)
     visualizations.append(
         _create_symmetry_chart(user_data, analysis_results, exercise_name, output_dir)
     )
 
-    # 5. Gráfico de velocidad
+    # 5. Gráfico de velocidad (ACTUALIZADO para codos)
     visualizations.append(
         _create_velocity_chart(user_data, expert_data, exercise_name, output_dir)
     )
 
-    # 6. Gráfico de puntuaciones por categoría
+    # 6. Gráfico de puntuaciones por categoría (ACTUALIZADO)
     visualizations.append(
         _create_scores_chart(analysis_results, exercise_name, output_dir)
     )
 
-    # 7. Gráfico de radar (IMPORTANTE)
+    # 7. Gráfico de radar (ACTUALIZADO)
     visualizations.append(
         _create_radar_chart(analysis_results, exercise_name, output_dir)
     )
 
-    # 8. Resumen visual
+    # 8. Resumen visual (SIN CAMBIOS)
     visualizations.append(
         _create_summary_chart(analysis_results, exercise_name, output_dir)
     )
@@ -75,14 +75,19 @@ def visualize_analysis_results(
 
 
 def _create_amplitude_chart(metrics, user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de amplitud de movimiento."""
+    """Crea gráfico de amplitud de movimiento usando CODOS."""
     plt.figure(figsize=(10, 6))
 
-    user_wrist_y = user_data["landmark_right_wrist_y"].values
-    expert_wrist_y = expert_data["landmark_right_wrist_y"].values
+    # ACTUALIZADO: Usar codos en lugar de muñecas
+    user_elbow_y = (
+        user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
+    ) / 2
+    expert_elbow_y = (
+        expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
+    ) / 2
 
-    plt.plot(user_wrist_y, label="Usuario", color="blue")
-    plt.plot(expert_wrist_y, label="Experto", color="red")
+    plt.plot(user_elbow_y, label="Usuario", color="blue")
+    plt.plot(expert_elbow_y, label="Experto", color="red")
 
     # Líneas de referencia
     plt.axhline(
@@ -110,7 +115,7 @@ def _create_amplitude_chart(metrics, user_data, expert_data, exercise_name, outp
         alpha=0.7,
     )
 
-    plt.title(f"Amplitud de Movimiento - {exercise_name}")
+    plt.title(f"Amplitud de Movimiento (Codos) - {exercise_name}")
     plt.xlabel("Frame")
     plt.ylabel("Coordenada Y (MediaPipe)")
     plt.legend()
@@ -126,77 +131,80 @@ def _create_amplitude_chart(metrics, user_data, expert_data, exercise_name, outp
     return None
 
 
-def _create_angles_chart(user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de ángulos de codo."""
+def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
+    """Crea gráfico de abducción de codos (NUEVA FUNCIÓN)."""
     plt.figure(figsize=(10, 6))
 
-    user_angles = []
-    expert_angles = []
+    user_abduction_angles = []
+    expert_abduction_angles = []
 
     for i in range(len(user_data)):
         try:
-            # Calcular ángulos para cada frame
-            user_shoulder = [
+            # Calcular ángulos de abducción para visualización
+            user_right_shoulder = [
                 user_data.iloc[i]["landmark_right_shoulder_x"],
                 user_data.iloc[i]["landmark_right_shoulder_y"],
                 user_data.iloc[i]["landmark_right_shoulder_z"],
             ]
-            user_elbow = [
+            user_right_elbow = [
                 user_data.iloc[i]["landmark_right_elbow_x"],
                 user_data.iloc[i]["landmark_right_elbow_y"],
                 user_data.iloc[i]["landmark_right_elbow_z"],
             ]
-            user_wrist = [
-                user_data.iloc[i]["landmark_right_wrist_x"],
-                user_data.iloc[i]["landmark_right_wrist_y"],
-                user_data.iloc[i]["landmark_right_wrist_z"],
+            user_left_shoulder = [
+                user_data.iloc[i]["landmark_left_shoulder_x"],
+                user_data.iloc[i]["landmark_left_shoulder_y"],
+                user_data.iloc[i]["landmark_left_shoulder_z"],
             ]
 
-            expert_shoulder = [
+            expert_right_shoulder = [
                 expert_data.iloc[i]["landmark_right_shoulder_x"],
                 expert_data.iloc[i]["landmark_right_shoulder_y"],
                 expert_data.iloc[i]["landmark_right_shoulder_z"],
             ]
-            expert_elbow = [
+            expert_right_elbow = [
                 expert_data.iloc[i]["landmark_right_elbow_x"],
                 expert_data.iloc[i]["landmark_right_elbow_y"],
                 expert_data.iloc[i]["landmark_right_elbow_z"],
             ]
-            expert_wrist = [
-                expert_data.iloc[i]["landmark_right_wrist_x"],
-                expert_data.iloc[i]["landmark_right_wrist_y"],
-                expert_data.iloc[i]["landmark_right_wrist_z"],
+            expert_left_shoulder = [
+                expert_data.iloc[i]["landmark_left_shoulder_x"],
+                expert_data.iloc[i]["landmark_left_shoulder_y"],
+                expert_data.iloc[i]["landmark_left_shoulder_z"],
             ]
 
             if (
-                np.isnan(user_shoulder).any()
-                or np.isnan(user_elbow).any()
-                or np.isnan(user_wrist).any()
-                or np.isnan(expert_shoulder).any()
-                or np.isnan(expert_elbow).any()
-                or np.isnan(expert_wrist).any()
+                not np.isnan(user_right_shoulder).any()
+                and not np.isnan(user_right_elbow).any()
+                and not np.isnan(user_left_shoulder).any()
+                and not np.isnan(expert_right_shoulder).any()
+                and not np.isnan(expert_right_elbow).any()
+                and not np.isnan(expert_left_shoulder).any()
             ):
-                continue
 
-            user_angle = calculate_angle(user_shoulder, user_elbow, user_wrist)
-            expert_angle = calculate_angle(expert_shoulder, expert_elbow, expert_wrist)
+                user_angle = calculate_angle(
+                    user_left_shoulder, user_right_shoulder, user_right_elbow
+                )
+                expert_angle = calculate_angle(
+                    expert_left_shoulder, expert_right_shoulder, expert_right_elbow
+                )
 
-            user_angles.append(user_angle)
-            expert_angles.append(expert_angle)
+                user_abduction_angles.append(user_angle)
+                expert_abduction_angles.append(expert_angle)
         except:
             pass
 
-    plt.plot(user_angles, label="Usuario", color="blue")
-    plt.plot(expert_angles, label="Experto", color="red")
+    plt.plot(user_abduction_angles, label="Usuario", color="blue")
+    plt.plot(expert_abduction_angles, label="Experto", color="red")
 
-    plt.title(f"Ángulos de Codo - {exercise_name}")
+    plt.title(f"Abducción de Codos - {exercise_name}")
     plt.xlabel("Frame")
     plt.ylabel("Ángulo (grados)")
     plt.legend()
     plt.grid(True, alpha=0.3)
 
     if output_dir:
-        path = os.path.join(output_dir, "angulos_codo.png")
+        path = os.path.join(output_dir, "abduccion_codos.png")
         plt.savefig(path, dpi=100, bbox_inches="tight")
         plt.close()
         return path
@@ -246,15 +254,16 @@ def _create_trajectory_chart(user_data, expert_data, exercise_name, output_dir):
 
 
 def _create_symmetry_chart(user_data, analysis_results, exercise_name, output_dir):
-    """Crea gráfico de simetría bilateral."""
+    """Crea gráfico de simetría bilateral usando CODOS."""
     plt.figure(figsize=(10, 6))
 
+    # ACTUALIZADO: Usar codos en lugar de muñecas
     diff_y = abs(
-        user_data["landmark_right_wrist_y"].values
-        - user_data["landmark_left_wrist_y"].values
+        user_data["landmark_right_elbow_y"].values
+        - user_data["landmark_left_elbow_y"].values
     )
 
-    plt.plot(diff_y, label="Diferencia entre muñecas", color="purple")
+    plt.plot(diff_y, label="Diferencia entre codos", color="purple")
     plt.axhline(
         y=analysis_results["exercise_config"]["symmetry_threshold"],
         linestyle="--",
@@ -262,7 +271,7 @@ def _create_symmetry_chart(user_data, analysis_results, exercise_name, output_di
         label=f'Umbral de asimetría ({analysis_results["exercise_config"]["symmetry_threshold"]})',
     )
 
-    plt.title(f"Simetría Bilateral - {exercise_name}")
+    plt.title(f"Simetría Bilateral (Codos) - {exercise_name}")
     plt.xlabel("Frame")
     plt.ylabel("Diferencia de altura (valor absoluto)")
     plt.legend()
@@ -279,16 +288,24 @@ def _create_symmetry_chart(user_data, analysis_results, exercise_name, output_di
 
 
 def _create_velocity_chart(user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de velocidad."""
+    """Crea gráfico de velocidad usando CODOS."""
     plt.figure(figsize=(10, 6))
 
-    user_velocity = np.gradient(user_data["landmark_right_wrist_y"].values)
-    expert_velocity = np.gradient(expert_data["landmark_right_wrist_y"].values)
+    # ACTUALIZADO: Usar codos en lugar de muñecas
+    user_elbow_y = (
+        user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
+    ) / 2
+    expert_elbow_y = (
+        expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
+    ) / 2
+
+    user_velocity = np.gradient(user_elbow_y.values)
+    expert_velocity = np.gradient(expert_elbow_y.values)
 
     plt.plot(user_velocity, label="Usuario", color="blue")
     plt.plot(expert_velocity, label="Experto", color="red")
 
-    plt.title(f"Velocidad Vertical - {exercise_name}")
+    plt.title(f"Velocidad Vertical (Codos) - {exercise_name}")
     plt.xlabel("Frame")
     plt.ylabel("Velocidad (unidades/frame)")
     plt.legend()
@@ -305,29 +322,32 @@ def _create_velocity_chart(user_data, expert_data, exercise_name, output_dir):
 
 
 def _create_scores_chart(analysis_results, exercise_name, output_dir):
-    """Crea gráfico de puntuaciones por categoría."""
+    """Crea gráfico de puntuaciones por categoría ACTUALIZADO."""
     plt.figure(figsize=(10, 6))
 
+    # ACTUALIZADO: Nuevas categorías
     categories = [
         "Amplitud",
-        "Ángulos\nCodos",
+        "Abducción\nCodos",  # CAMBIADO
         "Simetría",
         "Trayectoria",
         "Velocidad",
-        "Posición\nHombros",
+        "Estabilidad\nEscapular",  # NUEVO
         "Global",
     ]
 
     scores = calculate_individual_scores(
         analysis_results["metrics"], analysis_results["exercise_config"]
     )
+
+    # ACTUALIZADO: Nuevos nombres de scores
     scores_list = [
         scores["rom_score"],
-        scores["angle_score"],
+        scores["abduction_score"],  # CAMBIADO de angle_score
         scores["sym_score"],
         scores["path_score"],
         scores["speed_score"],
-        scores["shoulder_score"],
+        scores["scapular_score"],  # NUEVO
         analysis_results["score"],
     ]
 
@@ -376,29 +396,32 @@ def _create_scores_chart(analysis_results, exercise_name, output_dir):
 
 
 def _create_radar_chart(analysis_results, exercise_name, output_dir):
-    """Crea gráfico de radar - EL MÁS IMPORTANTE."""
+    """Crea gráfico de radar ACTUALIZADO."""
     try:
         plt.figure(figsize=(10, 8))
 
+        # ACTUALIZADO: Nuevas categorías
         categories_radar = [
             "Amplitud",
-            "Ángulos\nCodos",
+            "Abducción\nCodos",  # CAMBIADO
             "Simetría",
             "Trayectoria",
             "Velocidad",
-            "Posición\nHombros",
+            "Estabilidad\nEscapular",  # NUEVO
         ]
 
         scores = calculate_individual_scores(
             analysis_results["metrics"], analysis_results["exercise_config"]
         )
+
+        # ACTUALIZADO: Nuevos nombres de scores
         scores_normalized = [
             scores["rom_score"] / 100,
-            scores["angle_score"] / 100,
+            scores["abduction_score"] / 100,  # CAMBIADO
             scores["sym_score"] / 100,
             scores["path_score"] / 100,
             scores["speed_score"] / 100,
-            scores["shoulder_score"] / 100,
+            scores["scapular_score"] / 100,  # NUEVO
         ]
 
         # Cerrar el polígono
@@ -465,7 +488,7 @@ def _create_summary_chart(analysis_results, exercise_name, output_dir):
         areas_mejora = [
             msg
             for msg in analysis_results["feedback"].values()
-            if "Buen" not in msg and "Buena" not in msg
+            if "Buen" not in msg and "Buena" not in msg and "Excelente" not in msg
         ]
 
         plt.text(0.05, 0.8, "ÁREAS DE MEJORA:", fontsize=14, fontweight="bold")
@@ -486,7 +509,7 @@ def _create_summary_chart(analysis_results, exercise_name, output_dir):
         puntos_fuertes = [
             msg
             for msg in analysis_results["feedback"].values()
-            if "Buen" in msg or "Buena" in msg
+            if "Buen" in msg or "Buena" in msg or "Excelente" in msg
         ]
 
         plt.text(0.05, 0.2, "PUNTOS FUERTES:", fontsize=14, fontweight="bold")
