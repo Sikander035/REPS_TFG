@@ -26,6 +26,21 @@
         ["landmark_left_knee", "landmark_left_ankle"],
         ["landmark_right_knee", "landmark_right_ankle"]
     ],
+    "scoring_weights": {
+        "rom_score": 0.20,
+        "abduction_score": 0.20,
+        "sym_score": 0.15,
+        "path_score": 0.20,
+        "speed_score": 0.15,
+        "scapular_score": 0.10
+    },
+    "skill_levels": {
+        "excelente": 90,
+        "muy_bueno": 80,
+        "bueno": 70,
+        "aceptable": 60,
+        "necesita_mejorar": 50
+    },
     "press_militar": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
         "sync_config": {
@@ -45,18 +60,98 @@
             "rep_peak_height_threshold": -0.8,
             "division_landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
             "division_axis": "y"
+        },
+        "analysis_config": {
+            "min_elbow_angle": 45,
+            "max_elbow_angle": 175,
+            "rom_threshold": 0.85,
+            "bottom_diff_threshold": 0.2,
+            "abduction_angle_threshold": 15,
+            "symmetry_threshold": 0.15,
+            "lateral_dev_threshold": 0.2,
+            "frontal_dev_threshold": 0.15,
+            "velocity_ratio_threshold": 0.3,
+            "scapular_stability_threshold": 1.5,
+            "sensitivity_factors": {
+                "amplitud": 3.0,
+                "abduccion_codos": 3.0,
+                "simetria": 1.0,
+                "trayectoria": 1.0,
+                "velocidad": 1.0,
+                "estabilidad_escapular": 1.0
+            }
         }
     },
     "press_banca": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
-        "sync_config": {}
+        "sync_config": {},
+        "analysis_config": {
+            "min_elbow_angle": 45,
+            "max_elbow_angle": 175,
+            "rom_threshold": 0.80,
+            "bottom_diff_threshold": 0.15,
+            "abduction_angle_threshold": 12,
+            "symmetry_threshold": 0.10,
+            "lateral_dev_threshold": 0.15,
+            "frontal_dev_threshold": 0.12,
+            "velocity_ratio_threshold": 0.25,
+            "scapular_stability_threshold": 1.3,
+            "sensitivity_factors": {
+                "amplitud": 1.8,
+                "abduccion_codos": 1.8,
+                "simetria": 1.0,
+                "trayectoria": 1.0,
+                "velocidad": 1.0,
+                "estabilidad_escapular": 1.0
+            }
+        }
     },
     "sentadilla": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28],
-        "sync_config": {}
+        "sync_config": {},
+        "analysis_config": {
+            "min_knee_angle": 45,
+            "max_knee_angle": 175,
+            "rom_threshold": 0.80,
+            "bottom_diff_threshold": 0.15,
+            "knee_alignment_threshold": 10,
+            "symmetry_threshold": 0.12,
+            "lateral_dev_threshold": 0.18,
+            "frontal_dev_threshold": 0.15,
+            "velocity_ratio_threshold": 0.25,
+            "hip_stability_threshold": 1.4,
+            "sensitivity_factors": {
+                "amplitud": 1.5,
+                "alineacion_rodillas": 2.0,
+                "simetria": 1.0,
+                "trayectoria": 1.0,
+                "velocidad": 1.0,
+                "estabilidad_cadera": 1.0
+            }
+        }
     },
     "dominada": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
-        "sync_config": {}
+        "sync_config": {},
+        "analysis_config": {
+            "min_elbow_angle": 45,
+            "max_elbow_angle": 175,
+            "rom_threshold": 0.85,
+            "bottom_diff_threshold": 0.18,
+            "shoulder_width_threshold": 12,
+            "symmetry_threshold": 0.12,
+            "lateral_dev_threshold": 0.15,
+            "frontal_dev_threshold": 0.18,
+            "velocity_ratio_threshold": 0.35,
+            "scapular_stability_threshold": 1.6,
+            "sensitivity_factors": {
+                "amplitud": 2.0,
+                "ancho_agarre": 1.5,
+                "simetria": 1.0,
+                "trayectoria": 1.0,
+                "velocidad": 1.0,
+                "estabilidad_escapular": 1.0
+            }
+        }
     }
 }

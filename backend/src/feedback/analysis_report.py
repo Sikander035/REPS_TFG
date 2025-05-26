@@ -25,7 +25,6 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
     Analiza la amplitud del movimiento usando los CODOS como referencia principal.
     CORREGIDO: Lógica de umbrales y orden de evaluación.
     """
-    # Obtener factor de sensibilidad para amplitud
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "amplitud", 1.0
     )
@@ -58,7 +57,7 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
         else 0
     )
 
-    # CORREGIDO: Aplicar sensibilidad solo al umbral inferior, no al superior
+    # Aplicar sensibilidad solo al umbral inferior, no al superior
     rom_threshold = apply_sensitivity_to_threshold(
         exercise_config["rom_threshold"], sensitivity_factor
     )
@@ -66,12 +65,11 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
         exercise_config["bottom_diff_threshold"], sensitivity_factor
     )
 
-    # CORREGIDO: Generar feedback con lógica y orden correctos
     feedback = {}
 
-    # CORREGIDO: Evaluar en orden correcto - casos más específicos primero
-    if rom_ratio > 1.15:  # ✅ FIJO: Sin división por sensibilidad
-        if sensitivity_factor > 1.5 and rom_ratio > 1.25:
+    # Evaluar en orden correcto - casos más específicos primero
+    if rom_ratio > 1.15:  # Valor original hardcodeado
+        if sensitivity_factor > 1.5 and rom_ratio > 1.25:  # Valor original hardcodeado
             feedback["amplitud"] = (
                 "Tu rango de movimiento es excesivamente amplio. Es crítico "
                 "controlar la bajada para evitar hiperextensión de los hombros."
@@ -92,7 +90,7 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
                 "Tu rango de movimento es podría ser mas amplio. Baja hasta que las mancuernas "
                 "estén aproximadamente a la altura de los hombros."
             )
-    elif rom_ratio < rom_threshold:  # CORREGIDO: Orden correcto
+    elif rom_ratio < rom_threshold:
         if sensitivity_factor > 1.5 and rom_ratio < rom_threshold * 0.8:
             feedback["amplitud"] = (
                 "Tu rango de movimiento es significativamente limitado. Es crítico "
@@ -105,12 +103,6 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
             )
     else:
         feedback["amplitud"] = "Excelente amplitud de movimiento en los codos."
-
-    # Log de sensibilidad aplicada
-    if sensitivity_factor != 1.0:
-        logger.debug(
-            f"Amplitud - Sensibilidad {sensitivity_factor}: ROM threshold {rom_threshold:.3f} (base: {exercise_config['rom_threshold']})"
-        )
 
     metrics = {
         "rom_usuario": user_rom,
@@ -131,7 +123,6 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
     CORREGIDO: Analiza el ángulo de abducción de los codos midiendo el ángulo
     del vector codo-hombro respecto al plano horizontal usando proyección.
     """
-    # Obtener factor de sensibilidad para abducción
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "abduccion_codos", 1.0
     )
@@ -287,7 +278,7 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
     # Para el press militar, queremos analizar los momentos de MÍNIMA abducción
     # (cuando los codos están más abiertos = ángulos menores)
     try:
-        # Suavizar ambas señales
+        # Suavizar ambas señales - VALORES ORIGINALES
         window_length = min(9, len(user_clean_signal) // 4)
         if window_length % 2 == 0:
             window_length += 1
@@ -296,24 +287,10 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
         user_smooth = savgol_filter(user_clean_signal, window_length, 2)
         expert_smooth = savgol_filter(expert_clean_signal, window_length, 2)
 
-        logger.info(
-            f"Ángulos de abducción lateral - Usuario promedio: {np.mean(user_clean_signal):.1f}°"
-        )
-        logger.info(
-            f"Ángulos de abducción lateral - Experto promedio: {np.mean(expert_clean_signal):.1f}°"
-        )
-        logger.info(
-            f"Ángulos mínimos (máxima abducción lateral) - Usuario: {np.min(user_clean_signal):.1f}°, Experto: {np.min(expert_clean_signal):.1f}°"
-        )
-
-        # Detectar mínimos (máxima abducción) usando find_peaks en señal invertida
+        # Detectar mínimos (máxima abducción) usando find_peaks en señal invertida - VALORES ORIGINALES
         prominence = max(2, np.std(user_smooth) * 0.3)
         distance = max(15, len(user_smooth) // 12)
-        height = np.percentile(user_smooth, 30)  # Percentil 30 para capturar mínimos
-
-        logger.info(
-            f"Parámetros para detección de mínimos - Prominence: {prominence:.1f}°, Distance: {distance}, Height máxima: {height:.1f}°"
-        )
+        height = np.percentile(user_smooth, 30)
 
         # Detectar mínimos (máxima abducción)
         user_valleys, _ = find_peaks(
@@ -323,9 +300,8 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
             height=-height,  # Altura negativa porque invertimos la señal
         )
 
-        # Si no detecta suficientes mínimos, ser más permisivo
+        # Si no detecta suficientes mínimos, ser más permisivo - VALORES ORIGINALES
         if len(user_valleys) < 2:
-            logger.info("Pocos mínimos detectados, reduciendo exigencia...")
             prominence = max(1, np.std(user_smooth) * 0.2)
             height = np.percentile(user_smooth, 40)
 
@@ -333,14 +309,8 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
                 -user_smooth, prominence=prominence, distance=distance, height=-height
             )
 
-        logger.info(
-            f"Mínimos (máxima abducción) detectados: {len(user_valleys)} en posiciones {user_valleys}"
-        )
-
         # Si aún no detecta suficientes mínimos, usar estrategia de percentil
         if len(user_valleys) < 2:
-            logger.info("Usando estrategia de percentiles para mínimos")
-
             # Usar percentil 10 para capturar los valores más bajos (máxima abducción)
             user_threshold = np.percentile(user_smooth, 10)
             user_low_indices = np.where(user_smooth <= user_threshold)[0]
@@ -350,22 +320,11 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
                 user_low_indices = np.where(user_smooth <= user_threshold)[0]
 
             user_valley_values = user_clean_signal[user_low_indices]
-            expert_valley_values = expert_clean_signal[
-                user_low_indices
-            ]  # Mismos índices
-
-            logger.info(
-                f"Usando percentiles - Umbral: {user_threshold:.1f}°, {len(user_valley_values)} valores"
-            )
+            expert_valley_values = expert_clean_signal[user_low_indices]
         else:
             # Extraer valores en las posiciones de los mínimos detectados
             user_valley_values = user_clean_signal[user_valleys]
-            expert_valley_values = expert_clean_signal[
-                user_valleys
-            ]  # Mismos índices temporales
-
-        logger.info(f"Valores en mínimos detectados - Usuario: {user_valley_values}")
-        logger.info(f"Valores en mínimos detectados - Experto: {expert_valley_values}")
+            expert_valley_values = expert_clean_signal[user_valleys]
 
         # Calcular métricas de los mínimos (máxima abducción)
         user_min_abduction = np.mean(user_valley_values)
@@ -378,11 +337,6 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
         # Diferencia en abducción mínima (ángulos menores = más abierto)
         abduction_diff = user_min_abduction - expert_min_abduction
         absolute_diff = user_absolute_min - expert_absolute_min
-
-        logger.info(
-            f"Ángulos promedio en máxima abducción lateral - Usuario: {user_min_abduction:.1f}°, Experto: {expert_min_abduction:.1f}°"
-        )
-        logger.info(f"Diferencia en ángulos: {abduction_diff:.1f}°")
 
     except Exception as e:
         logger.error(f"Error en detección de mínimos: {e}")
@@ -432,34 +386,24 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
     else:
         feedback["abduccion_codos"] = f"Excelente posición lateral de codos. "
 
-    # Log de sensibilidad aplicada
-    if sensitivity_factor != 1.0:
-        logger.debug(
-            f"Abducción lateral - Sensibilidad {sensitivity_factor}: threshold {abduction_threshold:.1f}° (base: {exercise_config.get('abduction_angle_threshold', 15)}°)"
-        )
-
-    # Métricas actualizadas
+    # Métricas actualizadas - MANTENER MISMOS NOMBRES PARA COMPATIBILIDAD
     metrics = {
         "abduccion_lateral_minima_usuario": user_min_abduction,
         "abduccion_lateral_minima_experto": expert_min_abduction,
-        "diferencia_abduccion_lateral": abduction_diff,
+        "diferencia_abduccion": abduction_diff,  # MANTENER NOMBRE ORIGINAL
         "min_absoluto_usuario": user_absolute_min,
         "min_absoluto_experto": expert_absolute_min,
         "diferencia_absoluta": absolute_diff,
         "num_minimos_detectados": len(user_valley_values),
         "frames_totales_usuario": len(user_data),
         "frames_totales_experto": len(expert_data),
-        "analisis_tipo": "proyeccion_XZ_angulo_con_eje_X",
-        "metrica_abduccion": "angulo_lateral_proyeccion_hombro_codo",
-        "interpretacion": "0°=máxima_abducción_lateral, 90°=mínima_abducción_lateral",
     }
 
     return {"metrics": metrics, "feedback": feedback}
 
 
 def analyze_symmetry(user_data, expert_data, exercise_config):
-    """Analiza la simetría entre el lado izquierdo y derecho. CORREGIDO."""
-    # Obtener factor de sensibilidad para simetría
+    """Analiza la simetría entre el lado izquierdo y derecho."""
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "simetria", 1.0
     )
@@ -494,13 +438,10 @@ def analyze_symmetry(user_data, expert_data, exercise_config):
         exercise_config["symmetry_threshold"], sensitivity_factor
     )
 
-    # CORREGIDO: Generar feedback con lógica correcta
     feedback = {}
 
-    # CORREGIDO: Evaluar ratio y diferencia absoluta por separado
-    if asymmetry_ratio > (
-        1.8 / sensitivity_factor
-    ):  # Usuario significativamente más asimétrico que experto
+    # Evaluar ratio y diferencia absoluta por separado
+    if asymmetry_ratio > (1.8 / sensitivity_factor):  # Valor original hardcodeado
         if sensitivity_factor > 1.5:
             feedback["simetria"] = (
                 "Hay una asimetría muy notable entre tu lado derecho e izquierdo. "
@@ -525,12 +466,6 @@ def analyze_symmetry(user_data, expert_data, exercise_config):
     else:
         feedback["simetria"] = "Excelente simetría bilateral en el movimiento."
 
-    # Log de sensibilidad aplicada
-    if sensitivity_factor != 1.0:
-        logger.debug(
-            f"Simetría - Sensibilidad {sensitivity_factor}: threshold {symmetry_threshold:.3f} (base: {exercise_config['symmetry_threshold']})"
-        )
-
     metrics = {
         "diferencia_altura": height_diff,
         "diferencia_normalizada": normalized_diff,
@@ -544,9 +479,8 @@ def analyze_symmetry(user_data, expert_data, exercise_config):
 
 def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
     """
-    Analiza la trayectoria 3D completa del movimiento. REVISADO.
+    Analiza la trayectoria 3D completa del movimiento.
     """
-    # Obtener factor de sensibilidad para trayectoria
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "trayectoria", 1.0
     )
@@ -620,11 +554,12 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
         exercise_config.get("frontal_dev_threshold", 0.15), sensitivity_factor
     )
 
-    # Generar feedback - SIMPLIFICADO para evitar confusión
     feedback = {}
 
     # Evaluar lateral
-    if lateral_deviation_ratio > (2.0 / sensitivity_factor):
+    if lateral_deviation_ratio > (
+        2.0 / sensitivity_factor
+    ):  # Valor original hardcodeado
         feedback["trayectoria_lateral"] = (
             "Tu movimiento se desvía excesivamente en dirección lateral. "
             "Concéntrate urgentemente en mantener las muñecas en línea vertical."
@@ -647,7 +582,9 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
         feedback["trayectoria_lateral"] = "Excelente control lateral del movimiento."
 
     # Evaluar frontal
-    if frontal_deviation_ratio > (2.0 / sensitivity_factor):
+    if frontal_deviation_ratio > (
+        2.0 / sensitivity_factor
+    ):  # Valor original hardcodeado
         feedback["trayectoria_frontal"] = (
             "Tu movimiento se desvía hacia adelante/atrás significativamente. "
             "Mantén las muñecas en un plano vertical consistente."
@@ -691,8 +628,7 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
 
 
 def analyze_speed(user_data, expert_data, exercise_config):
-    """Analiza la velocidad de ejecución. REVISADO - Parece correcto."""
-    # Obtener factor de sensibilidad para velocidad
+    """Analiza la velocidad de ejecución."""
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "velocidad", 1.0
     )
@@ -744,7 +680,6 @@ def analyze_speed(user_data, expert_data, exercise_config):
         exercise_config["velocity_ratio_threshold"], sensitivity_factor
     )
 
-    # Generar feedback - LÓGICA CORRECTA
     feedback = {}
 
     if concentric_ratio < (1 - velocity_threshold):
@@ -796,9 +731,8 @@ def analyze_speed(user_data, expert_data, exercise_config):
 
 def analyze_scapular_stability(user_data, expert_data, exercise_config):
     """
-    Analiza la estabilidad de la cintura escapular. REVISADO - Parece correcto.
+    Analiza la estabilidad de la cintura escapular.
     """
-    # Obtener factor de sensibilidad para estabilidad escapular
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "estabilidad_escapular", 1.0
     )
@@ -838,10 +772,9 @@ def analyze_scapular_stability(user_data, expert_data, exercise_config):
             exercise_config.get("scapular_stability_threshold", 1.5), sensitivity_factor
         )
 
-        # Generar feedback - LÓGICA CORRECTA
         feedback = {}
 
-        if movement_ratio > (2.0 / sensitivity_factor):
+        if movement_ratio > (2.0 / sensitivity_factor):  # Valor original hardcodeado
             if sensitivity_factor > 1.5:
                 feedback["estabilidad_escapular"] = (
                     "Tus hombros se mueven excesivamente durante el press. "
@@ -852,7 +785,7 @@ def analyze_scapular_stability(user_data, expert_data, exercise_config):
                     "Tus hombros se mueven excesivamente durante el press. "
                     "Mantén una posición más estable de la cintura escapular."
                 )
-        elif asymmetry_ratio > (2.0 / sensitivity_factor):
+        elif asymmetry_ratio > (2.0 / sensitivity_factor):  # Valor original hardcodeado
             feedback["estabilidad_escapular"] = (
                 "Se detecta asimetría en el movimiento de tus hombros. "
                 "Concéntrate en mantener ambos hombros equilibrados."
@@ -901,31 +834,21 @@ def analyze_scapular_stability(user_data, expert_data, exercise_config):
         }
 
 
-def run_exercise_analysis(user_data, expert_data, exercise_name="press_militar"):
-    """MEJORA: Ejecuta análisis completo con detección interna de repeticiones."""
-    logger.info(f"Iniciando análisis mejorado: {exercise_name}")
+def run_exercise_analysis(
+    user_data, expert_data, exercise_name="press_militar", config_path="config.json"
+):
+    """Ejecuta análisis completo con detección interna de repeticiones."""
+    logger.info(f"Iniciando análisis: {exercise_name}")
 
     # Obtener configuración del ejercicio
-    exercise_config = get_exercise_config(exercise_name)
+    exercise_config = get_exercise_config(exercise_name, config_path)
 
-    # Log de factores de sensibilidad aplicados
-    sensitivity_factors = exercise_config.get("sensitivity_factors", {})
-    logger.info(f"Factores de sensibilidad: {sensitivity_factors}")
-
-    # MEJORA: Ya no necesitamos pasar repeticiones como parámetro
-    logger.info(
-        "Usando detección interna de picos temporalmente sincronizada para análisis de abducción"
-    )
-
-    # Ejecutar todos los análisis - SIN PASAR REPETICIONES
+    # Ejecutar todos los análisis
     amplitude_result = analyze_movement_amplitude(
         user_data, expert_data, exercise_config
     )
     abduction_result = analyze_elbow_abduction_angle(
-        user_data,
-        expert_data,
-        exercise_config,
-        # REMOVIDO: user_repetitions, expert_repetitions
+        user_data, expert_data, exercise_config
     )
     symmetry_result = analyze_symmetry(user_data, expert_data, exercise_config)
     trajectory_result = analyze_movement_trajectory_3d(
@@ -958,10 +881,10 @@ def run_exercise_analysis(user_data, expert_data, exercise_name="press_militar")
 
     # Calcular puntuación global y nivel
     overall_score = calculate_overall_score(all_metrics, exercise_config)
-    skill_level = determine_skill_level(overall_score)
+    skill_level = determine_skill_level(overall_score, exercise_config)
 
     logger.info(
-        f"Análisis mejorado completado - Puntuación: {overall_score:.1f}/100 - Nivel: {skill_level}"
+        f"Análisis completado - Puntuación: {overall_score:.1f}/100 - Nivel: {skill_level}"
     )
 
     return {
@@ -970,13 +893,12 @@ def run_exercise_analysis(user_data, expert_data, exercise_name="press_militar")
         "score": overall_score,
         "level": skill_level,
         "exercise_config": exercise_config,
-        "sensitivity_factors": sensitivity_factors,
+        "sensitivity_factors": exercise_config.get("sensitivity_factors", {}),
     }
 
 
 def generate_analysis_report(analysis_results, exercise_name, output_path=None):
     """Genera un informe completo con los resultados del análisis."""
-    # Crear informe
     report = {
         "ejercicio": exercise_name,
         "puntuacion_global": round(analysis_results["score"], 1),
@@ -989,7 +911,7 @@ def generate_analysis_report(analysis_results, exercise_name, output_path=None):
             analysis_results["feedback"], analysis_results["score"]
         ),
         "sensitivity_factors": analysis_results.get("sensitivity_factors", {}),
-        "version_analisis": "deteccion_picos_sincronizada_v1.0",
+        "version_analisis": "configuracion_simplificada_v1.0",
     }
 
     # Identificar áreas de mejora y puntos fuertes
@@ -1004,6 +926,6 @@ def generate_analysis_report(analysis_results, exercise_name, output_path=None):
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=4, ensure_ascii=False)
-        logger.info(f"Informe mejorado guardado en: {output_path}")
+        logger.info(f"Informe guardado en: {output_path}")
 
     return report

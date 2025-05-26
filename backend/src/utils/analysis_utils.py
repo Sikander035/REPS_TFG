@@ -1,134 +1,101 @@
 # backend/src/utils/analysis_utils.py
 import numpy as np
 import logging
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.config.config_manager import config_manager
 
 logger = logging.getLogger(__name__)
 
-# Configuraciones de ejercicios - SIMPLE
-EXERCISE_CONFIGS = {
-    "press_militar": {
-        "min_elbow_angle": 45,
-        "max_elbow_angle": 175,
-        "rom_threshold": 0.85,
-        "bottom_diff_threshold": 0.2,
-        "abduction_angle_threshold": 15,
-        "symmetry_threshold": 0.15,
-        "lateral_dev_threshold": 0.2,
-        "frontal_dev_threshold": 0.15,
-        "velocity_ratio_threshold": 0.3,
-        "scapular_stability_threshold": 1.5,
-        # NUEVO: Factores de sensibilidad por análisis (1.0 = normal, >1.0 = más sensible)
-        "sensitivity_factors": {
-            "amplitud": 3.0,  # MÁS SENSIBLE para amplitud
-            "abduccion_codos": 3.0,  # MÁS SENSIBLE para ángulo de codos
-            "simetria": 1.0,  # Normal
-            "trayectoria": 1.0,  # Normal
-            "velocidad": 1.0,  # Normal
-            "estabilidad_escapular": 1.0,  # Normal
-        },
-    },
-    "press_banca": {
-        "min_elbow_angle": 45,
-        "max_elbow_angle": 175,
-        "rom_threshold": 0.80,
-        "bottom_diff_threshold": 0.15,
-        "abduction_angle_threshold": 12,
-        "symmetry_threshold": 0.10,
-        "lateral_dev_threshold": 0.15,
-        "frontal_dev_threshold": 0.12,
-        "velocity_ratio_threshold": 0.25,
-        "scapular_stability_threshold": 1.3,
-        "sensitivity_factors": {
-            "amplitud": 1.8,  # Algo más sensible
-            "abduccion_codos": 1.8,  # Algo más sensible
-            "simetria": 1.0,
-            "trayectoria": 1.0,
-            "velocidad": 1.0,
-            "estabilidad_escapular": 1.0,
-        },
-    },
-}
 
+def get_exercise_config(exercise_name="press_militar", config_path="config.json"):
+    """Obtiene configuración específica para el ejercicio desde config.json."""
+    try:
+        # Cargar configuración usando el config_manager existente
+        exercise_config = config_manager.get_exercise_config(exercise_name, config_path)
+        analysis_config = exercise_config.get("analysis_config", {})
 
-def get_exercise_config(exercise_name="press_militar"):
-    """Obtiene configuración específica para el ejercicio."""
-    return EXERCISE_CONFIGS.get(exercise_name, EXERCISE_CONFIGS["press_militar"])
+        # Cargar configuraciones globales
+        if config_path not in config_manager._loaded_files:
+            config_manager.load_config_file(config_path)
+        config_data = config_manager._loaded_files[config_path]
+
+        # Combinar configuración del ejercicio con globales
+        analysis_config.update(
+            {
+                "scoring_weights": config_data.get("scoring_weights", {}),
+                "analysis_ratios": config_data.get("analysis_ratios", {}),
+                "feedback_multipliers": config_data.get("feedback_multipliers", {}),
+                "skill_levels": config_data.get("skill_levels", {}),
+                "signal_processing": config_data.get("signal_processing", {}),
+            }
+        )
+
+        return analysis_config
+
+    except Exception as e:
+        logger.error(f"Error al cargar configuración: {e}")
+        # EXACTAMENTE la misma configuración que antes para evitar cambios en performance
+        return {
+            "min_elbow_angle": 45,
+            "max_elbow_angle": 175,
+            "rom_threshold": 0.85,
+            "bottom_diff_threshold": 0.2,
+            "abduction_angle_threshold": 15,
+            "symmetry_threshold": 0.15,
+            "lateral_dev_threshold": 0.2,
+            "frontal_dev_threshold": 0.15,
+            "velocity_ratio_threshold": 0.3,
+            "scapular_stability_threshold": 1.5,
+            "sensitivity_factors": {
+                "amplitud": 3.0,
+                "abduccion_codos": 3.0,
+                "simetria": 1.0,
+                "trayectoria": 1.0,
+                "velocidad": 1.0,
+                "estabilidad_escapular": 1.0,
+            },
+        }
 
 
 def calculate_elbow_abduction_angle(shoulder_point, elbow_point):
     """
     Calcula el ángulo de abducción lateral del codo.
-    Método: proyectar el vector hombro-codo en el plano XZ y calcular
-    el ángulo entre esta proyección y el eje X.
-
-    Args:
-        shoulder_point: Array [x, y, z] de la posición del hombro
-        elbow_point: Array [x, y, z] de la posición del codo
-
-    Returns:
-        float: Ángulo en grados donde:
-               - 0°: Codo exactamente lateral (máxima abducción)
-               - 45°: Codo diagonal
-               - 90°: Codo hacia adelante/atrás (mínima abducción lateral)
     """
     shoulder = np.array(shoulder_point)
     elbow = np.array(elbow_point)
 
-    # Vector del hombro al codo
     vector_shoulder_to_elbow = elbow - shoulder
-
-    # Proyección del vector en el plano horizontal (XZ) - eliminamos componente Y
     horizontal_projection = np.array(
         [
-            vector_shoulder_to_elbow[0],  # Componente X (lateral)
-            vector_shoulder_to_elbow[2],  # Componente Z (frontal)
+            vector_shoulder_to_elbow[0],
+            vector_shoulder_to_elbow[2],
         ]
     )
 
-    # Vector de referencia: eje X puro [1, 0] en el plano XZ
     x_axis = np.array([1.0, 0.0])
-
-    # Magnitud de la proyección
     projection_magnitude = np.linalg.norm(horizontal_projection)
 
-    # Evitar división por cero
     if projection_magnitude < 1e-6:
-        return 90.0  # Si no hay proyección horizontal, asumir frontal
+        return 90.0
 
-    # Normalizar la proyección
     normalized_projection = horizontal_projection / projection_magnitude
-
-    # Calcular ángulo usando producto punto con eje X
-    # cos(θ) = (proyección · eje_X) / (|proyección| * |eje_X|)
     dot_product = np.dot(normalized_projection, x_axis)
-
-    # Asegurar que el coseno esté en rango válido [-1, 1]
     dot_product = np.clip(dot_product, -1.0, 1.0)
-
-    # Calcular ángulo en radianes y convertir a grados
-    angle_rad = np.arccos(abs(dot_product))  # abs() para manejar ambos lados
+    angle_rad = np.arccos(abs(dot_product))
     angle_deg = np.degrees(angle_rad)
 
     return angle_deg
 
 
 def apply_sensitivity_to_score(base_score, sensitivity_factor):
-    """
-    Aplica factor de sensibilidad a una puntuación.
-
-    Args:
-        base_score: Puntuación base (0-100)
-        sensitivity_factor: Factor de sensibilidad (1.0 = normal, >1.0 = más sensible)
-
-    Returns:
-        Puntuación ajustada
-    """
+    """Aplica factor de sensibilidad a una puntuación."""
     if sensitivity_factor == 1.0:
         return base_score
 
-    # Con mayor sensibilidad, penalizar más fuertemente puntuaciones mediocres
     if base_score < 100:
-        # Amplificar la penalización
         penalty = (100 - base_score) * sensitivity_factor
         adjusted_score = 100 - penalty
         return max(0, adjusted_score)
@@ -137,26 +104,15 @@ def apply_sensitivity_to_score(base_score, sensitivity_factor):
 
 
 def apply_sensitivity_to_threshold(threshold, sensitivity_factor):
-    """
-    Aplica factor de sensibilidad a un umbral.
-
-    Args:
-        threshold: Umbral base
-        sensitivity_factor: Factor de sensibilidad (>1.0 hace el umbral más estricto)
-
-    Returns:
-        Umbral ajustado
-    """
+    """Aplica factor de sensibilidad a un umbral."""
     return threshold / sensitivity_factor
 
 
 def calculate_individual_scores(all_metrics, exercise_config):
-    """Calcula puntuaciones individuales para cada categoría CON SENSIBILIDAD APLICABLE."""
-
-    # Obtener factores de sensibilidad
+    """Calcula puntuaciones individuales para cada categoría."""
     sensitivity_factors = exercise_config.get("sensitivity_factors", {})
 
-    # Amplitud (0-100) - CON SENSIBILIDAD
+    # Amplitud (0-100)
     rom_ratio = all_metrics["amplitud"]["rom_ratio"]
     rom_score_base = (
         min(100, 100 * rom_ratio)
@@ -167,7 +123,7 @@ def calculate_individual_scores(all_metrics, exercise_config):
         rom_score_base, sensitivity_factors.get("amplitud", 1.0)
     )
 
-    # Abducción de codos (0-100) - CON SENSIBILIDAD
+    # Abducción de codos (0-100) - CORREGIDO: usar la clave correcta
     try:
         abduction_diff = abs(all_metrics["abduccion_codos"]["diferencia_abduccion"])
         abduction_score_base = max(0, 100 - 3 * abduction_diff)
@@ -177,7 +133,7 @@ def calculate_individual_scores(all_metrics, exercise_config):
     except (KeyError, TypeError):
         abduction_score = 50
 
-    # Simetría (0-100) - CON SENSIBILIDAD
+    # Simetría (0-100)
     try:
         sym_score_base = max(
             0, 100 - 300 * all_metrics["simetria"]["diferencia_normalizada"]
@@ -188,7 +144,7 @@ def calculate_individual_scores(all_metrics, exercise_config):
     except (KeyError, TypeError):
         sym_score = 50
 
-    # Trayectoria (0-100) - CON SENSIBILIDAD
+    # Trayectoria (0-100)
     try:
         lateral_ratio = all_metrics["trayectoria"].get("ratio_desviacion_lateral", 1.0)
         frontal_ratio = all_metrics["trayectoria"].get("ratio_desviacion_frontal", 1.0)
@@ -203,7 +159,7 @@ def calculate_individual_scores(all_metrics, exercise_config):
     except (KeyError, TypeError):
         path_score = 50
 
-    # Velocidad (0-100) - CON SENSIBILIDAD
+    # Velocidad (0-100)
     try:
         speed_concentric = 100 - 100 * abs(1 - all_metrics["velocidad"]["ratio_subida"])
         speed_eccentric = 100 - 100 * abs(1 - all_metrics["velocidad"]["ratio_bajada"])
@@ -214,7 +170,7 @@ def calculate_individual_scores(all_metrics, exercise_config):
     except (KeyError, TypeError):
         speed_score = 50
 
-    # Estabilidad escapular (0-100) - CON SENSIBILIDAD
+    # Estabilidad escapular (0-100)
     try:
         movement_ratio = all_metrics["estabilidad_escapular"]["ratio_movimiento"]
         asymmetry_ratio = all_metrics["estabilidad_escapular"]["ratio_asimetria"]
@@ -247,43 +203,60 @@ def calculate_overall_score(all_metrics, exercise_config):
     """Calcula puntuación global basada en métricas individuales."""
     scores = calculate_individual_scores(all_metrics, exercise_config)
 
-    # Pesos para cada categoría
-    weights = {
-        "rom_score": 0.20,
-        "abduction_score": 0.20,
-        "sym_score": 0.15,
-        "path_score": 0.20,
-        "speed_score": 0.15,
-        "scapular_score": 0.10,
-    }
+    # Pesos - USANDO CONFIGURACIÓN O VALORES ORIGINALES
+    weights = exercise_config.get(
+        "scoring_weights",
+        {
+            "rom_score": 0.20,
+            "abduction_score": 0.20,
+            "sym_score": 0.15,
+            "path_score": 0.20,
+            "speed_score": 0.15,
+            "scapular_score": 0.10,
+        },
+    )
 
-    # Calcular promedio ponderado
     weighted_score = sum(scores[key] * weights[key] for key in weights.keys())
-
     return weighted_score
 
 
-def determine_skill_level(overall_score):
+def determine_skill_level(overall_score, exercise_config=None):
     """Determina nivel de habilidad basado en puntuación."""
-    if overall_score >= 90:
-        return "Excelente"
-    elif overall_score >= 80:
-        return "Muy bueno"
-    elif overall_score >= 70:
-        return "Bueno"
-    elif overall_score >= 60:
-        return "Aceptable"
-    elif overall_score >= 50:
-        return "Necesita mejorar"
+    # Usar configuración si está disponible, sino valores originales
+    if exercise_config and "skill_levels" in exercise_config:
+        skill_levels = exercise_config["skill_levels"]
+        if overall_score >= skill_levels.get("excelente", 90):
+            return "Excelente"
+        elif overall_score >= skill_levels.get("muy_bueno", 80):
+            return "Muy bueno"
+        elif overall_score >= skill_levels.get("bueno", 70):
+            return "Bueno"
+        elif overall_score >= skill_levels.get("aceptable", 60):
+            return "Aceptable"
+        elif overall_score >= skill_levels.get("necesita_mejorar", 50):
+            return "Necesita mejorar"
+        else:
+            return "Principiante"
     else:
-        return "Principiante"
+        # Valores originales hardcodeados para mantener compatibilidad
+        if overall_score >= 90:
+            return "Excelente"
+        elif overall_score >= 80:
+            return "Muy bueno"
+        elif overall_score >= 70:
+            return "Bueno"
+        elif overall_score >= 60:
+            return "Aceptable"
+        elif overall_score >= 50:
+            return "Necesita mejorar"
+        else:
+            return "Principiante"
 
 
 def generate_recommendations(all_feedback, overall_score):
     """Genera recomendaciones específicas basadas en feedback."""
     recommendations = []
 
-    # Mapeo de problemas a recomendaciones
     recommendation_map = {
         "insuficiente": "Practica el movimiento completo con menos peso para mejorar la amplitud.",
         "posicion_baja": "Trabaja en llevar los codos hasta la altura de los hombros al bajar.",
@@ -299,14 +272,12 @@ def generate_recommendations(all_feedback, overall_score):
         "mueven": "Practica mantener los hombros fijos durante todo el movimiento del press.",
     }
 
-    # Buscar problemas en feedback y agregar recomendaciones
     for category, message in all_feedback.items():
         for problem, recommendation in recommendation_map.items():
             if problem in message.lower():
                 recommendations.append(recommendation)
                 break
 
-    # Recomendaciones generales si la puntuación es baja
     if not recommendations and overall_score < 80:
         recommendations.extend(
             [

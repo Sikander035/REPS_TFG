@@ -40,7 +40,7 @@ def visualize_analysis_results(
         _create_abduction_chart(user_data, expert_data, exercise_name, output_dir)
     )
 
-    # 3. Gráfico de trayectorias (SIN CAMBIOS)
+    # 3. Gráfico de trayectorias
     visualizations.append(
         _create_trajectory_chart(user_data, expert_data, exercise_name, output_dir)
     )
@@ -65,7 +65,7 @@ def visualize_analysis_results(
         _create_radar_chart(analysis_results, exercise_name, output_dir)
     )
 
-    # 8. Resumen visual (SIN CAMBIOS)
+    # 8. Resumen visual
     visualizations.append(
         _create_summary_chart(analysis_results, exercise_name, output_dir)
     )
@@ -232,7 +232,7 @@ def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
         plt.legend()
         plt.grid(True, alpha=0.3)
 
-        # Añadir líneas de referencia para interpretación
+        # Añadir líneas de referencia para interpretación - VALORES ORIGINALES
         plt.axhline(
             y=30, color="green", linestyle="--", alpha=0.5, label="Muy abierto (30°)"
         )
@@ -413,7 +413,7 @@ def _create_scores_chart(analysis_results, exercise_name, output_dir):
         analysis_results["score"],
     ]
 
-    # Colores según puntuación
+    # Colores según puntuación - VALORES ORIGINALES
     colors = []
     for score in scores_list:
         if score >= 90:
