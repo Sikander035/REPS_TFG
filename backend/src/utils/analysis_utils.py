@@ -1,22 +1,31 @@
-# backend/src/utils/analysis_utis.py
+# backend/src/utils/analysis_utils.py
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Configuraciones de ejercicios
+# Configuraciones de ejercicios - SIMPLE
 EXERCISE_CONFIGS = {
     "press_militar": {
         "min_elbow_angle": 45,
         "max_elbow_angle": 175,
         "rom_threshold": 0.85,
         "bottom_diff_threshold": 0.2,
-        "abduction_angle_threshold": 15,  # NUEVO - para abducción de codos
+        "abduction_angle_threshold": 15,
         "symmetry_threshold": 0.15,
         "lateral_dev_threshold": 0.2,
-        "frontal_dev_threshold": 0.15,  # NUEVO - para trayectoria Z
+        "frontal_dev_threshold": 0.15,
         "velocity_ratio_threshold": 0.3,
-        "scapular_stability_threshold": 1.5,  # NUEVO - para estabilidad escapular
+        "scapular_stability_threshold": 1.5,
+        # NUEVO: Factores de sensibilidad por análisis (1.0 = normal, >1.0 = más sensible)
+        "sensitivity_factors": {
+            "amplitud": 3.0,  # MÁS SENSIBLE para amplitud
+            "abduccion_codos": 3.0,  # MÁS SENSIBLE para ángulo de codos
+            "simetria": 1.0,  # Normal
+            "trayectoria": 1.0,  # Normal
+            "velocidad": 1.0,  # Normal
+            "estabilidad_escapular": 1.0,  # Normal
+        },
     },
     "press_banca": {
         "min_elbow_angle": 45,
@@ -29,6 +38,14 @@ EXERCISE_CONFIGS = {
         "frontal_dev_threshold": 0.12,
         "velocity_ratio_threshold": 0.25,
         "scapular_stability_threshold": 1.3,
+        "sensitivity_factors": {
+            "amplitud": 1.8,  # Algo más sensible
+            "abduccion_codos": 1.8,  # Algo más sensible
+            "simetria": 1.0,
+            "trayectoria": 1.0,
+            "velocidad": 1.0,
+            "estabilidad_escapular": 1.0,
+        },
     },
 }
 
@@ -59,57 +76,113 @@ def calculate_angle(p1, p2, p3):
     return np.degrees(angle)
 
 
-def calculate_individual_scores(all_metrics, exercise_config):
-    """Calcula puntuaciones individuales para cada categoría ACTUALIZADA."""
+def apply_sensitivity_to_score(base_score, sensitivity_factor):
+    """
+    Aplica factor de sensibilidad a una puntuación.
 
-    # Amplitud (0-100) - Sin cambios
+    Args:
+        base_score: Puntuación base (0-100)
+        sensitivity_factor: Factor de sensibilidad (1.0 = normal, >1.0 = más sensible)
+
+    Returns:
+        Puntuación ajustada
+    """
+    if sensitivity_factor == 1.0:
+        return base_score
+
+    # Con mayor sensibilidad, penalizar más fuertemente puntuaciones mediocres
+    if base_score < 100:
+        # Amplificar la penalización
+        penalty = (100 - base_score) * sensitivity_factor
+        adjusted_score = 100 - penalty
+        return max(0, adjusted_score)
+
+    return base_score
+
+
+def apply_sensitivity_to_threshold(threshold, sensitivity_factor):
+    """
+    Aplica factor de sensibilidad a un umbral.
+
+    Args:
+        threshold: Umbral base
+        sensitivity_factor: Factor de sensibilidad (>1.0 hace el umbral más estricto)
+
+    Returns:
+        Umbral ajustado
+    """
+    return threshold / sensitivity_factor
+
+
+def calculate_individual_scores(all_metrics, exercise_config):
+    """Calcula puntuaciones individuales para cada categoría CON SENSIBILIDAD APLICABLE."""
+
+    # Obtener factores de sensibilidad
+    sensitivity_factors = exercise_config.get("sensitivity_factors", {})
+
+    # Amplitud (0-100) - CON SENSIBILIDAD
     rom_ratio = all_metrics["amplitud"]["rom_ratio"]
-    rom_score = (
+    rom_score_base = (
         min(100, 100 * rom_ratio)
         if rom_ratio <= 1
         else max(0, 100 - 50 * (rom_ratio - 1))
     )
+    rom_score = apply_sensitivity_to_score(
+        rom_score_base, sensitivity_factors.get("amplitud", 1.0)
+    )
 
-    # Abducción de codos (0-100) - ACTUALIZADO
+    # Abducción de codos (0-100) - CON SENSIBILIDAD
     try:
         abduction_diff = abs(all_metrics["abduccion_codos"]["diferencia_abduccion"])
-        abduction_score = max(0, 100 - 3 * abduction_diff)
+        abduction_score_base = max(0, 100 - 3 * abduction_diff)
+        abduction_score = apply_sensitivity_to_score(
+            abduction_score_base, sensitivity_factors.get("abduccion_codos", 1.0)
+        )
     except (KeyError, TypeError):
-        abduction_score = 50  # Valor por defecto si no está disponible
+        abduction_score = 50
 
-    # Simetría (0-100) - Sin cambios
+    # Simetría (0-100) - CON SENSIBILIDAD
     try:
-        sym_score = max(
+        sym_score_base = max(
             0, 100 - 300 * all_metrics["simetria"]["diferencia_normalizada"]
+        )
+        sym_score = apply_sensitivity_to_score(
+            sym_score_base, sensitivity_factors.get("simetria", 1.0)
         )
     except (KeyError, TypeError):
         sym_score = 50
 
-    # Trayectoria (0-100) - ACTUALIZADO para 3D
+    # Trayectoria (0-100) - CON SENSIBILIDAD
     try:
-        # Usar la peor de las dos desviaciones (lateral o frontal)
         lateral_ratio = all_metrics["trayectoria"].get("ratio_desviacion_lateral", 1.0)
         frontal_ratio = all_metrics["trayectoria"].get("ratio_desviacion_frontal", 1.0)
         worst_ratio = max(lateral_ratio, frontal_ratio)
 
-        path_score = max(0, 100 - 50 * (worst_ratio - 1)) if worst_ratio >= 1 else 100
+        path_score_base = (
+            max(0, 100 - 50 * (worst_ratio - 1)) if worst_ratio >= 1 else 100
+        )
+        path_score = apply_sensitivity_to_score(
+            path_score_base, sensitivity_factors.get("trayectoria", 1.0)
+        )
     except (KeyError, TypeError):
         path_score = 50
 
-    # Velocidad (0-100) - Sin cambios
+    # Velocidad (0-100) - CON SENSIBILIDAD
     try:
         speed_concentric = 100 - 100 * abs(1 - all_metrics["velocidad"]["ratio_subida"])
         speed_eccentric = 100 - 100 * abs(1 - all_metrics["velocidad"]["ratio_bajada"])
-        speed_score = (speed_concentric + speed_eccentric) / 2
+        speed_score_base = (speed_concentric + speed_eccentric) / 2
+        speed_score = apply_sensitivity_to_score(
+            speed_score_base, sensitivity_factors.get("velocidad", 1.0)
+        )
     except (KeyError, TypeError):
         speed_score = 50
 
-    # Estabilidad escapular (0-100) - NUEVO
+    # Estabilidad escapular (0-100) - CON SENSIBILIDAD
     try:
         movement_ratio = all_metrics["estabilidad_escapular"]["ratio_movimiento"]
         asymmetry_ratio = all_metrics["estabilidad_escapular"]["ratio_asimetria"]
 
-        # Penalizar ratios > 1.5 (más inestable que experto)
         movement_penalty = (
             max(0, (movement_ratio - 1.5) * 40) if movement_ratio > 1.5 else 0
         )
@@ -117,32 +190,35 @@ def calculate_individual_scores(all_metrics, exercise_config):
             max(0, (asymmetry_ratio - 1.5) * 40) if asymmetry_ratio > 1.5 else 0
         )
 
-        scapular_score = max(0, 100 - movement_penalty - asymmetry_penalty)
+        scapular_score_base = max(0, 100 - movement_penalty - asymmetry_penalty)
+        scapular_score = apply_sensitivity_to_score(
+            scapular_score_base, sensitivity_factors.get("estabilidad_escapular", 1.0)
+        )
     except (KeyError, TypeError):
         scapular_score = 50
 
     return {
         "rom_score": rom_score,
-        "abduction_score": abduction_score,  # CAMBIADO de angle_score
+        "abduction_score": abduction_score,
         "sym_score": sym_score,
         "path_score": path_score,
         "speed_score": speed_score,
-        "scapular_score": scapular_score,  # NUEVO
+        "scapular_score": scapular_score,
     }
 
 
 def calculate_overall_score(all_metrics, exercise_config):
-    """Calcula puntuación global basada en métricas individuales ACTUALIZADA."""
+    """Calcula puntuación global basada en métricas individuales."""
     scores = calculate_individual_scores(all_metrics, exercise_config)
 
-    # Pesos para cada categoría (deben sumar 1.0)
+    # Pesos para cada categoría
     weights = {
-        "rom_score": 0.20,  # 20% - Amplitud
-        "abduction_score": 0.20,  # 20% - Abducción de codos
-        "sym_score": 0.15,  # 15% - Simetría
-        "path_score": 0.20,  # 20% - Trayectoria
-        "speed_score": 0.15,  # 15% - Velocidad
-        "scapular_score": 0.10,  # 10% - Estabilidad escapular
+        "rom_score": 0.20,
+        "abduction_score": 0.20,
+        "sym_score": 0.15,
+        "path_score": 0.20,
+        "speed_score": 0.15,
+        "scapular_score": 0.10,
     }
 
     # Calcular promedio ponderado
@@ -168,10 +244,10 @@ def determine_skill_level(overall_score):
 
 
 def generate_recommendations(all_feedback, overall_score):
-    """Genera recomendaciones específicas basadas en feedback ACTUALIZADO."""
+    """Genera recomendaciones específicas basadas en feedback."""
     recommendations = []
 
-    # Mapeo de problemas a recomendaciones ACTUALIZADO
+    # Mapeo de problemas a recomendaciones
     recommendation_map = {
         "insuficiente": "Practica el movimiento completo con menos peso para mejorar la amplitud.",
         "posicion_baja": "Trabaja en llevar los codos hasta la altura de los hombros al bajar.",

@@ -339,45 +339,45 @@ def process_exercise(
         aligned_expert_data = normalized_expert_data
         logger.warning("Usando datos normalizados sin alineación final")
 
-    # 6. GENERACIÓN DE VISUALIZACIONES (CON RANGO DE EJERCICIO)
-    if not skip_visualization:
-        logger.info("6. FASE DE GENERACIÓN DE VISUALIZACIONES")
-        try:
-            output_video_path = os.path.join(
-                output_dir, f"{exercise_name}_comparison_video.mp4"
-            )
-            ensure_dir_exists(output_video_path)
-            generate_dual_skeleton_video(
-                original_video_path=video_usuario,
-                user_data=user_processed_data,
-                expert_data=aligned_expert_data,
-                output_video_path=output_video_path,
-                config_path=CONFIG_PATH,
-                original_user_data=user_data_original,
-                exercise_frame_range=exercise_frame_range,  # PASAR RANGO DE EJERCICIO
-            )
-            results["output"]["visualizations"]["video"] = output_video_path
-            logger.info(f"Video comparativo generado: {output_video_path}")
+    # # 6. GENERACIÓN DE VISUALIZACIONES (CON RANGO DE EJERCICIO)
+    # if not skip_visualization:
+    #     logger.info("6. FASE DE GENERACIÓN DE VISUALIZACIONES")
+    #     try:
+    #         output_video_path = os.path.join(
+    #             output_dir, f"{exercise_name}_comparison_video.mp4"
+    #         )
+    #         ensure_dir_exists(output_video_path)
+    #         generate_dual_skeleton_video(
+    #             original_video_path=video_usuario,
+    #             user_data=user_processed_data,
+    #             expert_data=aligned_expert_data,
+    #             output_video_path=output_video_path,
+    #             config_path=CONFIG_PATH,
+    #             original_user_data=user_data_original,
+    #             exercise_frame_range=exercise_frame_range,  # PASAR RANGO DE EJERCICIO
+    #         )
+    #         results["output"]["visualizations"]["video"] = output_video_path
+    #         logger.info(f"Video comparativo generado: {output_video_path}")
 
-            try:
-                mid_frame = len(user_processed_data) // 2
-                frame_image_path = os.path.join(
-                    output_dir, f"{exercise_name}_frame_comparison.png"
-                )
-                visualize_frame_dual_skeletons(
-                    original_image=np.zeros((480, 640, 3), dtype=np.uint8),
-                    user_frame_data=user_processed_data.iloc[mid_frame],
-                    expert_frame_data=aligned_expert_data.iloc[mid_frame],
-                    config_path=CONFIG_PATH,
-                    save_path=frame_image_path,
-                    show_image=False,
-                )
-                results["output"]["visualizations"]["frame"] = frame_image_path
-                logger.info(f"Imagen de comparación generada: {frame_image_path}")
-            except Exception as frame_error:
-                logger.error(f"Error al generar imagen de comparación: {frame_error}")
-        except Exception as e:
-            logger.error(f"Error al generar visualizaciones: {e}")
+    #         try:
+    #             mid_frame = len(user_processed_data) // 2
+    #             frame_image_path = os.path.join(
+    #                 output_dir, f"{exercise_name}_frame_comparison.png"
+    #             )
+    #             visualize_frame_dual_skeletons(
+    #                 original_image=np.zeros((480, 640, 3), dtype=np.uint8),
+    #                 user_frame_data=user_processed_data.iloc[mid_frame],
+    #                 expert_frame_data=aligned_expert_data.iloc[mid_frame],
+    #                 config_path=CONFIG_PATH,
+    #                 save_path=frame_image_path,
+    #                 show_image=False,
+    #             )
+    #             results["output"]["visualizations"]["frame"] = frame_image_path
+    #             logger.info(f"Imagen de comparación generada: {frame_image_path}")
+    #         except Exception as frame_error:
+    #             logger.error(f"Error al generar imagen de comparación: {frame_error}")
+    #     except Exception as e:
+    #         logger.error(f"Error al generar visualizaciones: {e}")
 
     # 7. ANÁLISIS DETALLADO DEL EJERCICIO
     if not skip_analysis:
@@ -386,7 +386,7 @@ def process_exercise(
             analysis_dir = os.path.join(output_dir, f"{exercise_name}_analysis")
             os.makedirs(analysis_dir, exist_ok=True)
 
-            # Ejecutar análisis completo usando las nuevas funciones
+            # MEJORA: Ejecutar análisis completo pasando datos de repeticiones
             analysis_results = run_exercise_analysis(
                 user_data=user_processed_data,
                 expert_data=aligned_expert_data,
@@ -416,11 +416,19 @@ def process_exercise(
                 "visualizations": viz_paths,
                 "score": analysis_results["score"],
                 "level": analysis_results["level"],
+                "repetitions_used": {
+                    "user_reps": len(user_repetitions) if user_repetitions else 0,
+                    "expert_reps": len(expert_repetitions) if expert_repetitions else 0,
+                    "abduction_analysis": (
+                        "bajada_only" if user_repetitions else "completo"
+                    ),
+                },
             }
 
             logger.info(
                 f"Análisis completado - Puntuación: {report['puntuacion_global']:.1f}/100 - Nivel: {report['nivel']}"
             )
+
             if report["areas_mejora"]:
                 logger.info("Áreas de mejora:")
                 for area in report["areas_mejora"]:
