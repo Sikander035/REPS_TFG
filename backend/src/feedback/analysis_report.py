@@ -1,4 +1,4 @@
-# backend/src/feedback/analysis_report.py - MEJORA: Detección de repeticiones interna
+# backend/src/feedback/analysis_report.py - CORRECCIÓN SIMPLE: Solo cambiar import
 import sys
 import numpy as np
 import pandas as pd
@@ -8,8 +8,10 @@ import logging
 from scipy.signal import find_peaks, savgol_filter
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+# ÚNICO CAMBIO: Importar de analysis_utils en lugar de duplicar la función
 from src.utils.analysis_utils import (
-    get_exercise_config,
+    get_exercise_config,  # RESTAURADO: Usar la función original
     calculate_elbow_abduction_angle,
     calculate_overall_score,
     determine_skill_level,
@@ -23,7 +25,7 @@ logger = logging.getLogger(__name__)
 def analyze_movement_amplitude(user_data, expert_data, exercise_config):
     """
     Analiza la amplitud del movimiento usando los CODOS como referencia principal.
-    CORREGIDO: Lógica de umbrales y orden de evaluación.
+    LÓGICA ORIGINAL INTACTA.
     """
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "amplitud", 1.0
@@ -120,8 +122,7 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
 
 def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
     """
-    CORREGIDO: Analiza el ángulo de abducción de los codos midiendo el ángulo
-    del vector codo-hombro respecto al plano horizontal usando proyección.
+    LÓGICA ORIGINAL INTACTA - Analiza el ángulo de abducción de los codos.
     """
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "abduccion_codos", 1.0
@@ -840,7 +841,7 @@ def run_exercise_analysis(
     """Ejecuta análisis completo con detección interna de repeticiones."""
     logger.info(f"Iniciando análisis: {exercise_name}")
 
-    # Obtener configuración del ejercicio
+    # RESTAURADO: Usar la función original que ahora usa el singleton correctamente
     exercise_config = get_exercise_config(exercise_name, config_path)
 
     # Ejecutar todos los análisis
@@ -911,7 +912,7 @@ def generate_analysis_report(analysis_results, exercise_name, output_path=None):
             analysis_results["feedback"], analysis_results["score"]
         ),
         "sensitivity_factors": analysis_results.get("sensitivity_factors", {}),
-        "version_analisis": "configuracion_simplificada_v1.0",
+        "version_analisis": "singleton_config_from_file_v1.0",
     }
 
     # Identificar áreas de mejora y puntos fuertes

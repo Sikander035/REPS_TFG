@@ -11,19 +11,32 @@ logger = logging.getLogger(__name__)
 
 
 def get_exercise_config(exercise_name="press_militar", config_path="config.json"):
-    """Obtiene configuración específica para el ejercicio desde config.json."""
+    """
+    Obtiene configuración específica para el ejercicio desde config.json.
+    USA SINGLETON + LEE CONFIGURACIÓN DEL ARCHIVO JSON.
+    """
     try:
-        # Cargar configuración usando el config_manager existente
+        # Usar el config_manager singleton
         exercise_config = config_manager.get_exercise_config(exercise_name, config_path)
-        analysis_config = exercise_config.get("analysis_config", {})
 
-        # Cargar configuraciones globales
+        # Cargar configuraciones globales si no están cargadas
         if config_path not in config_manager._loaded_files:
             config_manager.load_config_file(config_path)
         config_data = config_manager._loaded_files[config_path]
 
-        # Combinar configuración del ejercicio con globales
-        analysis_config.update(
+        # Obtener configuración de análisis del ejercicio específico
+        analysis_config = exercise_config.get("analysis_config", {})
+
+        # Obtener configuración global de análisis
+        global_analysis = config_data.get("global_analysis_config", {})
+
+        # Combinar: global primero, luego específico del ejercicio (prioridad)
+        final_config = {}
+        final_config.update(global_analysis)
+        final_config.update(analysis_config)
+
+        # Añadir configuraciones adicionales del nivel global
+        final_config.update(
             {
                 "scoring_weights": config_data.get("scoring_weights", {}),
                 "analysis_ratios": config_data.get("analysis_ratios", {}),
@@ -33,11 +46,48 @@ def get_exercise_config(exercise_name="press_militar", config_path="config.json"
             }
         )
 
-        return analysis_config
+        # Si no hay configuración suficiente, completar con valores por defecto
+        default_config = {
+            "min_elbow_angle": 45,
+            "max_elbow_angle": 175,
+            "rom_threshold": 0.85,
+            "bottom_diff_threshold": 0.2,
+            "abduction_angle_threshold": 15,
+            "symmetry_threshold": 0.15,
+            "lateral_dev_threshold": 0.2,
+            "frontal_dev_threshold": 0.15,
+            "velocity_ratio_threshold": 0.3,
+            "scapular_stability_threshold": 1.5,
+            "sensitivity_factors": {
+                "amplitud": 3.0,
+                "abduccion_codos": 3.0,
+                "simetria": 1.0,
+                "trayectoria": 1.0,
+                "velocidad": 1.0,
+                "estabilidad_escapular": 1.0,
+            },
+            "scoring_weights": {
+                "rom_score": 0.20,
+                "abduction_score": 0.20,
+                "sym_score": 0.15,
+                "path_score": 0.20,
+                "speed_score": 0.15,
+                "scapular_score": 0.10,
+            },
+        }
+
+        # Completar valores faltantes con defaults
+        for key, value in default_config.items():
+            if key not in final_config:
+                final_config[key] = value
+
+        logger.info(f"Configuración de análisis cargada para {exercise_name}")
+        return final_config
 
     except Exception as e:
         logger.error(f"Error al cargar configuración: {e}")
-        # EXACTAMENTE la misma configuración que antes para evitar cambios en performance
+        logger.warning("Usando configuración por defecto completa")
+        # Valores por defecto completos
         return {
             "min_elbow_angle": 45,
             "max_elbow_angle": 175,
@@ -56,6 +106,14 @@ def get_exercise_config(exercise_name="press_militar", config_path="config.json"
                 "trayectoria": 1.0,
                 "velocidad": 1.0,
                 "estabilidad_escapular": 1.0,
+            },
+            "scoring_weights": {
+                "rom_score": 0.20,
+                "abduction_score": 0.20,
+                "sym_score": 0.15,
+                "path_score": 0.20,
+                "speed_score": 0.15,
+                "scapular_score": 0.10,
             },
         }
 
@@ -123,7 +181,7 @@ def calculate_individual_scores(all_metrics, exercise_config):
         rom_score_base, sensitivity_factors.get("amplitud", 1.0)
     )
 
-    # Abducción de codos (0-100) - CORREGIDO: usar la clave correcta
+    # Abducción de codos (0-100)
     try:
         abduction_diff = abs(all_metrics["abduccion_codos"]["diferencia_abduccion"])
         abduction_score_base = max(0, 100 - 3 * abduction_diff)

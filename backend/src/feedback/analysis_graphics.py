@@ -1,4 +1,4 @@
-# src/feedback/analysis_graphics.py
+# src/feedback/analysis_graphics.py - CORRECCIÓN SIMPLE: Solo cambiar import
 import sys
 import numpy as np
 import pandas as pd
@@ -7,7 +7,10 @@ import os
 import logging
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+# ÚNICO CAMBIO: Importar de analysis_utils en lugar de usar función duplicada
 from src.utils.analysis_utils import (
+    get_exercise_config,  # RESTAURADO: Usar la función original
     calculate_elbow_abduction_angle,
     calculate_individual_scores,
     generate_recommendations,
@@ -21,6 +24,7 @@ def visualize_analysis_results(
 ):
     """
     Crea visualizaciones de los resultados del análisis.
+    LÓGICA ORIGINAL INTACTA.
     """
     metrics = analysis_results["metrics"]
     visualizations = []

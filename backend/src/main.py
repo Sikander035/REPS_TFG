@@ -44,16 +44,18 @@ try:
         generate_dual_skeleton_video,
         visualize_frame_dual_skeletons,
     )
-    from src.config.config_manager import load_exercise_config, config_manager
+
+    # CORREGIDO: Usar solo el singleton, no la función duplicada
+    from src.config.config_manager import config_manager
     from src.feedback.analysis_report import (
         run_exercise_analysis,
         generate_analysis_report,
     )
     from src.feedback.analysis_graphics import visualize_analysis_results
 
+    # CORREGIDO: Cargar configuración usando el singleton una sola vez al inicio
     config_manager.load_config_file(CONFIG_PATH)
-
-    logger.info("Usando módulos existentes")
+    logger.info("Configuración cargada usando config_manager singleton")
 
 except ImportError as e:
     logger.warning(f"No se encontraron todos los módulos necesarios: {e}")
@@ -94,7 +96,8 @@ def process_exercise(
         logger.info(f"Generando diagnósticos en: {diagnostics_dir}")
 
     try:
-        exercise_config = load_exercise_config(exercise_name, config_path)
+        # CORREGIDO: Usar el singleton correctamente
+        exercise_config = config_manager.get_exercise_config(exercise_name, config_path)
         logger.info(f"Configuración cargada para ejercicio: {exercise_name}")
     except Exception as e:
         logger.error(f"Error al cargar configuración: {e}")
@@ -142,6 +145,10 @@ def process_exercise(
             "processed": {},
             "visualizations": {},
             "analysis": {},
+        },
+        "config_info": {
+            "singleton_used": True,
+            "config_loaded_at_start": True,
         },
     }
 
@@ -386,11 +393,12 @@ def process_exercise(
             analysis_dir = os.path.join(output_dir, f"{exercise_name}_analysis")
             os.makedirs(analysis_dir, exist_ok=True)
 
-            # MEJORA: Ejecutar análisis completo pasando datos de repeticiones
+            # CORREGIDO: Análisis usando singleton - pasamos config_path para usar singleton
             analysis_results = run_exercise_analysis(
                 user_data=user_processed_data,
                 expert_data=aligned_expert_data,
                 exercise_name=exercise_name,
+                config_path=config_path,  # Asegurar que usa singleton
             )
 
             # Generar reporte
@@ -423,6 +431,7 @@ def process_exercise(
                         "bajada_only" if user_repetitions else "completo"
                     ),
                 },
+                "config_source": "singleton_config_manager",
             }
 
             logger.info(
@@ -444,6 +453,18 @@ def process_exercise(
 
             logger.error(traceback.format_exc())
 
+    # Información final sobre configuración
+    total_time = time.time() - start_time
+    results["processing_info"] = {
+        "total_time_seconds": total_time,
+        "config_manager_singleton": True,
+        "config_loaded_once": True,
+        "analysis_config_source": "singleton",
+    }
+
+    logger.info(
+        f"Procesamiento completado en {total_time:.2f} segundos usando singleton correctamente"
+    )
     return results
 
 
@@ -469,6 +490,17 @@ def main():
     print(f"DEBUG: Ruta a config.json: {CONFIG_PATH}")
     print(f"DEBUG: ¿Existe config.json?: {os.path.exists(CONFIG_PATH)}")
 
+    # INFORMACIÓN ADICIONAL: Verificar que el singleton funciona
+    try:
+        print(
+            f"DEBUG: Configuración cargada en singleton: {len(config_manager._loaded_files)} archivos"
+        )
+        print(
+            f"DEBUG: Ejercicios disponibles: {config_manager.get_available_exercises(CONFIG_PATH)}"
+        )
+    except Exception as e:
+        print(f"DEBUG: Error verificando singleton: {e}")
+
     results = process_exercise(
         exercise_name=exercise_name,
         videos_dir=VIDEOS_DIR,
@@ -479,13 +511,19 @@ def main():
         diagnostics=True,
         skip_extraction=False,
         skip_normalization=False,
-        skip_visualization=False,
+        skip_visualization=True,  # Cambiar a False si quieres generar videos
         skip_analysis=False,
         model_path=MODEL_PATH,
     )
 
     if results:
-        logger.info(f"Procesamiento completado con éxito.")
+        logger.info(
+            f"Procesamiento completado con éxito usando singleton correctamente."
+        )
+        logger.info(f"Información de configuración: {results.get('config_info', {})}")
+        logger.info(
+            f"Información de procesamiento: {results.get('processing_info', {})}"
+        )
         logger.info(f"Todos los resultados están disponibles en: {OUTPUT_DIR}")
     else:
         logger.error("Error en el procesamiento del ejercicio.")

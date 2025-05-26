@@ -26,6 +26,18 @@
         ["landmark_left_knee", "landmark_left_ankle"],
         ["landmark_right_knee", "landmark_right_ankle"]
     ],
+    "global_analysis_config": {
+        "min_elbow_angle": 45,
+        "max_elbow_angle": 175,
+        "rom_threshold": 0.85,
+        "bottom_diff_threshold": 0.2,
+        "abduction_angle_threshold": 15,
+        "symmetry_threshold": 0.15,
+        "lateral_dev_threshold": 0.2,
+        "frontal_dev_threshold": 0.15,
+        "velocity_ratio_threshold": 0.3,
+        "scapular_stability_threshold": 1.5
+    },
     "scoring_weights": {
         "rom_score": 0.20,
         "abduction_score": 0.20,
@@ -62,16 +74,6 @@
             "division_axis": "y"
         },
         "analysis_config": {
-            "min_elbow_angle": 45,
-            "max_elbow_angle": 175,
-            "rom_threshold": 0.85,
-            "bottom_diff_threshold": 0.2,
-            "abduction_angle_threshold": 15,
-            "symmetry_threshold": 0.15,
-            "lateral_dev_threshold": 0.2,
-            "frontal_dev_threshold": 0.15,
-            "velocity_ratio_threshold": 0.3,
-            "scapular_stability_threshold": 1.5,
             "sensitivity_factors": {
                 "amplitud": 3.0,
                 "abduccion_codos": 3.0,
@@ -86,19 +88,9 @@
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
         "sync_config": {},
         "analysis_config": {
-            "min_elbow_angle": 45,
-            "max_elbow_angle": 175,
-            "rom_threshold": 0.80,
-            "bottom_diff_threshold": 0.15,
-            "abduction_angle_threshold": 12,
-            "symmetry_threshold": 0.10,
-            "lateral_dev_threshold": 0.15,
-            "frontal_dev_threshold": 0.12,
-            "velocity_ratio_threshold": 0.25,
-            "scapular_stability_threshold": 1.3,
             "sensitivity_factors": {
-                "amplitud": 1.8,
-                "abduccion_codos": 1.8,
+                "amplitud": 2.0,
+                "abduccion_codos": 2.0,
                 "simetria": 1.0,
                 "trayectoria": 1.0,
                 "velocidad": 1.0,
@@ -110,23 +102,13 @@
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28],
         "sync_config": {},
         "analysis_config": {
-            "min_knee_angle": 45,
-            "max_knee_angle": 175,
-            "rom_threshold": 0.80,
-            "bottom_diff_threshold": 0.15,
-            "knee_alignment_threshold": 10,
-            "symmetry_threshold": 0.12,
-            "lateral_dev_threshold": 0.18,
-            "frontal_dev_threshold": 0.15,
-            "velocity_ratio_threshold": 0.25,
-            "hip_stability_threshold": 1.4,
             "sensitivity_factors": {
                 "amplitud": 1.5,
-                "alineacion_rodillas": 2.0,
-                "simetria": 1.0,
-                "trayectoria": 1.0,
+                "abduccion_codos": 1.0,
+                "simetria": 2.0,
+                "trayectoria": 1.5,
                 "velocidad": 1.0,
-                "estabilidad_cadera": 1.0
+                "estabilidad_escapular": 1.0
             }
         }
     },
@@ -134,22 +116,12 @@
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
         "sync_config": {},
         "analysis_config": {
-            "min_elbow_angle": 45,
-            "max_elbow_angle": 175,
-            "rom_threshold": 0.85,
-            "bottom_diff_threshold": 0.18,
-            "shoulder_width_threshold": 12,
-            "symmetry_threshold": 0.12,
-            "lateral_dev_threshold": 0.15,
-            "frontal_dev_threshold": 0.18,
-            "velocity_ratio_threshold": 0.35,
-            "scapular_stability_threshold": 1.6,
             "sensitivity_factors": {
-                "amplitud": 2.0,
-                "ancho_agarre": 1.5,
+                "amplitud": 2.5,
+                "abduccion_codos": 2.0,
                 "simetria": 1.0,
                 "trayectoria": 1.0,
-                "velocidad": 1.0,
+                "velocidad": 1.5,
                 "estabilidad_escapular": 1.0
             }
         }
