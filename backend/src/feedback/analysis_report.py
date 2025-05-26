@@ -10,7 +10,7 @@ from scipy.signal import find_peaks, savgol_filter
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.utils.analysis_utils import (
     get_exercise_config,
-    calculate_angle,
+    calculate_elbow_abduction_angle,
     calculate_overall_score,
     determine_skill_level,
     generate_recommendations,
@@ -124,63 +124,6 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
     }
 
     return {"metrics": metrics, "feedback": feedback}
-
-
-def calculate_elbow_abduction_angle(shoulder_point, elbow_point):
-    """
-    Calcula el ángulo de abducción lateral del codo.
-    Método: proyectar el vector hombro-codo en el plano XZ y calcular
-    el ángulo entre esta proyección y el eje X.
-
-    Args:
-        shoulder_point: Array [x, y, z] de la posición del hombro
-        elbow_point: Array [x, y, z] de la posición del codo
-
-    Returns:
-        float: Ángulo en grados donde:
-               - 0°: Codo exactamente lateral (máxima abducción)
-               - 45°: Codo diagonal
-               - 90°: Codo hacia adelante/atrás (mínima abducción lateral)
-    """
-    shoulder = np.array(shoulder_point)
-    elbow = np.array(elbow_point)
-
-    # Vector del hombro al codo
-    vector_shoulder_to_elbow = elbow - shoulder
-
-    # Proyección del vector en el plano horizontal (XZ) - eliminamos componente Y
-    horizontal_projection = np.array(
-        [
-            vector_shoulder_to_elbow[0],  # Componente X (lateral)
-            vector_shoulder_to_elbow[2],  # Componente Z (frontal)
-        ]
-    )
-
-    # Vector de referencia: eje X puro [1, 0] en el plano XZ
-    x_axis = np.array([1.0, 0.0])
-
-    # Magnitud de la proyección
-    projection_magnitude = np.linalg.norm(horizontal_projection)
-
-    # Evitar división por cero
-    if projection_magnitude < 1e-6:
-        return 90.0  # Si no hay proyección horizontal, asumir frontal
-
-    # Normalizar la proyección
-    normalized_projection = horizontal_projection / projection_magnitude
-
-    # Calcular ángulo usando producto punto con eje X
-    # cos(θ) = (proyección · eje_X) / (|proyección| * |eje_X|)
-    dot_product = np.dot(normalized_projection, x_axis)
-
-    # Asegurar que el coseno esté en rango válido [-1, 1]
-    dot_product = np.clip(dot_product, -1.0, 1.0)
-
-    # Calcular ángulo en radianes y convertir a grados
-    angle_rad = np.arccos(abs(dot_product))  # abs() para manejar ambos lados
-    angle_deg = np.degrees(angle_rad)
-
-    return angle_deg
 
 
 def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):

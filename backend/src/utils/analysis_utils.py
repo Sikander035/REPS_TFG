@@ -55,25 +55,61 @@ def get_exercise_config(exercise_name="press_militar"):
     return EXERCISE_CONFIGS.get(exercise_name, EXERCISE_CONFIGS["press_militar"])
 
 
-def calculate_angle(p1, p2, p3):
-    """Calcula el ángulo entre tres puntos en el espacio 3D."""
-    a = np.array(p1)
-    b = np.array(p2)
-    c = np.array(p3)
+def calculate_elbow_abduction_angle(shoulder_point, elbow_point):
+    """
+    Calcula el ángulo de abducción lateral del codo.
+    Método: proyectar el vector hombro-codo en el plano XZ y calcular
+    el ángulo entre esta proyección y el eje X.
 
-    ba = a - b
-    bc = c - b
+    Args:
+        shoulder_point: Array [x, y, z] de la posición del hombro
+        elbow_point: Array [x, y, z] de la posición del codo
 
-    ba_norm = np.linalg.norm(ba)
-    bc_norm = np.linalg.norm(bc)
+    Returns:
+        float: Ángulo en grados donde:
+               - 0°: Codo exactamente lateral (máxima abducción)
+               - 45°: Codo diagonal
+               - 90°: Codo hacia adelante/atrás (mínima abducción lateral)
+    """
+    shoulder = np.array(shoulder_point)
+    elbow = np.array(elbow_point)
 
-    if ba_norm < 1e-6 or bc_norm < 1e-6:
-        return 0
+    # Vector del hombro al codo
+    vector_shoulder_to_elbow = elbow - shoulder
 
-    cosine_angle = np.dot(ba, bc) / (ba_norm * bc_norm)
-    angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
+    # Proyección del vector en el plano horizontal (XZ) - eliminamos componente Y
+    horizontal_projection = np.array(
+        [
+            vector_shoulder_to_elbow[0],  # Componente X (lateral)
+            vector_shoulder_to_elbow[2],  # Componente Z (frontal)
+        ]
+    )
 
-    return np.degrees(angle)
+    # Vector de referencia: eje X puro [1, 0] en el plano XZ
+    x_axis = np.array([1.0, 0.0])
+
+    # Magnitud de la proyección
+    projection_magnitude = np.linalg.norm(horizontal_projection)
+
+    # Evitar división por cero
+    if projection_magnitude < 1e-6:
+        return 90.0  # Si no hay proyección horizontal, asumir frontal
+
+    # Normalizar la proyección
+    normalized_projection = horizontal_projection / projection_magnitude
+
+    # Calcular ángulo usando producto punto con eje X
+    # cos(θ) = (proyección · eje_X) / (|proyección| * |eje_X|)
+    dot_product = np.dot(normalized_projection, x_axis)
+
+    # Asegurar que el coseno esté en rango válido [-1, 1]
+    dot_product = np.clip(dot_product, -1.0, 1.0)
+
+    # Calcular ángulo en radianes y convertir a grados
+    angle_rad = np.arccos(abs(dot_product))  # abs() para manejar ambos lados
+    angle_deg = np.degrees(angle_rad)
+
+    return angle_deg
 
 
 def apply_sensitivity_to_score(base_score, sensitivity_factor):

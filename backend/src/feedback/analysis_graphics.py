@@ -8,7 +8,7 @@ import logging
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.utils.analysis_utils import (
-    calculate_angle,
+    calculate_elbow_abduction_angle,
     calculate_individual_scores,
     generate_recommendations,
 )
@@ -132,7 +132,7 @@ def _create_amplitude_chart(metrics, user_data, expert_data, exercise_name, outp
 
 
 def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de abducción de codos (NUEVA FUNCIÓN)."""
+    """Crea gráfico de abducción lateral de codos CORREGIDO."""
     plt.figure(figsize=(10, 6))
 
     user_abduction_angles = []
@@ -140,7 +140,7 @@ def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
 
     for i in range(len(user_data)):
         try:
-            # Calcular ángulos de abducción para visualización
+            # === USUARIO - AMBOS CODOS ===
             user_right_shoulder = [
                 user_data.iloc[i]["landmark_right_shoulder_x"],
                 user_data.iloc[i]["landmark_right_shoulder_y"],
@@ -156,7 +156,13 @@ def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
                 user_data.iloc[i]["landmark_left_shoulder_y"],
                 user_data.iloc[i]["landmark_left_shoulder_z"],
             ]
+            user_left_elbow = [
+                user_data.iloc[i]["landmark_left_elbow_x"],
+                user_data.iloc[i]["landmark_left_elbow_y"],
+                user_data.iloc[i]["landmark_left_elbow_z"],
+            ]
 
+            # === EXPERTO - AMBOS CODOS ===
             expert_right_shoulder = [
                 expert_data.iloc[i]["landmark_right_shoulder_x"],
                 expert_data.iloc[i]["landmark_right_shoulder_y"],
@@ -172,42 +178,98 @@ def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
                 expert_data.iloc[i]["landmark_left_shoulder_y"],
                 expert_data.iloc[i]["landmark_left_shoulder_z"],
             ]
+            expert_left_elbow = [
+                expert_data.iloc[i]["landmark_left_elbow_x"],
+                expert_data.iloc[i]["landmark_left_elbow_y"],
+                expert_data.iloc[i]["landmark_left_elbow_z"],
+            ]
 
+            # Verificar que no hay NaN
             if (
                 not np.isnan(user_right_shoulder).any()
                 and not np.isnan(user_right_elbow).any()
                 and not np.isnan(user_left_shoulder).any()
+                and not np.isnan(user_left_elbow).any()
                 and not np.isnan(expert_right_shoulder).any()
                 and not np.isnan(expert_right_elbow).any()
                 and not np.isnan(expert_left_shoulder).any()
+                and not np.isnan(expert_left_elbow).any()
             ):
 
-                user_angle = calculate_angle(
-                    user_left_shoulder, user_right_shoulder, user_right_elbow
+                # CORREGIDO: Usar la nueva función de abducción lateral
+                user_right_angle = calculate_elbow_abduction_angle(
+                    user_right_shoulder, user_right_elbow
                 )
-                expert_angle = calculate_angle(
-                    expert_left_shoulder, expert_right_shoulder, expert_right_elbow
+                user_left_angle = calculate_elbow_abduction_angle(
+                    user_left_shoulder, user_left_elbow
+                )
+                expert_right_angle = calculate_elbow_abduction_angle(
+                    expert_right_shoulder, expert_right_elbow
+                )
+                expert_left_angle = calculate_elbow_abduction_angle(
+                    expert_left_shoulder, expert_left_elbow
                 )
 
-                user_abduction_angles.append(user_angle)
-                expert_abduction_angles.append(expert_angle)
-        except:
+                # Promedio de ambos codos
+                user_avg_angle = (user_right_angle + user_left_angle) / 2
+                expert_avg_angle = (expert_right_angle + expert_left_angle) / 2
+
+                user_abduction_angles.append(user_avg_angle)
+                expert_abduction_angles.append(expert_avg_angle)
+
+        except Exception as e:
+            logger.warning(f"Error calculando ángulos de abducción en frame {i}: {e}")
             pass
 
-    plt.plot(user_abduction_angles, label="Usuario", color="blue")
-    plt.plot(expert_abduction_angles, label="Experto", color="red")
+    # Plotear las señales si tenemos datos
+    if user_abduction_angles and expert_abduction_angles:
+        plt.plot(user_abduction_angles, label="Usuario", color="blue", linewidth=2)
+        plt.plot(expert_abduction_angles, label="Experto", color="red", linewidth=2)
 
-    plt.title(f"Abducción de Codos - {exercise_name}")
-    plt.xlabel("Frame")
-    plt.ylabel("Ángulo (grados)")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
+        plt.title(f"Abducción Lateral de Codos - {exercise_name}")
+        plt.xlabel("Frame")
+        plt.ylabel("Ángulo de Abducción Lateral (grados)")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
 
-    if output_dir:
-        path = os.path.join(output_dir, "abduccion_codos.png")
-        plt.savefig(path, dpi=100, bbox_inches="tight")
-        plt.close()
-        return path
+        # Añadir líneas de referencia para interpretación
+        plt.axhline(
+            y=30, color="green", linestyle="--", alpha=0.5, label="Muy abierto (30°)"
+        )
+        plt.axhline(
+            y=60, color="orange", linestyle="--", alpha=0.5, label="Moderado (60°)"
+        )
+        plt.axhline(
+            y=80, color="red", linestyle="--", alpha=0.5, label="Muy cerrado (80°)"
+        )
+
+        # Actualizar leyenda
+        plt.legend()
+
+        # Mostrar estadísticas en el gráfico
+        user_avg = np.mean(user_abduction_angles)
+        expert_avg = np.mean(expert_abduction_angles)
+        user_min = np.min(user_abduction_angles)
+        expert_min = np.min(expert_abduction_angles)
+
+        plt.text(
+            0.02,
+            0.98,
+            f"Usuario - Promedio: {user_avg:.1f}°, Mínimo: {user_min:.1f}°\n"
+            f"Experto - Promedio: {expert_avg:.1f}°, Mínimo: {expert_min:.1f}°\n"
+            f"Diferencia promedio: {user_avg - expert_avg:.1f}°",
+            transform=plt.gca().transAxes,
+            verticalalignment="top",
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+        )
+
+        if output_dir:
+            path = os.path.join(output_dir, "abduccion_lateral_codos.png")
+            plt.savefig(path, dpi=100, bbox_inches="tight")
+            plt.close()
+            return path
+    else:
+        logger.warning("No se pudieron calcular ángulos de abducción para el gráfico")
 
     plt.close()
     return None
