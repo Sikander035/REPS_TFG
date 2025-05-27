@@ -1,0 +1,129 @@
+{
+    "global_visualization": {
+        "user_color": [0, 255, 0],
+        "expert_color": [0, 0, 255],
+        "user_alpha": 0.7,
+        "expert_alpha": 0.9,
+        "user_thickness": 2,
+        "expert_thickness": 3,
+        "show_labels": false,
+        "show_progress": true,
+        "text_info": true,
+        "resize_factor": 1.0,
+        "highlight_landmarks": null
+    },
+    "global_connections": [
+        ["landmark_left_shoulder", "landmark_right_shoulder"],
+        ["landmark_left_shoulder", "landmark_left_hip"],
+        ["landmark_right_shoulder", "landmark_right_hip"],
+        ["landmark_left_hip", "landmark_right_hip"],
+        ["landmark_left_shoulder", "landmark_left_elbow"],
+        ["landmark_left_elbow", "landmark_left_wrist"],
+        ["landmark_right_shoulder", "landmark_right_elbow"],
+        ["landmark_right_elbow", "landmark_right_wrist"],
+        ["landmark_left_hip", "landmark_left_knee"],
+        ["landmark_right_hip", "landmark_right_knee"],
+        ["landmark_left_knee", "landmark_left_ankle"],
+        ["landmark_right_knee", "landmark_right_ankle"]
+    ],
+    "global_analysis_config": {
+        "min_elbow_angle": 45,
+        "max_elbow_angle": 175,
+        "rom_threshold": 0.85,
+        "bottom_diff_threshold": 0.2,
+        "abduction_angle_threshold": 15,
+        "symmetry_threshold": 0.15,
+        "lateral_dev_threshold": 0.2,
+        "frontal_dev_threshold": 0.15,
+        "velocity_ratio_threshold": 0.3,
+        "scapular_stability_threshold": 1.5
+    },
+    "scoring_weights": {
+        "rom_score": 0.20,
+        "abduction_score": 0.20,
+        "sym_score": 0.15,
+        "path_score": 0.20,
+        "speed_score": 0.15,
+        "scapular_score": 0.10
+    },
+    "skill_levels": {
+        "excelente": 90,
+        "muy_bueno": 80,
+        "bueno": 70,
+        "aceptable": 60,
+        "necesita_mejorar": 50
+    },
+    "press_militar": {
+        "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
+        "sync_config": {
+            "landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
+            "num_divisions": 7,
+            "interp_method": "linear",
+            "division_strategy": "height",
+            "matching_strategy": "first_only",
+            "adapt_direction": "expert_to_user",
+            "exercise_type": "press",
+            "phase_strategy": "auto",
+            "rep_prominence": 0.2,
+            "rep_smoothing_window": 11,
+            "rep_polyorder": 2,
+            "rep_positive_distance": 20,
+            "rep_negative_distance": 50,
+            "rep_peak_height_threshold": -0.8,
+            "division_landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
+            "division_axis": "y"
+        },
+        "analysis_config": {
+            "sensitivity_factors": {
+                "amplitud": 3.0,
+                "abduccion_codos": 3.0,
+                "simetria": 1.0,
+                "trayectoria": 1.5,
+                "velocidad": 1.0,
+                "estabilidad_escapular": 2.0
+            }
+        }
+    },
+    "press_banca": {
+        "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
+        "sync_config": {},
+        "analysis_config": {
+            "sensitivity_factors": {
+                "amplitud": 2.0,
+                "abduccion_codos": 2.0,
+                "simetria": 1.0,
+                "trayectoria": 1.0,
+                "velocidad": 1.0,
+                "estabilidad_escapular": 1.0
+            }
+        }
+    },
+    "sentadilla": {
+        "landmarks": [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28],
+        "sync_config": {},
+        "analysis_config": {
+            "sensitivity_factors": {
+                "amplitud": 1.5,
+                "abduccion_codos": 1.0,
+                "simetria": 2.0,
+                "trayectoria": 1.5,
+                "velocidad": 1.0,
+                "estabilidad_escapular": 1.0
+            }
+        }
+    },
+    "dominada": {
+        "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
+        "sync_config": {},
+        "analysis_config": {
+            "sensitivity_factors": {
+                "amplitud": 2.5,
+                "abduccion_codos": 2.0,
+                "simetria": 1.0,
+                "trayectoria": 1.0,
+                "velocidad": 1.5,
+                "estabilidad_escapular": 1.0
+            }
+        }
+    }
+}
