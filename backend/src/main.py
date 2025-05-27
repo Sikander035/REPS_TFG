@@ -465,6 +465,9 @@ def process_exercise(
     logger.info(
         f"Procesamiento completado en {total_time:.2f} segundos usando singleton correctamente"
     )
+
+    config_manager.clear_cache()
+
     return results
 
 

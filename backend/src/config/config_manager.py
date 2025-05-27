@@ -131,7 +131,7 @@ class ConfigManager:
     def get_exercise_config(self, exercise_name, config_path):
         """
         Obtiene la configuración de un ejercicio específico.
-        La carga solo una vez y la mantiene en memoria.
+        CORREGIDO: Incluye TODOS los campos del ejercicio, no solo landmarks y sync_config.
 
         Args:
             exercise_name: Nombre del ejercicio
@@ -167,10 +167,37 @@ class ConfigManager:
                 f"Ejercicio '{exercise_name}' no encontrado. Ejercicios disponibles: {available}"
             )
 
-        # Obtener y procesar la configuración del ejercicio
+        # Obtener la configuración completa del ejercicio
         exercise_config = config_data[exercise_name]
 
-        # Verificar campos obligatorios
+        # CORREGIDO: Validar campos obligatorios básicos
+        self._validate_basic_exercise_config(exercise_config, exercise_name)
+
+        # CORREGIDO: Validar analysis_config si existe
+        if "analysis_config" in exercise_config:
+            self._validate_analysis_config(
+                exercise_config["analysis_config"], exercise_name
+            )
+
+        # CORREGIDO: Retornar TODA la configuración del ejercicio, no solo campos específicos
+        result = exercise_config.copy()  # Copia completa de todos los campos
+
+        # Guardar en atributos internos y retornar
+        self._exercise_configs[config_key] = result
+        return result
+
+    def _validate_basic_exercise_config(self, exercise_config, exercise_name):
+        """
+        Valida que la configuración básica del ejercicio sea correcta.
+
+        Args:
+            exercise_config: Configuración del ejercicio
+            exercise_name: Nombre del ejercicio para mensajes de error
+
+        Raises:
+            ValueError: Si faltan campos obligatorios
+        """
+        # Verificar campos obligatorios básicos
         if "landmarks" not in exercise_config:
             raise ValueError(
                 f"Configuración de '{exercise_name}' no contiene landmarks"
@@ -181,9 +208,22 @@ class ConfigManager:
                 f"Configuración de '{exercise_name}' no contiene sync_config"
             )
 
-        # Verificar campos en sync_config
+        # Verificar que landmarks es una lista no vacía
+        landmarks = exercise_config["landmarks"]
+        if not isinstance(landmarks, list) or len(landmarks) == 0:
+            raise ValueError(
+                f"Configuración de '{exercise_name}': landmarks debe ser una lista no vacía"
+            )
+
+        # Verificar que sync_config es un diccionario
         sync_config = exercise_config["sync_config"]
-        required_fields = [
+        if not isinstance(sync_config, dict):
+            raise ValueError(
+                f"Configuración de '{exercise_name}': sync_config debe ser un diccionario"
+            )
+
+        # Verificar campos obligatorios en sync_config
+        required_sync_fields = [
             "landmarks",
             "num_divisions",
             "interp_method",
@@ -196,22 +236,86 @@ class ConfigManager:
             "adapt_direction",
         ]
 
-        missing_fields = [f for f in required_fields if f not in sync_config]
+        missing_fields = [f for f in required_sync_fields if f not in sync_config]
         if missing_fields:
             raise ValueError(
                 f"Configuración de '{exercise_name}' incompleta. "
-                f"Faltan campos: {', '.join(missing_fields)}"
+                f"Faltan campos en sync_config: {', '.join(missing_fields)}"
             )
 
-        # Crear resultado final
-        result = {
-            "landmarks": exercise_config["landmarks"],
-            "sync_config": exercise_config["sync_config"],
-        }
+        logger.debug(
+            f"Configuración básica de '{exercise_name}' validada correctamente"
+        )
 
-        # Guardar en atributos internos y retornar
-        self._exercise_configs[config_key] = result
-        return result
+    def _validate_analysis_config(self, analysis_config, exercise_name):
+        """
+        Valida que analysis_config tenga la estructura correcta.
+
+        Args:
+            analysis_config: Configuración de análisis
+            exercise_name: Nombre del ejercicio para mensajes de error
+
+        Raises:
+            ValueError: Si analysis_config tiene estructura incorrecta
+        """
+        if not isinstance(analysis_config, dict):
+            raise ValueError(
+                f"Configuración de '{exercise_name}': analysis_config debe ser un diccionario"
+            )
+
+        # Verificar sensitivity_factors si existe
+        if "sensitivity_factors" in analysis_config:
+            sensitivity_factors = analysis_config["sensitivity_factors"]
+
+            if not isinstance(sensitivity_factors, dict):
+                raise ValueError(
+                    f"Configuración de '{exercise_name}': sensitivity_factors debe ser un diccionario"
+                )
+
+            # Verificar que los valores sean numéricos
+            for factor_name, factor_value in sensitivity_factors.items():
+                if not isinstance(factor_value, (int, float)):
+                    raise ValueError(
+                        f"Configuración de '{exercise_name}': sensitivity_factors['{factor_name}'] "
+                        f"debe ser numérico, recibido: {type(factor_value)}"
+                    )
+
+                if factor_value <= 0:
+                    raise ValueError(
+                        f"Configuración de '{exercise_name}': sensitivity_factors['{factor_name}'] "
+                        f"debe ser positivo, recibido: {factor_value}"
+                    )
+
+            logger.debug(
+                f"sensitivity_factors de '{exercise_name}' validado: {len(sensitivity_factors)} factores"
+            )
+
+        # Verificar otros campos de análisis si existen
+        valid_analysis_fields = [
+            "sensitivity_factors",
+            "min_elbow_angle",
+            "max_elbow_angle",
+            "rom_threshold",
+            "bottom_diff_threshold",
+            "abduction_angle_threshold",
+            "symmetry_threshold",
+            "lateral_dev_threshold",
+            "frontal_dev_threshold",
+            "velocity_ratio_threshold",
+            "scapular_stability_threshold",
+            "scoring_weights",
+        ]
+
+        # Advertir sobre campos desconocidos (no es error, solo advertencia)
+        unknown_fields = [
+            f for f in analysis_config.keys() if f not in valid_analysis_fields
+        ]
+        if unknown_fields:
+            logger.warning(
+                f"Configuración de '{exercise_name}': campos desconocidos en analysis_config: {unknown_fields}"
+            )
+
+        logger.debug(f"analysis_config de '{exercise_name}' validado correctamente")
 
     def get_landmark_mapping(self):
         """Devuelve el mapeo de landmarks."""

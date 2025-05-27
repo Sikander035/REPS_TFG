@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 # ÚNICO CAMBIO: Importar de analysis_utils en lugar de duplicar la función
 from src.utils.analysis_utils import (
-    get_exercise_config,  # RESTAURADO: Usar la función original
+    get_exercise_config,
     calculate_elbow_abduction_angle,
     calculate_overall_score,
     determine_skill_level,

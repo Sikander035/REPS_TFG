@@ -184,7 +184,7 @@ def calculate_individual_scores(all_metrics, exercise_config):
     # Abducción de codos (0-100)
     try:
         abduction_diff = abs(all_metrics["abduccion_codos"]["diferencia_abduccion"])
-        abduction_score_base = max(0, 100 - 3 * abduction_diff)
+        abduction_score_base = max(0, 100 - 1.5 * abduction_diff)
         abduction_score = apply_sensitivity_to_score(
             abduction_score_base, sensitivity_factors.get("abduccion_codos", 1.0)
         )

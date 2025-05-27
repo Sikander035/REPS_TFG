@@ -10,7 +10,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 # ÚNICO CAMBIO: Importar de analysis_utils en lugar de usar función duplicada
 from src.utils.analysis_utils import (
-    get_exercise_config,  # RESTAURADO: Usar la función original
     calculate_elbow_abduction_angle,
     calculate_individual_scores,
     generate_recommendations,
@@ -387,18 +386,113 @@ def _create_velocity_chart(user_data, expert_data, exercise_name, output_dir):
     return None
 
 
+def _create_radar_chart(analysis_results, exercise_name, output_dir):
+    """Crea gráfico de radar CORREGIDO."""
+    try:
+        plt.figure(figsize=(10, 8))
+
+        # CORREGIDO: Definir 6 categorías exactas
+        categories_radar = [
+            "Amplitud",
+            "Abducción\nCodos",
+            "Simetría",
+            "Trayectoria",
+            "Velocidad",
+            "Estabilidad\nEscapular",
+        ]
+
+        scores = calculate_individual_scores(
+            analysis_results["metrics"], analysis_results["exercise_config"]
+        )
+
+        # CORREGIDO: Extraer exactamente 6 scores normalizados
+        scores_normalized = [
+            scores["rom_score"] / 100,
+            scores["abduction_score"] / 100,
+            scores["sym_score"] / 100,
+            scores["path_score"] / 100,
+            scores["speed_score"] / 100,
+            scores["scapular_score"] / 100,
+        ]
+
+        # DEBUG: Imprimir valores para verificación
+        logger.info("=== DEBUG RADAR CHART ===")
+        for i, (cat, score_norm, score_raw) in enumerate(
+            zip(
+                categories_radar,
+                scores_normalized,
+                [
+                    scores["rom_score"],
+                    scores["abduction_score"],
+                    scores["sym_score"],
+                    scores["path_score"],
+                    scores["speed_score"],
+                    scores["scapular_score"],
+                ],
+            )
+        ):
+            logger.info(
+                f"{i}: {cat.replace(chr(10), ' ')} = {score_raw:.1f} ({score_norm:.3f})"
+            )
+
+        # CORREGIDO: Calcular ángulos ANTES de cerrar el polígono
+        # Crear exactamente 6 ángulos para 6 categorías
+        angles = np.linspace(
+            0, 2 * np.pi, len(categories_radar), endpoint=False
+        ).tolist()
+
+        # DEBUG: Verificar ángulos
+        logger.info(f"Ángulos (grados): {[f'{np.degrees(a):.1f}°' for a in angles]}")
+
+        # CORREGIDO: Ahora sí, cerrar el polígono duplicando el primer elemento
+        scores_normalized = np.concatenate((scores_normalized, [scores_normalized[0]]))
+        angles = angles + [angles[0]]  # Duplicar solo el primer ángulo
+
+        # Crear gráfico de radar
+        ax = plt.subplot(111, polar=True)
+        ax.fill(angles, scores_normalized, color="blue", alpha=0.25)
+        ax.plot(angles, scores_normalized, color="blue", linewidth=2)
+
+        # CORREGIDO: Usar ángulos originales (sin duplicado) para las etiquetas
+        original_angles = np.linspace(
+            0, 2 * np.pi, len(categories_radar), endpoint=False
+        ).tolist()
+        ax.set_xticks(original_angles)
+        ax.set_xticklabels(categories_radar)
+
+        # Configurar escala radial
+        ax.set_ylim(0, 1)
+        ax.set_yticks([0.25, 0.5, 0.75, 1.0])
+        ax.set_yticklabels(["25", "50", "75", "100"])
+
+        plt.title(f"Análisis de Técnica - {exercise_name}", size=15, y=1.1)
+
+        if output_dir:
+            path = os.path.join(output_dir, "analisis_radar.png")
+            plt.savefig(path, dpi=100, bbox_inches="tight")
+            plt.close()
+            return path
+
+        plt.close()
+        return None
+
+    except Exception as e:
+        logger.warning(f"Error al crear gráfico de radar: {e}")
+        return None
+
+
 def _create_scores_chart(analysis_results, exercise_name, output_dir):
-    """Crea gráfico de puntuaciones por categoría ACTUALIZADO."""
+    """Crea gráfico de puntuaciones por categoría CORREGIDO."""
     plt.figure(figsize=(10, 6))
 
-    # ACTUALIZADO: Nuevas categorías
+    # CORREGIDO: Usar exactamente las mismas 6 categorías que el radar
     categories = [
         "Amplitud",
-        "Abducción\nCodos",  # CAMBIADO
+        "Abducción\nCodos",
         "Simetría",
         "Trayectoria",
         "Velocidad",
-        "Estabilidad\nEscapular",  # NUEVO
+        "Estabilidad\nEscapular",
         "Global",
     ]
 
@@ -406,18 +500,23 @@ def _create_scores_chart(analysis_results, exercise_name, output_dir):
         analysis_results["metrics"], analysis_results["exercise_config"]
     )
 
-    # ACTUALIZADO: Nuevos nombres de scores
+    # CORREGIDO: Usar exactamente los mismos scores que el radar + global
     scores_list = [
         scores["rom_score"],
-        scores["abduction_score"],  # CAMBIADO de angle_score
+        scores["abduction_score"],
         scores["sym_score"],
         scores["path_score"],
         scores["speed_score"],
-        scores["scapular_score"],  # NUEVO
+        scores["scapular_score"],
         analysis_results["score"],
     ]
 
-    # Colores según puntuación - VALORES ORIGINALES
+    # DEBUG: Imprimir valores para verificación
+    logger.info("=== DEBUG SCORES CHART ===")
+    for cat, score in zip(categories, scores_list):
+        logger.info(f"{cat.replace(chr(10), ' ')}: {score:.1f}")
+
+    # Colores según puntuación
     colors = []
     for score in scores_list:
         if score >= 90:
@@ -459,71 +558,6 @@ def _create_scores_chart(analysis_results, exercise_name, output_dir):
 
     plt.close()
     return None
-
-
-def _create_radar_chart(analysis_results, exercise_name, output_dir):
-    """Crea gráfico de radar ACTUALIZADO."""
-    try:
-        plt.figure(figsize=(10, 8))
-
-        # ACTUALIZADO: Nuevas categorías
-        categories_radar = [
-            "Amplitud",
-            "Abducción\nCodos",  # CAMBIADO
-            "Simetría",
-            "Trayectoria",
-            "Velocidad",
-            "Estabilidad\nEscapular",  # NUEVO
-        ]
-
-        scores = calculate_individual_scores(
-            analysis_results["metrics"], analysis_results["exercise_config"]
-        )
-
-        # ACTUALIZADO: Nuevos nombres de scores
-        scores_normalized = [
-            scores["rom_score"] / 100,
-            scores["abduction_score"] / 100,  # CAMBIADO
-            scores["sym_score"] / 100,
-            scores["path_score"] / 100,
-            scores["speed_score"] / 100,
-            scores["scapular_score"] / 100,  # NUEVO
-        ]
-
-        # Cerrar el polígono
-        scores_normalized = np.concatenate((scores_normalized, [scores_normalized[0]]))
-        categories_radar = np.concatenate((categories_radar, [categories_radar[0]]))
-
-        # Ángulos para cada categoría
-        angles = np.linspace(
-            0, 2 * np.pi, len(categories_radar), endpoint=False
-        ).tolist()
-
-        # Crear gráfico de radar
-        ax = plt.subplot(111, polar=True)
-        ax.fill(angles, scores_normalized, color="blue", alpha=0.25)
-        ax.plot(angles, scores_normalized, color="blue", linewidth=2)
-
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(categories_radar[:-1])
-        ax.set_ylim(0, 1)
-        ax.set_yticks([0.25, 0.5, 0.75, 1.0])
-        ax.set_yticklabels(["25", "50", "75", "100"])
-
-        plt.title(f"Análisis de Técnica - {exercise_name}", size=15, y=1.1)
-
-        if output_dir:
-            path = os.path.join(output_dir, "analisis_radar.png")
-            plt.savefig(path, dpi=100, bbox_inches="tight")
-            plt.close()
-            return path
-
-        plt.close()
-        return None
-
-    except Exception as e:
-        logger.warning(f"Error al crear gráfico de radar: {e}")
-        return None
 
 
 def _create_summary_chart(analysis_results, exercise_name, output_dir):
