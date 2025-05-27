@@ -53,6 +53,15 @@ try:
     )
     from src.feedback.analysis_graphics import visualize_analysis_results
 
+    # NUEVO: Importar módulo de feedback personalizado
+    from src.feedback.analysis_llm import (
+        generate_trainer_feedback,
+        TrainerFeedbackGenerator,
+    )
+
+    TRAINER_FEEDBACK_AVAILABLE = True
+    logger.info("Módulo de feedback con DeepSeek V3 cargado correctamente")
+
     # CORREGIDO: Cargar configuración usando el singleton una sola vez al inicio
     config_manager.load_config_file(CONFIG_PATH)
     logger.info("Configuración cargada usando config_manager singleton")
@@ -60,6 +69,7 @@ try:
 except ImportError as e:
     logger.warning(f"No se encontraron todos los módulos necesarios: {e}")
     logger.warning("El procesamiento puede fallar")
+    TRAINER_FEEDBACK_AVAILABLE = False
 
 
 def ensure_dir_exists(path):
@@ -79,8 +89,10 @@ def process_exercise(
     skip_normalization=False,
     skip_visualization=False,
     skip_analysis=False,
+    skip_trainer_feedback=False,  # NUEVO PARÁMETRO
     diagnostics=False,
     model_path=None,
+    deepseek_api_key=None,  # NUEVO PARÁMETRO
 ):
     start_time = time.time()
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -453,6 +465,80 @@ def process_exercise(
 
             logger.error(traceback.format_exc())
 
+    # 8. GENERACIÓN DE FEEDBACK PERSONALIZADO (NUEVO PASO)
+    if not skip_trainer_feedback and TRAINER_FEEDBACK_AVAILABLE:
+        logger.info("8. FASE DE GENERACIÓN DE FEEDBACK PERSONALIZADO")
+        try:
+            # CORREGIDO: Rutas basadas en la estructura real del proyecto
+            analysis_dir = os.path.join(output_dir, f"{exercise_name}_analysis")
+            report_path = os.path.join(analysis_dir, f"{exercise_name}_informe.json")
+
+            logger.info(f"Buscando informe en: {report_path}")
+
+            if os.path.exists(report_path):
+                # Generar feedback usando DeepSeek V3
+                feedback_path = os.path.join(
+                    analysis_dir, f"{exercise_name}_feedback_personalizado.txt"
+                )
+
+                logger.info("Generando feedback personalizado con DeepSeek V3...")
+
+                # Usar API key hardcodeada
+                feedback = generate_trainer_feedback(
+                    informe_path=report_path,
+                    output_path=feedback_path,
+                    api_key=deepseek_api_key,
+                )
+
+                # Añadir resultado al diccionario de resultados
+                if "analysis" not in results["output"]:
+                    results["output"]["analysis"] = {}
+
+                results["output"]["analysis"]["trainer_feedback"] = feedback_path
+                results["output"]["analysis"]["feedback_preview"] = (
+                    feedback[:200] + "..." if len(feedback) > 200 else feedback
+                )
+
+                logger.info(f"Feedback personalizado generado: {feedback_path}")
+
+                # Mostrar preview del feedback en los logs
+                logger.info("=== PREVIEW DEL FEEDBACK ===")
+                lines = feedback.split("\n")[:5]  # Primeras 5 líneas
+                for line in lines:
+                    if line.strip():
+                        logger.info(f"  {line.strip()}")
+                logger.info("=== FIN PREVIEW ===")
+
+                # MOSTRAR EL FEEDBACK COMPLETO AL FINAL
+                print("\n" + "=" * 60)
+                print("🤖 FEEDBACK DEL ENTRENADOR PERSONAL")
+                print("=" * 60)
+                print(feedback)
+                print("=" * 60 + "\n")
+
+            else:
+                logger.warning(
+                    f"No se encontró informe de análisis en {report_path}. Saltando generación de feedback."
+                )
+                logger.info("Estructura de directorios:")
+                if os.path.exists(output_dir):
+                    for item in os.listdir(output_dir):
+                        logger.info(f"  - {item}")
+                else:
+                    logger.warning(f"Directorio de salida no existe: {output_dir}")
+
+        except Exception as e:
+            logger.error(f"Error en generación de feedback personalizado: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
+    elif skip_trainer_feedback:
+        logger.info("Omitiendo generación de feedback personalizado según parámetros.")
+    else:
+        logger.warning(
+            "Módulo de trainer feedback no disponible. Instala las dependencias necesarias."
+        )
+
     # Información final sobre configuración
     total_time = time.time() - start_time
     results["processing_info"] = {
@@ -504,6 +590,9 @@ def main():
     except Exception as e:
         print(f"DEBUG: Error verificando singleton: {e}")
 
+    # CONFIGURACIÓN DE DEEPSEEK API KEY HARDCODEADA
+    deepseek_api_key = "CLAVE"  # CAMBIAR POR TU API KEY REAL
+
     results = process_exercise(
         exercise_name=exercise_name,
         videos_dir=VIDEOS_DIR,
@@ -516,7 +605,9 @@ def main():
         skip_normalization=False,
         skip_visualization=True,  # Cambiar a False si quieres generar videos
         skip_analysis=False,
+        skip_trainer_feedback=False,  # NUEVO: Cambiar a True para desactivar feedback
         model_path=MODEL_PATH,
+        deepseek_api_key=deepseek_api_key,  # NUEVO PARÁMETRO
     )
 
     if results:
@@ -527,6 +618,15 @@ def main():
         logger.info(
             f"Información de procesamiento: {results.get('processing_info', {})}"
         )
+
+        # NUEVO: Mostrar información del feedback si está disponible
+        if (
+            "analysis" in results["output"]
+            and "trainer_feedback" in results["output"]["analysis"]
+        ):
+            feedback_path = results["output"]["analysis"]["trainer_feedback"]
+            logger.info(f"Feedback personalizado generado en: {feedback_path}")
+
         logger.info(f"Todos los resultados están disponibles en: {OUTPUT_DIR}")
     else:
         logger.error("Error en el procesamiento del ejercicio.")

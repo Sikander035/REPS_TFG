@@ -78,9 +78,9 @@
                 "amplitud": 3.0,
                 "abduccion_codos": 3.0,
                 "simetria": 1.0,
-                "trayectoria": 1.0,
+                "trayectoria": 1.5,
                 "velocidad": 1.0,
-                "estabilidad_escapular": 1.0
+                "estabilidad_escapular": 2.0
             }
         }
     },
