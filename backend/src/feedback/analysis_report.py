@@ -880,8 +880,8 @@ def run_exercise_analysis(
         **scapular_result["feedback"],
     }
 
-    # Calcular puntuación global y nivel
-    overall_score = calculate_overall_score(all_metrics, exercise_config)
+    # *** ÚNICO CAMBIO IMPORTANTE: Pasar feedback al scoring ***
+    overall_score = calculate_overall_score(all_metrics, exercise_config, all_feedback)
     skill_level = determine_skill_level(overall_score, exercise_config)
 
     logger.info(
@@ -912,7 +912,7 @@ def generate_analysis_report(analysis_results, exercise_name, output_path=None):
             analysis_results["feedback"], analysis_results["score"]
         ),
         "sensitivity_factors": analysis_results.get("sensitivity_factors", {}),
-        "version_analisis": "singleton_config_from_file_v1.0",
+        "version_analisis": "unified_feedback_scoring_v1.0",  # Actualizado
     }
 
     # Identificar áreas de mejora y puntos fuertes

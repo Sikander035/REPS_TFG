@@ -3,6 +3,7 @@ import numpy as np
 import logging
 import sys
 import os
+import re
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.config.config_manager import config_manager
@@ -166,86 +167,201 @@ def apply_sensitivity_to_threshold(threshold, sensitivity_factor):
     return threshold / sensitivity_factor
 
 
-def calculate_individual_scores(all_metrics, exercise_config):
-    """Calcula puntuaciones individuales para cada categoría."""
-    sensitivity_factors = exercise_config.get("sensitivity_factors", {})
+def feedback_to_score(feedback_text, base_score=75):
+    """
+    NUEVA FUNCIÓN: Convierte el feedback complejo en score consistente.
+    Analiza las palabras clave del feedback para determinar el score.
+    """
+    if not feedback_text or not isinstance(feedback_text, str):
+        return base_score
 
-    # Amplitud (0-100)
-    rom_ratio = all_metrics["amplitud"]["rom_ratio"]
-    rom_score_base = (
-        min(100, 100 * rom_ratio)
-        if rom_ratio <= 1
-        else max(0, 100 - 50 * (rom_ratio - 1))
-    )
-    rom_score = apply_sensitivity_to_score(
-        rom_score_base, sensitivity_factors.get("amplitud", 1.0)
-    )
+    feedback_lower = feedback_text.lower()
 
-    # Abducción de codos (0-100)
-    try:
-        abduction_diff = abs(all_metrics["abduccion_codos"]["diferencia_abduccion"])
-        abduction_score_base = max(0, 100 - 1.5 * abduction_diff)
-        abduction_score = apply_sensitivity_to_score(
-            abduction_score_base, sensitivity_factors.get("abduccion_codos", 1.0)
-        )
-    except (KeyError, TypeError):
-        abduction_score = 50
+    # Categoría EXCELENTE (90-100)
+    excellent_keywords = ["excelente", "buena", "buen "]
+    if any(keyword in feedback_lower for keyword in excellent_keywords):
+        return np.random.uniform(90, 100)
 
-    # Simetría (0-100)
-    try:
-        sym_score_base = max(
-            0, 100 - 300 * all_metrics["simetria"]["diferencia_normalizada"]
-        )
-        sym_score = apply_sensitivity_to_score(
-            sym_score_base, sensitivity_factors.get("simetria", 1.0)
-        )
-    except (KeyError, TypeError):
-        sym_score = 50
+    # Categoría CRÍTICA (10-30) - problemas graves
+    critical_keywords = [
+        "excesivamente",
+        "significativamente",
+        "es crítico",
+        "es importante",
+        "muy notable",
+    ]
+    if any(keyword in feedback_lower for keyword in critical_keywords):
+        return np.random.uniform(10, 30)
 
-    # Trayectoria (0-100)
-    try:
-        lateral_ratio = all_metrics["trayectoria"].get("ratio_desviacion_lateral", 1.0)
-        frontal_ratio = all_metrics["trayectoria"].get("ratio_desviacion_frontal", 1.0)
-        worst_ratio = max(lateral_ratio, frontal_ratio)
+    # Categoría PROBLEMÁTICA (30-50) - problemas moderados
+    problematic_keywords = [
+        "demasiado",
+        "notable",
+        "inestabilidad",
+        "asimetría notable",
+    ]
+    if any(keyword in feedback_lower for keyword in problematic_keywords):
+        return np.random.uniform(30, 50)
 
-        path_score_base = (
-            max(0, 100 - 50 * (worst_ratio - 1)) if worst_ratio >= 1 else 100
-        )
-        path_score = apply_sensitivity_to_score(
-            path_score_base, sensitivity_factors.get("trayectoria", 1.0)
-        )
-    except (KeyError, TypeError):
-        path_score = 50
+    # Categoría MEJORABLE (50-70) - problemas leves
+    minor_keywords = [
+        "cierta",
+        "ligeramente",
+        "se detecta",
+        "intenta",
+        "puede mejorarse",
+    ]
+    if any(keyword in feedback_lower for keyword in minor_keywords):
+        return np.random.uniform(50, 70)
 
-    # Velocidad (0-100)
-    try:
-        speed_concentric = 100 - 100 * abs(1 - all_metrics["velocidad"]["ratio_subida"])
-        speed_eccentric = 100 - 100 * abs(1 - all_metrics["velocidad"]["ratio_bajada"])
-        speed_score_base = (speed_concentric + speed_eccentric) / 2
-        speed_score = apply_sensitivity_to_score(
-            speed_score_base, sensitivity_factors.get("velocidad", 1.0)
-        )
-    except (KeyError, TypeError):
-        speed_score = 50
+    # Categoría BUENA (70-85) - feedback neutro o levemente positivo
+    good_keywords = ["controla", "mantén", "practica"]
+    if any(keyword in feedback_lower for keyword in good_keywords):
+        return np.random.uniform(70, 85)
 
-    # Estabilidad escapular (0-100)
-    try:
-        movement_ratio = all_metrics["estabilidad_escapular"]["ratio_movimiento"]
-        asymmetry_ratio = all_metrics["estabilidad_escapular"]["ratio_asimetria"]
+    # Default: asumir que es aceptable
+    return np.random.uniform(60, 75)
 
-        movement_penalty = (
-            max(0, (movement_ratio - 1.5) * 40) if movement_ratio > 1.5 else 0
-        )
-        asymmetry_penalty = (
-            max(0, (asymmetry_ratio - 1.5) * 40) if asymmetry_ratio > 1.5 else 0
+
+def calculate_individual_scores(all_metrics, exercise_config, all_feedback=None):
+    """
+    MODIFICADO: Calcula puntuaciones individuales usando feedback como base.
+    Si no hay feedback, usa las fórmulas matemáticas originales como fallback.
+    """
+    if all_feedback is not None:
+        # NUEVO: Usar feedback como base para scoring
+        logger.info("Calculando scores basados en feedback (método unificado)")
+
+        # Mapear feedback a scores usando la nueva función
+        rom_score = feedback_to_score(all_feedback.get("amplitud", ""), 75)
+        abduction_score = feedback_to_score(all_feedback.get("abduccion_codos", ""), 75)
+        sym_score = feedback_to_score(all_feedback.get("simetria", ""), 75)
+
+        # Para trayectoria, combinar feedback lateral y frontal si existen
+        traj_feedback = all_feedback.get("trayectoria", "")
+        if not traj_feedback:
+            # Combinar feedback lateral y frontal
+            lateral_fb = all_feedback.get("trayectoria_lateral", "")
+            frontal_fb = all_feedback.get("trayectoria_frontal", "")
+            if lateral_fb or frontal_fb:
+                # Usar el peor de los dos
+                lateral_score = feedback_to_score(lateral_fb, 75)
+                frontal_score = feedback_to_score(frontal_fb, 75)
+                path_score = min(lateral_score, frontal_score)
+            else:
+                path_score = 75
+        else:
+            path_score = feedback_to_score(traj_feedback, 75)
+
+        # Para velocidad, combinar feedback de subida y bajada
+        speed_subida = all_feedback.get("velocidad_subida", "")
+        speed_bajada = all_feedback.get("velocidad_bajada", "")
+        if speed_subida or speed_bajada:
+            subida_score = feedback_to_score(speed_subida, 75)
+            bajada_score = feedback_to_score(speed_bajada, 75)
+            speed_score = (subida_score + bajada_score) / 2
+        else:
+            speed_score = feedback_to_score(all_feedback.get("velocidad", ""), 75)
+
+        scapular_score = feedback_to_score(
+            all_feedback.get("estabilidad_escapular", ""), 75
         )
 
-        scapular_score_base = max(0, 100 - movement_penalty - asymmetry_penalty)
-        scapular_score = apply_sensitivity_to_score(
-            scapular_score_base, sensitivity_factors.get("estabilidad_escapular", 1.0)
+        logger.info(
+            f"Scores desde feedback - ROM: {rom_score:.1f}, Abd: {abduction_score:.1f}, "
+            f"Sim: {sym_score:.1f}, Traj: {path_score:.1f}, Vel: {speed_score:.1f}, Esc: {scapular_score:.1f}"
         )
-    except (KeyError, TypeError):
-        scapular_score = 50
+
+    else:
+        # FALLBACK: Usar fórmulas matemáticas originales si no hay feedback
+        logger.info("Calculando scores con fórmulas matemáticas (método fallback)")
+        sensitivity_factors = exercise_config.get("sensitivity_factors", {})
+
+        # Amplitud (0-100)
+        rom_ratio = all_metrics["amplitud"]["rom_ratio"]
+        rom_score_base = (
+            min(100, 100 * rom_ratio)
+            if rom_ratio <= 1
+            else max(0, 100 - 50 * (rom_ratio - 1))
+        )
+        rom_score = apply_sensitivity_to_score(
+            rom_score_base, sensitivity_factors.get("amplitud", 1.0)
+        )
+
+        # Abducción de codos (0-100)
+        try:
+            abduction_diff = abs(all_metrics["abduccion_codos"]["diferencia_abduccion"])
+            abduction_score_base = max(0, 100 - 1.5 * abduction_diff)
+            abduction_score = apply_sensitivity_to_score(
+                abduction_score_base, sensitivity_factors.get("abduccion_codos", 1.0)
+            )
+        except (KeyError, TypeError):
+            abduction_score = 50
+
+        # Simetría (0-100)
+        try:
+            sym_score_base = max(
+                0, 100 - 300 * all_metrics["simetria"]["diferencia_normalizada"]
+            )
+            sym_score = apply_sensitivity_to_score(
+                sym_score_base, sensitivity_factors.get("simetria", 1.0)
+            )
+        except (KeyError, TypeError):
+            sym_score = 50
+
+        # Trayectoria (0-100)
+        try:
+            lateral_ratio = all_metrics["trayectoria"].get(
+                "ratio_desviacion_lateral", 1.0
+            )
+            frontal_ratio = all_metrics["trayectoria"].get(
+                "ratio_desviacion_frontal", 1.0
+            )
+            worst_ratio = max(lateral_ratio, frontal_ratio)
+
+            path_score_base = (
+                max(0, 100 - 50 * (worst_ratio - 1)) if worst_ratio >= 1 else 100
+            )
+            path_score = apply_sensitivity_to_score(
+                path_score_base, sensitivity_factors.get("trayectoria", 1.0)
+            )
+        except (KeyError, TypeError):
+            path_score = 50
+
+        # Velocidad (0-100)
+        try:
+            speed_concentric = 100 - 100 * abs(
+                1 - all_metrics["velocidad"]["ratio_subida"]
+            )
+            speed_eccentric = 100 - 100 * abs(
+                1 - all_metrics["velocidad"]["ratio_bajada"]
+            )
+            speed_score_base = (speed_concentric + speed_eccentric) / 2
+            speed_score = apply_sensitivity_to_score(
+                speed_score_base, sensitivity_factors.get("velocidad", 1.0)
+            )
+        except (KeyError, TypeError):
+            speed_score = 50
+
+        # Estabilidad escapular (0-100)
+        try:
+            movement_ratio = all_metrics["estabilidad_escapular"]["ratio_movimiento"]
+            asymmetry_ratio = all_metrics["estabilidad_escapular"]["ratio_asimetria"]
+
+            movement_penalty = (
+                max(0, (movement_ratio - 1.5) * 40) if movement_ratio > 1.5 else 0
+            )
+            asymmetry_penalty = (
+                max(0, (asymmetry_ratio - 1.5) * 40) if asymmetry_ratio > 1.5 else 0
+            )
+
+            scapular_score_base = max(0, 100 - movement_penalty - asymmetry_penalty)
+            scapular_score = apply_sensitivity_to_score(
+                scapular_score_base,
+                sensitivity_factors.get("estabilidad_escapular", 1.0),
+            )
+        except (KeyError, TypeError):
+            scapular_score = 50
 
     return {
         "rom_score": rom_score,
@@ -257,9 +373,12 @@ def calculate_individual_scores(all_metrics, exercise_config):
     }
 
 
-def calculate_overall_score(all_metrics, exercise_config):
-    """Calcula puntuación global basada en métricas individuales."""
-    scores = calculate_individual_scores(all_metrics, exercise_config)
+def calculate_overall_score(all_metrics, exercise_config, all_feedback=None):
+    """
+    MODIFICADO: Calcula puntuación global basada en métricas individuales.
+    Ahora acepta feedback opcional para usar método unificado.
+    """
+    scores = calculate_individual_scores(all_metrics, exercise_config, all_feedback)
 
     # Pesos - USANDO CONFIGURACIÓN O VALORES ORIGINALES
     weights = exercise_config.get(
@@ -275,6 +394,8 @@ def calculate_overall_score(all_metrics, exercise_config):
     )
 
     weighted_score = sum(scores[key] * weights[key] for key in weights.keys())
+
+    logger.info(f"Score global calculado: {weighted_score:.1f}")
     return weighted_score
 
 
