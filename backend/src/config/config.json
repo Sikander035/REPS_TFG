@@ -82,11 +82,36 @@
                 "velocidad": 1.0,
                 "estabilidad_escapular": 1.0
             }
+        },
+        "scoring_weights": {
+            "rom_score": 0.20,
+            "abduction_score": 0.20,
+            "sym_score": 0.15,
+            "path_score": 0.20,
+            "speed_score": 0.15,
+            "scapular_score": 0.10
         }
     },
     "press_banca": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
-        "sync_config": {},
+        "sync_config": {
+            "landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
+            "num_divisions": 7,
+            "interp_method": "linear",
+            "division_strategy": "height",
+            "matching_strategy": "first_only",
+            "adapt_direction": "expert_to_user",
+            "exercise_type": "press",
+            "phase_strategy": "auto",
+            "rep_prominence": 0.2,
+            "rep_smoothing_window": 11,
+            "rep_polyorder": 2,
+            "rep_positive_distance": 20,
+            "rep_negative_distance": 50,
+            "rep_peak_height_threshold": -0.8,
+            "division_landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
+            "division_axis": "y"
+        },
         "analysis_config": {
             "sensitivity_factors": {
                 "amplitud": 1.0,
@@ -96,34 +121,92 @@
                 "velocidad": 1.0,
                 "estabilidad_escapular": 1.0
             }
+        },
+        "scoring_weights": {
+            "rom_score": 0.20,
+            "abduction_score": 0.20,
+            "sym_score": 0.15,
+            "path_score": 0.20,
+            "speed_score": 0.15,
+            "scapular_score": 0.10
         }
     },
     "sentadilla": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28],
-        "sync_config": {},
+        "sync_config": {
+            "landmarks": ["landmark_right_hip", "landmark_left_hip"],
+            "num_divisions": 7,
+            "interp_method": "linear",
+            "division_strategy": "height",
+            "matching_strategy": "first_only",
+            "adapt_direction": "expert_to_user",
+            "exercise_type": "squat",
+            "phase_strategy": "auto",
+            "rep_prominence": 0.2,
+            "rep_smoothing_window": 11,
+            "rep_polyorder": 2,
+            "rep_positive_distance": 20,
+            "rep_negative_distance": 50,
+            "rep_peak_height_threshold": -0.8,
+            "division_landmarks": ["landmark_right_hip", "landmark_left_hip"],
+            "division_axis": "y"
+        },
         "analysis_config": {
             "sensitivity_factors": {
                 "amplitud": 1.5,
-                "abduccion_codos": 1.0,
+                "profundidad": 2.0,
                 "simetria": 2.0,
                 "trayectoria": 1.5,
                 "velocidad": 1.0,
-                "estabilidad_escapular": 1.0
+                "tracking_rodillas": 2.0
             }
+        },
+        "scoring_weights": {
+            "rom_score": 0.15,
+            "depth_score": 0.25,
+            "sym_score": 0.15,
+            "path_score": 0.15,
+            "speed_score": 0.10,
+            "knee_score": 0.20
         }
     },
     "dominada": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
-        "sync_config": {},
+        "sync_config": {
+            "landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
+            "num_divisions": 7,
+            "interp_method": "linear",
+            "division_strategy": "height",
+            "matching_strategy": "first_only",
+            "adapt_direction": "expert_to_user",
+            "exercise_type": "pull",
+            "phase_strategy": "auto",
+            "rep_prominence": 0.2,
+            "rep_smoothing_window": 11,
+            "rep_polyorder": 2,
+            "rep_positive_distance": 20,
+            "rep_negative_distance": 50,
+            "rep_peak_height_threshold": -0.8,
+            "division_landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
+            "division_axis": "y"
+        },
         "analysis_config": {
             "sensitivity_factors": {
                 "amplitud": 2.5,
-                "abduccion_codos": 2.0,
+                "control_swing": 2.0,
                 "simetria": 1.0,
                 "trayectoria": 1.0,
                 "velocidad": 1.5,
-                "estabilidad_escapular": 1.0
+                "retraccion_escapular": 1.5
             }
+        },
+        "scoring_weights": {
+            "rom_score": 0.25,
+            "swing_score": 0.20,
+            "sym_score": 0.15,
+            "path_score": 0.15,
+            "speed_score": 0.10,
+            "retraction_score": 0.15
         }
     }
 }

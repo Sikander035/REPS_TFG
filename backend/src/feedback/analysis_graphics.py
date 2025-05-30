@@ -391,53 +391,96 @@ def _create_velocity_chart(user_data, expert_data, exercise_name, output_dir):
 
 def _create_radar_chart(analysis_results, exercise_name, output_dir):
     """
-    Crea gráfico de radar USANDO SCORES UNIFICADOS.
+    Crea gráfico de radar USANDO SCORES DINÁMICOS según el ejercicio.
+    CORREGIDO: Adapta categorías y scores según el ejercicio actual.
     """
     try:
         plt.figure(figsize=(10, 8))
 
-        # ACTUALIZADO: Usar scores unificados directamente
+        # ACTUALIZADO: Usar scores dinámicamente
         individual_scores = analysis_results.get("individual_scores", {})
 
         if not individual_scores:
             logger.error("No se encontraron scores individuales en analysis_results")
             return None
 
-        # Categorías exactas
-        categories_radar = [
-            "Amplitud",
-            "Abducción\nCodos",
-            "Simetría",
-            "Trayectoria",
-            "Velocidad",
-            "Estabilidad\nEscapular",
-        ]
+        # CORREGIDO: Categorías y scores dinámicos según ejercicio
+        exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-        # ACTUALIZADO: Extraer scores directamente del análisis unificado
-        scores_normalized = [
-            individual_scores.get("rom_score", 50) / 100,
-            individual_scores.get("abduction_score", 50) / 100,
-            individual_scores.get("sym_score", 50) / 100,
-            individual_scores.get("path_score", 50) / 100,
-            individual_scores.get("speed_score", 50) / 100,
-            individual_scores.get("scapular_score", 50) / 100,
-        ]
+        if exercise_name_clean == "press_militar":
+            categories_radar = [
+                "Amplitud",
+                "Abducción\nCodos",
+                "Simetría",
+                "Trayectoria",
+                "Velocidad",
+                "Estabilidad\nEscapular",
+            ]
+            score_keys = [
+                "rom_score",
+                "abduction_score",
+                "sym_score",
+                "path_score",
+                "speed_score",
+                "scapular_score",
+            ]
+        elif exercise_name_clean == "sentadilla":
+            categories_radar = [
+                "Amplitud",
+                "Profundidad",
+                "Simetría",
+                "Trayectoria",
+                "Velocidad",
+                "Tracking\nRodillas",
+            ]
+            score_keys = [
+                "rom_score",
+                "depth_score",
+                "sym_score",
+                "path_score",
+                "speed_score",
+                "knee_score",
+            ]
+        elif exercise_name_clean == "dominada":
+            categories_radar = [
+                "Amplitud",
+                "Control\nSwing",
+                "Simetría",
+                "Trayectoria",
+                "Velocidad",
+                "Retracción\nEscapular",
+            ]
+            score_keys = [
+                "rom_score",
+                "swing_score",
+                "sym_score",
+                "path_score",
+                "speed_score",
+                "retraction_score",
+            ]
+        else:
+            # Fallback para ejercicios desconocidos
+            score_keys = list(individual_scores.keys())
+            categories_radar = [
+                key.replace("_score", "").replace("_", " ").title()
+                for key in score_keys
+            ]
+
+        # ACTUALIZADO: Extraer scores dinámicamente
+        scores_normalized = []
+        scores_raw = []
+
+        for score_key in score_keys:
+            score_value = individual_scores.get(
+                score_key, 50
+            )  # Default 50 si no existe
+            scores_normalized.append(score_value / 100)
+            scores_raw.append(score_value)
 
         # DEBUG: Imprimir valores para verificación
-        logger.info("=== DEBUG RADAR CHART UNIFICADO ===")
+        logger.info("=== DEBUG RADAR CHART DINÁMICO ===")
         for i, (cat, score_norm, score_raw) in enumerate(
-            zip(
-                categories_radar,
-                scores_normalized,
-                [
-                    individual_scores.get("rom_score", 50),
-                    individual_scores.get("abduction_score", 50),
-                    individual_scores.get("sym_score", 50),
-                    individual_scores.get("path_score", 50),
-                    individual_scores.get("speed_score", 50),
-                    individual_scores.get("scapular_score", 50),
-                ],
-            )
+            zip(categories_radar, scores_normalized, scores_raw)
         ):
             logger.info(
                 f"{i}: {cat.replace(chr(10), ' ')} = {score_raw:.1f} ({score_norm:.3f})"
@@ -490,41 +533,93 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
 
 def _create_scores_chart(analysis_results, exercise_name, output_dir):
     """
-    Crea gráfico de puntuaciones por categoría USANDO SCORES UNIFICADOS.
+    Crea gráfico de puntuaciones por categoría USANDO SCORES DINÁMICOS.
+    CORREGIDO: Adapta categorías según el ejercicio actual.
     """
     plt.figure(figsize=(10, 6))
 
-    # ACTUALIZADO: Usar scores unificados directamente
+    # ACTUALIZADO: Usar scores dinámicamente
     individual_scores = analysis_results.get("individual_scores", {})
 
     if not individual_scores:
         logger.error("No se encontraron scores individuales en analysis_results")
         return None
 
-    # Categorías
-    categories = [
-        "Amplitud",
-        "Abducción\nCodos",
-        "Simetría",
-        "Trayectoria",
-        "Velocidad",
-        "Estabilidad\nEscapular",
-        "Global",
-    ]
+    # CORREGIDO: Categorías dinámicas según ejercicio
+    exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-    # ACTUALIZADO: Usar exactamente los mismos scores del análisis unificado
-    scores_list = [
-        individual_scores.get("rom_score", 50),
-        individual_scores.get("abduction_score", 50),
-        individual_scores.get("sym_score", 50),
-        individual_scores.get("path_score", 50),
-        individual_scores.get("speed_score", 50),
-        individual_scores.get("scapular_score", 50),
-        analysis_results["score"],  # Score global
-    ]
+    if exercise_name_clean == "press_militar":
+        categories = [
+            "Amplitud",
+            "Abducción\nCodos",
+            "Simetría",
+            "Trayectoria",
+            "Velocidad",
+            "Estabilidad\nEscapular",
+            "Global",
+        ]
+        score_keys = [
+            "rom_score",
+            "abduction_score",
+            "sym_score",
+            "path_score",
+            "speed_score",
+            "scapular_score",
+        ]
+    elif exercise_name_clean == "sentadilla":
+        categories = [
+            "Amplitud",
+            "Profundidad",
+            "Simetría",
+            "Trayectoria",
+            "Velocidad",
+            "Tracking\nRodillas",
+            "Global",
+        ]
+        score_keys = [
+            "rom_score",
+            "depth_score",
+            "sym_score",
+            "path_score",
+            "speed_score",
+            "knee_score",
+        ]
+    elif exercise_name_clean == "dominada":
+        categories = [
+            "Amplitud",
+            "Control\nSwing",
+            "Simetría",
+            "Trayectoria",
+            "Velocidad",
+            "Retracción\nEscapular",
+            "Global",
+        ]
+        score_keys = [
+            "rom_score",
+            "swing_score",
+            "sym_score",
+            "path_score",
+            "speed_score",
+            "retraction_score",
+        ]
+    else:
+        # Fallback para ejercicios desconocidos
+        score_keys = list(individual_scores.keys())
+        categories = [
+            key.replace("_score", "").replace("_", " ").title() for key in score_keys
+        ]
+        categories.append("Global")
+
+    # ACTUALIZADO: Extraer scores dinámicamente
+    scores_list = []
+    for score_key in score_keys:
+        scores_list.append(individual_scores.get(score_key, 50))
+
+    # Añadir score global al final
+    scores_list.append(analysis_results["score"])
 
     # DEBUG: Imprimir valores para verificación
-    logger.info("=== DEBUG SCORES CHART UNIFICADO ===")
+    logger.info("=== DEBUG SCORES CHART DINÁMICO ===")
     for cat, score in zip(categories, scores_list):
         logger.info(f"{cat.replace(chr(10), ' ')}: {score:.1f}")
 
