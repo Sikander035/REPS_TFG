@@ -1,4 +1,4 @@
-# backend/src/utils/analysis_utils.py - VERSIÓN SIMPLIFICADA
+# backend/src/utils/analysis_utils.py - VERSIÓN CORREGIDA CON SENSIBILIDAD UNIFICADA
 import numpy as np
 import logging
 import sys
@@ -9,6 +9,78 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 from src.config.config_manager import config_manager
 
 logger = logging.getLogger(__name__)
+
+
+def apply_unified_sensitivity(base_score, sensitivity_factor, metric_name="unknown"):
+    """
+    Aplica sensibilidad de manera unificada y bidireccional a todas las métricas.
+    
+    Args:
+        base_score: Score base calculado sin sensibilidad
+        sensitivity_factor: Factor de sensibilidad (0.5=permisivo, 1.0=normal, 2.0=estricto)
+        metric_name: Nombre de la métrica para logging
+    
+    Returns:
+        Score ajustado con sensibilidad aplicada
+    """
+    if sensitivity_factor <= 0:
+        logger.warning(f"Factor de sensibilidad inválido para {metric_name}: {sensitivity_factor}. Usando 1.0")
+        sensitivity_factor = 1.0
+    
+    # Calcular ajuste basado en desviación del factor normal (1.0)
+    if sensitivity_factor < 1.0:
+        # Factor bajo = Más permisivo = PREMIO (score sube)
+        bonus_factor = (1.0 - sensitivity_factor)  # 0.5 → 0.5, 0.8 → 0.2
+        bonus = min(20, bonus_factor * 40)  # Máximo bonus de 20 puntos
+        adjusted_score = min(100, base_score + bonus)
+        logger.debug(f"{metric_name}: Factor {sensitivity_factor:.2f} → Bonus +{bonus:.1f} → {base_score:.1f}→{adjusted_score:.1f}")
+        
+    elif sensitivity_factor > 1.0:
+        # Factor alto = Más estricto = CASTIGO (score baja)
+        penalty_factor = (sensitivity_factor - 1.0)  # 2.0 → 1.0, 1.5 → 0.5
+        # Limitar penalty máximo para evitar colapsos
+        max_penalty = 30 if sensitivity_factor > 2.0 else 25
+        penalty = min(max_penalty, penalty_factor * 30)
+        adjusted_score = max(10, base_score - penalty)  # Score mínimo de 10
+        logger.debug(f"{metric_name}: Factor {sensitivity_factor:.2f} → Penalty -{penalty:.1f} → {base_score:.1f}→{adjusted_score:.1f}")
+        
+    else:
+        # Factor normal = Sin cambios
+        adjusted_score = base_score
+        logger.debug(f"{metric_name}: Factor {sensitivity_factor:.2f} → Sin cambios → {adjusted_score:.1f}")
+    
+    return adjusted_score
+
+
+def calculate_deviation_score(actual_value, ideal_value, max_penalty=30, metric_type="linear"):
+    """
+    Calcula score base basado en desviación del valor ideal.
+    
+    Args:
+        actual_value: Valor real medido
+        ideal_value: Valor ideal/objetivo
+        max_penalty: Penalización máxima por desviación completa
+        metric_type: "linear", "ratio", o "logarithmic"
+    
+    Returns:
+        Score base (antes de aplicar sensibilidad)
+    """
+    if metric_type == "ratio" and ideal_value != 0:
+        # Para ratios (ej: usuario/experto), ideal normalmente es 1.0
+        deviation = abs(actual_value - ideal_value) / abs(ideal_value)
+    elif metric_type == "logarithmic":
+        # Para métricas que necesitan cambios suaves en rangos amplios
+        deviation = abs(np.log(max(0.01, actual_value)) - np.log(max(0.01, ideal_value)))
+    else:
+        # Linear - para diferencias absolutas
+        deviation = abs(actual_value - ideal_value)
+    
+    # Convertir desviación a penalty (normalizado)
+    # Asumimos que 100% de desviación = penalty máximo
+    penalty = min(max_penalty, deviation * max_penalty)
+    base_score = max(20, 100 - penalty)  # Score base mínimo de 20
+    
+    return base_score
 
 
 def get_exercise_config(exercise_name="press_militar", config_path="config.json"):
@@ -150,7 +222,7 @@ def calculate_elbow_abduction_angle(shoulder_point, elbow_point):
 
 
 def apply_sensitivity_to_threshold(threshold, sensitivity_factor):
-    """Aplica factor de sensibilidad a un umbral."""
+    """Aplica factor de sensibilidad a un umbral (MÉTODO LEGACY - mantener compatibilidad)."""
     if sensitivity_factor <= 0:
         logger.warning(
             f"Factor de sensibilidad inválido: {sensitivity_factor}. Usando 1.0"

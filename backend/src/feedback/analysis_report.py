@@ -1,4 +1,4 @@
-# backend/src/feedback/analysis_report.py - VERSIÓN UNIFICADA
+# backend/src/feedback/analysis_report.py - VERSIÓN CORREGIDA CON SENSIBILIDAD UNIFICADA
 import sys
 import numpy as np
 import pandas as pd
@@ -15,6 +15,8 @@ from src.utils.analysis_utils import (
     determine_skill_level,
     generate_recommendations,
     apply_sensitivity_to_threshold,
+    apply_unified_sensitivity,  # NUEVO: función unificada
+    calculate_deviation_score,  # NUEVO: función auxiliar
 )
 
 logger = logging.getLogger(__name__)
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def analyze_movement_amplitude(user_data, expert_data, exercise_config):
     """
-    UNIFICADO: Analiza amplitud y calcula tanto feedback como score en el mismo lugar.
+    CORREGIDO: Analiza amplitud con sensibilidad bidireccional y feedback consistente.
     """
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "amplitud", 1.0
@@ -56,74 +58,66 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
         else 0
     )
 
-    # Aplicar sensibilidad a umbrales
-    rom_threshold = apply_sensitivity_to_threshold(
-        exercise_config["rom_threshold"], sensitivity_factor
-    )
-    bottom_diff_threshold = apply_sensitivity_to_threshold(
-        exercise_config["bottom_diff_threshold"], sensitivity_factor
+    # CORREGIDO: Calcular score base usando desviación del ideal (rom_ratio = 1.0)
+    base_score = calculate_deviation_score(
+        rom_ratio, 1.0, max_penalty=40, metric_type="ratio"
     )
 
-    # UNIFICADO: Evaluar y calcular feedback + score en el mismo lugar
+    # CORREGIDO: Aplicar sensibilidad de manera unificada
+    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "amplitud")
+
+    # CORREGIDO: Feedback basado en score final para consistencia
     feedback = {}
-    score = 50  # Score por defecto
 
-    # CORREGIDO: Cálculo simétrico de score basado en desviación del ideal (rom_ratio = 1.0)
-    feedback = {}
-
-    # Calcular desviación del ideal (1.0 = 100% igual al experto)
-    deviation_from_ideal = abs(rom_ratio - 1.0)
-
-    # Score base: penalizar cualquier desviación del ideal proporcionalmente
-    base_score = max(
-        0, min(100, 100 - (deviation_from_ideal * 100))
-    )  # Penalización simétrica
-
-    # MANTENER lógica original de feedback con sensibilidad aplicada correctamente
-    if rom_ratio > 1.15:  # Exceso de amplitud
-        if sensitivity_factor > 1.5 and rom_ratio > 1.25:
-            feedback["amplitud"] = (
-                "Tu rango de movimiento es excesivamente amplio. Es crítico "
-                "controlar la bajada para evitar hiperextensión de los hombros."
-            )
-            score = max(5, base_score - 20)  # Penalización extra por ser crítico
-        else:
+    if final_score >= 85:
+        feedback["amplitud"] = "Excelente amplitud de movimiento en los codos."
+    elif final_score >= 70:
+        if rom_ratio > 1.15:  # Exceso de amplitud
             feedback["amplitud"] = (
                 "Tu rango de movimiento es excesivo. Controla la bajada para evitar "
                 "hiperextensión de los hombros."
             )
-            score = max(15, base_score - 10)  # Penalización moderada
-
-    elif bottom_diff > bottom_diff_threshold:  # Problema específico de posición baja
-        if sensitivity_factor > 1.5 and bottom_diff > bottom_diff_threshold * 1.5:
-            feedback["posicion_baja"] = (
-                "Tu rango de movimiento es insuficiente. Es importante bajar hasta que "
-                "las mancuernas estén aproximadamente a la altura de los hombros para técnica correcta."
-            )
-            score = max(10, base_score - 25)  # Penalización extra por ser crítico
         else:
-            feedback["posicion_baja"] = (
+            feedback["amplitud"] = (
                 "Tu rango de movimento podría ser más amplio. Baja hasta que las mancuernas "
                 "estén aproximadamente a la altura de los hombros."
             )
-            score = max(25, base_score - 15)  # Penalización moderada
+    elif final_score >= 50:
+        # Casos moderados
+        rom_threshold = apply_sensitivity_to_threshold(
+            exercise_config["rom_threshold"], sensitivity_factor
+        )
+        bottom_diff_threshold = apply_sensitivity_to_threshold(
+            exercise_config["bottom_diff_threshold"], sensitivity_factor
+        )
 
-    elif rom_ratio < rom_threshold:  # Defecto general de amplitud
-        if sensitivity_factor > 1.5 and rom_ratio < rom_threshold * 0.8:
+        if rom_ratio > 1.25:
             feedback["amplitud"] = (
-                "Tu rango de movimiento es significativamente limitado. Es crítico "
-                "trabajar en la amplitud completa: baja más los codos y extiende completamente arriba."
+                "Tu rango de movimiento es excesivamente amplio. Es crítico "
+                "controlar la bajada para evitar hiperextensión de los hombros."
             )
-            score = max(5, base_score - 20)  # Penalización extra por ser crítico
+        elif bottom_diff > bottom_diff_threshold * 1.5:
+            feedback["amplitud"] = (
+                "Tu rango de movimiento es insuficiente. Es importante bajar hasta que "
+                "las mancuernas estén aproximadamente a la altura de los hombros para técnica correcta."
+            )
         else:
             feedback["amplitud"] = (
                 "Tu rango de movimiento es limitado. Baja más los codos para una flexión completa "
                 "y extiende completamente arriba."
             )
-            score = max(15, base_score - 10)  # Penalización moderada
     else:
-        feedback["amplitud"] = "Excelente amplitud de movimiento en los codos."
-        score = max(90, base_score)  # Score excelente si está cerca del ideal
+        # Casos críticos
+        if rom_ratio > 1.25:
+            feedback["amplitud"] = (
+                "Tu rango de movimiento es excesivamente amplio. Es crítico "
+                "controlar la bajada para evitar hiperextensión de los hombros."
+            )
+        else:
+            feedback["amplitud"] = (
+                "Tu rango de movimiento es significativamente limitado. Es crítico "
+                "trabajar en la amplitud completa: baja más los codos y extiende completamente arriba."
+            )
 
     metrics = {
         "rom_usuario": user_rom,
@@ -136,12 +130,12 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
         "punto_mas_bajo_experto": expert_lowest_point,
     }
 
-    return {"metrics": metrics, "feedback": feedback, "score": score}
+    return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
 def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
     """
-    UNIFICADO: Analiza abducción de codos y calcula tanto feedback como score.
+    CORREGIDO: Analiza abducción de codos con sensibilidad calibrada y feedback consistente.
     """
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "abduccion_codos", 1.0
@@ -347,61 +341,56 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
         user_valley_values = user_clean_signal
         expert_valley_values = expert_clean_signal
 
-    # UNIFICADO: Aplicar sensibilidad y calcular feedback + score
-    abduction_threshold = apply_sensitivity_to_threshold(
-        exercise_config.get("abduction_angle_threshold", 15), sensitivity_factor
+    # CORREGIDO: Calcular score base con penalty reducido para mejor calibración
+    base_score = calculate_deviation_score(
+        abs(abduction_diff), 0, max_penalty=25, metric_type="linear"
     )
 
-    feedback = {}
-    score = 50  # Score por defecto
-
-    # CORREGIDO: Cálculo simétrico basado en desviación del ideal (abduction_diff = 0)
-    abduction_threshold = apply_sensitivity_to_threshold(
-        exercise_config.get("abduction_angle_threshold", 15), sensitivity_factor
+    # CORREGIDO: Aplicar sensibilidad de manera unificada
+    final_score = apply_unified_sensitivity(
+        base_score, sensitivity_factor, "abduccion_codos"
     )
 
+    # CORREGIDO: Feedback basado en score final para consistencia
     feedback = {}
 
-    # Score base: penalizar cualquier desviación del ideal (0 diferencia con experto)
-    deviation_magnitude = abs(abduction_diff)
-    base_score = max(
-        0, min(100, 100 - (deviation_magnitude * 3))
-    )  # Penalización simétrica por grado de diferencia
-
-    # MANTENER lógica original de feedback
-    if abs(abduction_diff) > abduction_threshold:
+    if final_score >= 80:
+        feedback["abduccion_codos"] = "Excelente posición lateral de codos."
+    elif final_score >= 60:
         if abduction_diff > 0:  # Usuario tiene ángulo mayor = más cerrado
-            if sensitivity_factor > 1.5 and abduction_diff > abduction_threshold * 1.5:
-                feedback["abduccion_codos"] = (
-                    f"Tus codos están significativamente más cerrados que el experto. "
-                    f"Es importante separarlos más del cuerpo para mejor mecánica."
-                )
-                score = max(5, base_score - 25)  # Penalización extra por ser crítico
-            else:
-                feedback["abduccion_codos"] = (
-                    f"Tus codos están ligeramente más cerrados que el experto. "
-                    f"Sepáralos un poco más del cuerpo."
-                )
-                score = max(25, base_score - 15)  # Penalización moderada
+            feedback["abduccion_codos"] = (
+                "Tus codos están ligeramente más cerrados que el experto. "
+                "Sepáralos un poco más del cuerpo."
+            )
         else:  # Usuario tiene ángulo menor = más abierto
-            if (
-                sensitivity_factor > 1.5
-                and abs(abduction_diff) > abduction_threshold * 1.5
-            ):
-                feedback["abduccion_codos"] = (
-                    f"Tus codos se abren excesivamente durante el ejercicio. "
-                    f"Es crítico acercarlos más al cuerpo para mayor seguridad."
-                )
-                score = max(5, base_score - 25)  # Penalización extra por ser crítico
-            else:
-                feedback["abduccion_codos"] = (
-                    f"Tus codos están ligeramente más abiertos que el experto. "
-                    f"Acércalos un poco más al cuerpo."
-                )
-                score = max(25, base_score - 15)  # Penalización moderada
+            feedback["abduccion_codos"] = (
+                "Tus codos están ligeramente más abiertos que el experto. "
+                "Acércalos un poco más al cuerpo."
+            )
+    elif final_score >= 40:
+        # Casos moderados
+        if abduction_diff > 0:
+            feedback["abduccion_codos"] = (
+                "Tus codos están moderadamente más cerrados que el experto. "
+                "Sepáralos más del cuerpo para mejor mecánica."
+            )
+        else:
+            feedback["abduccion_codos"] = (
+                "Tus codos se abren moderadamente durante el ejercicio. "
+                "Acércalos más al cuerpo para mayor estabilidad."
+            )
     else:
-        feedback["abduccion_codos"] = f"Excelente posición lateral de codos."
-        score = max(90, base_score)  # Score excelente si está cerca del ideal
+        # Casos críticos
+        if abduction_diff > 0:
+            feedback["abduccion_codos"] = (
+                "Tus codos están significativamente más cerrados que el experto. "
+                "Es importante separarlos más del cuerpo para mejor mecánica."
+            )
+        else:
+            feedback["abduccion_codos"] = (
+                "Tus codos se abren excesivamente durante el ejercicio. "
+                "Es crítico acercarlos más al cuerpo para mayor seguridad."
+            )
 
     metrics = {
         "abduccion_lateral_minima_usuario": user_min_abduction,
@@ -415,11 +404,11 @@ def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
         "frames_totales_experto": len(expert_data),
     }
 
-    return {"metrics": metrics, "feedback": feedback, "score": score}
+    return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
 def analyze_symmetry(user_data, expert_data, exercise_config):
-    """UNIFICADO: Analiza simetría y calcula feedback + score."""
+    """CORREGIDO: Analiza simetría con sensibilidad suavizada."""
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "simetria", 1.0
     )
@@ -449,64 +438,44 @@ def analyze_symmetry(user_data, expert_data, exercise_config):
         normalized_diff / expert_normalized_diff if expert_normalized_diff > 0 else 1
     )
 
-    # Aplicar sensibilidad al umbral
+    # CORREGIDO: Calcular score base usando asymmetry_ratio (ideal = 1.0)
+    base_score = calculate_deviation_score(
+        asymmetry_ratio, 1.0, max_penalty=30, metric_type="ratio"
+    )
+
+    # CORREGIDO: Aplicar sensibilidad de manera unificada
+    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "simetria")
+
+    # Mantener lógica de feedback original
     symmetry_threshold = apply_sensitivity_to_threshold(
         exercise_config["symmetry_threshold"], sensitivity_factor
     )
 
-    # UNIFICADO: Evaluar y calcular feedback + score
     feedback = {}
-    score = 50
-
-    # CORREGIDO: Cálculo simétrico basado en desviaciones de los ideales
-    symmetry_threshold = apply_sensitivity_to_threshold(
-        exercise_config["symmetry_threshold"], sensitivity_factor
-    )
-
-    feedback = {}
-
-    # Calcular desviaciones de los ideales
-    # Ideal 1: normalized_diff = 0 (sin diferencia de altura entre lados)
-    # Ideal 2: asymmetry_ratio = 1.0 (igual asimetría que el experto)
-    normalized_deviation = normalized_diff  # Ya es desviación del ideal (0)
-    asymmetry_deviation = abs(asymmetry_ratio - 1.0)  # Desviación del ideal (1.0)
-
-    # Score base usando la peor desviación
-    worst_deviation = max(
-        normalized_deviation * 100, asymmetry_deviation * 100
-    )  # Convertir a porcentaje
-    base_score = max(0, min(100, 100 - worst_deviation))  # Penalización simétrica
-
-    # MANTENER lógica original de feedback
     if asymmetry_ratio > (1.8 / sensitivity_factor):
         if sensitivity_factor > 1.5:
             feedback["simetria"] = (
                 "Hay una asimetría muy notable entre tu lado derecho e izquierdo. "
                 "Es prioritario trabajar en equilibrar ambos brazos."
             )
-            score = max(5, base_score - 25)  # Penalización extra por ser crítico
         else:
             feedback["simetria"] = (
                 "Hay una asimetría notable entre tu lado derecho e izquierdo. "
                 "Enfócate en levantar ambos brazos por igual."
             )
-            score = max(15, base_score - 15)  # Penalización moderada
     elif normalized_diff > symmetry_threshold:
         if sensitivity_factor > 1.5 and normalized_diff > symmetry_threshold * 1.5:
             feedback["simetria"] = (
                 "Se detecta asimetría significativa en el movimiento. "
                 "Es importante trabajar en mantener ambos codos a la misma altura."
             )
-            score = max(10, base_score - 20)  # Penalización extra por ser crítico
         else:
             feedback["simetria"] = (
                 "Se detecta cierta asimetría en el movimiento. "
                 "Intenta mantener ambos codos a la misma altura."
             )
-            score = max(30, base_score - 10)  # Penalización moderada
     else:
         feedback["simetria"] = "Excelente simetría bilateral en el movimiento."
-        score = max(90, base_score)  # Score excelente si está cerca del ideal
 
     metrics = {
         "diferencia_altura": height_diff,
@@ -516,11 +485,11 @@ def analyze_symmetry(user_data, expert_data, exercise_config):
         "rango_movimiento_usuario": user_range,
     }
 
-    return {"metrics": metrics, "feedback": feedback, "score": score}
+    return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
 def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
-    """UNIFICADO: Analiza trayectoria 3D y calcula feedback + score."""
+    """CORREGIDO: Analiza trayectoria 3D con sensibilidad suavizada."""
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "trayectoria", 1.0
     )
@@ -569,6 +538,27 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
         else 1
     )
 
+    # CORREGIDO: Calcular score base usando el peor ratio de desviación
+    worst_deviation_ratio = max(lateral_deviation_ratio, frontal_deviation_ratio)
+    base_score = calculate_deviation_score(
+        worst_deviation_ratio, 1.0, max_penalty=30, metric_type="ratio"
+    )
+
+    # CORREGIDO: Aplicar sensibilidad de manera unificada
+    final_score = apply_unified_sensitivity(
+        base_score, sensitivity_factor, "trayectoria"
+    )
+
+    # Mantener lógica de feedback original
+    lateral_threshold = apply_sensitivity_to_threshold(
+        exercise_config["lateral_dev_threshold"], sensitivity_factor
+    )
+    frontal_threshold = apply_sensitivity_to_threshold(
+        exercise_config.get("frontal_dev_threshold", 0.15), sensitivity_factor
+    )
+
+    feedback = {}
+
     # Diferencias directas con experto
     shoulder_width = np.mean(
         np.abs(
@@ -586,51 +576,12 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
         trajectory_diff_z / shoulder_width if shoulder_width > 0 else 0
     )
 
-    # Aplicar sensibilidad a los umbrales
-    lateral_threshold = apply_sensitivity_to_threshold(
-        exercise_config["lateral_dev_threshold"], sensitivity_factor
-    )
-    frontal_threshold = apply_sensitivity_to_threshold(
-        exercise_config.get("frontal_dev_threshold", 0.15), sensitivity_factor
-    )
-
-    # UNIFICADO: Evaluar y calcular feedback + score
-    feedback = {}
-    lateral_score = 75
-    frontal_score = 75
-
-    # CORREGIDO: Cálculo simétrico basado en desviaciones de los ideales
-    lateral_threshold = apply_sensitivity_to_threshold(
-        exercise_config["lateral_dev_threshold"], sensitivity_factor
-    )
-    frontal_threshold = apply_sensitivity_to_threshold(
-        exercise_config.get("frontal_dev_threshold", 0.15), sensitivity_factor
-    )
-
-    feedback = {}
-
-    # Calcular desviaciones de los ideales (lateral_ratio = 1.0, frontal_ratio = 1.0)
-    lateral_deviation = abs(lateral_deviation_ratio - 1.0)
-    frontal_deviation = abs(frontal_deviation_ratio - 1.0)
-
-    # Scores base para cada aspecto
-    lateral_base_score = max(
-        0, min(100, 100 - (lateral_deviation * 100))
-    )  # Penalización simétrica
-    frontal_base_score = max(
-        0, min(100, 100 - (frontal_deviation * 100))
-    )  # Penalización simétrica
-
-    # MANTENER lógica original de feedback
     # Evaluar lateral
     if lateral_deviation_ratio > (2.0 / sensitivity_factor):
         feedback["trayectoria_lateral"] = (
             "Tu movimiento se desvía excesivamente en dirección lateral. "
             "Concéntrate urgentemente en mantener las muñecas en línea vertical."
         )
-        lateral_score = max(
-            5, lateral_base_score - 30
-        )  # Penalización extra por ser crítico
     elif normalized_trajectory_diff_x > lateral_threshold:
         if (
             sensitivity_factor > 1.5
@@ -640,18 +591,13 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
                 "Se detecta desviación lateral significativa en tu trayectoria. "
                 "Es importante corregir para mantener un movimiento más vertical."
             )
-            lateral_score = max(
-                10, lateral_base_score - 20
-            )  # Penalización extra por ser crítico
         else:
             feedback["trayectoria_lateral"] = (
                 "Se detecta cierta desviación lateral en tu trayectoria. "
                 "Intenta mantener un movimiento más vertical."
             )
-            lateral_score = max(30, lateral_base_score - 10)  # Penalización moderada
     else:
         feedback["trayectoria_lateral"] = "Excelente control lateral del movimiento."
-        lateral_score = max(90, lateral_base_score)  # Score excelente
 
     # Evaluar frontal
     if frontal_deviation_ratio > (2.0 / sensitivity_factor):
@@ -659,9 +605,6 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
             "Tu movimiento se desvía hacia adelante/atrás significativamente. "
             "Mantén las muñecas en un plano vertical consistente."
         )
-        frontal_score = max(
-            5, frontal_base_score - 30
-        )  # Penalización extra por ser crítico
     elif normalized_trajectory_diff_z > frontal_threshold:
         if (
             sensitivity_factor > 1.5
@@ -671,27 +614,18 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
                 "Se detecta desviación frontal significativa en tu movimiento. "
                 "Es importante mantener un plano vertical más consistente."
             )
-            frontal_score = max(
-                10, frontal_base_score - 20
-            )  # Penalización extra por ser crítico
         else:
             feedback["trayectoria_frontal"] = (
                 "Se detecta cierta desviación frontal en tu movimiento."
             )
-            frontal_score = max(30, frontal_base_score - 10)  # Penalización moderada
     else:
         feedback["trayectoria_frontal"] = "Buen control frontal del movimiento."
-        frontal_score = max(75, frontal_base_score)  # Score bueno
-
-    # Score combinado (usar el peor)
-    combined_score = min(lateral_score, frontal_score)
 
     # Feedback general
     if max(lateral_deviation_ratio, frontal_deviation_ratio) < (
         1.5 / sensitivity_factor
     ):
         feedback["trayectoria"] = "Excelente trayectoria 3D del movimiento."
-        combined_score = max(combined_score, 90)
     else:
         feedback["trayectoria"] = "La trayectoria del movimiento puede mejorarse."
 
@@ -706,11 +640,11 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
         "diferencia_trayectoria_z": normalized_trajectory_diff_z,
     }
 
-    return {"metrics": metrics, "feedback": feedback, "score": combined_score}
+    return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
 def analyze_speed(user_data, expert_data, exercise_config):
-    """UNIFICADO: Analiza velocidad y calcula feedback + score."""
+    """CORREGIDO: Analiza velocidad con sensibilidad aplicada y feedback consistente."""
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "velocidad", 1.0
     )
@@ -757,91 +691,122 @@ def analyze_speed(user_data, expert_data, exercise_config):
         user_eccentric_avg / expert_eccentric_avg if expert_eccentric_avg > 0 else 1
     )
 
-    # Aplicar sensibilidad al umbral
-    velocity_threshold = apply_sensitivity_to_threshold(
-        exercise_config["velocity_ratio_threshold"], sensitivity_factor
-    )
-
-    # UNIFICADO: Evaluar y calcular feedback + score
-    feedback = {}
-    concentric_score = 75
-    eccentric_score = 75
-
-    # CORREGIDO: Cálculo simétrico basado en desviaciones de los ideales
-    velocity_threshold = apply_sensitivity_to_threshold(
-        exercise_config["velocity_ratio_threshold"], sensitivity_factor
-    )
-
-    feedback = {}
-
-    # Calcular desviaciones de los ideales (concentric_ratio = 1.0, eccentric_ratio = 1.0)
+    # CORREGIDO: Calcular score base usando ambos ratios de velocidad
     concentric_deviation = abs(concentric_ratio - 1.0)
     eccentric_deviation = abs(eccentric_ratio - 1.0)
+    worst_velocity_deviation = max(concentric_deviation, eccentric_deviation)
 
-    # Scores base para cada fase
-    concentric_base_score = max(
-        0, min(100, 100 - (concentric_deviation * 100))
-    )  # Penalización simétrica
-    eccentric_base_score = max(
-        0, min(100, 100 - (eccentric_deviation * 100))
-    )  # Penalización simétrica
+    base_score = calculate_deviation_score(
+        worst_velocity_deviation, 0, max_penalty=25, metric_type="linear"
+    )
 
-    # MANTENER lógica original de feedback
-    # Evaluar fase concéntrica
-    if concentric_ratio < (1 - velocity_threshold):
-        if sensitivity_factor > 1.5:
-            feedback["velocidad_subida"] = (
-                "La fase de subida es significativamente muy lenta comparada con el experto. "
-                "Es importante ser más explosivo en la fase concéntrica."
-            )
-            concentric_score = max(
-                5, concentric_base_score - 25
-            )  # Penalización extra por ser crítico
+    # CORREGIDO: Aplicar sensibilidad de manera unificada
+    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "velocidad")
+
+    # CORREGIDO: Feedback basado en score final para consistencia
+    feedback = {}
+    velocity_threshold = apply_sensitivity_to_threshold(
+        exercise_config["velocity_ratio_threshold"], sensitivity_factor
+    )
+
+    # Feedback unificado basado en score final
+    if final_score >= 85:
+        feedback["velocidad_subida"] = "Excelente velocidad en la fase de subida."
+        feedback["velocidad_bajada"] = "Excelente control en la fase de bajada."
+    elif final_score >= 70:
+        # Determinar cuál fase es problemática para feedback específico
+        if concentric_deviation > eccentric_deviation:
+            # Problema principal en fase concéntrica
+            if concentric_ratio < (1 - velocity_threshold):
+                feedback["velocidad_subida"] = (
+                    "La fase de subida es moderadamente lenta. "
+                    "Intenta ser más explosivo en la fase concéntrica."
+                )
+            else:
+                feedback["velocidad_subida"] = (
+                    "La fase de subida es moderadamente rápida. "
+                    "Controla un poco más el movimiento."
+                )
+            feedback["velocidad_bajada"] = "Buen control en la fase de bajada."
         else:
+            # Problema principal en fase excéntrica
+            feedback["velocidad_subida"] = "Buena velocidad en la fase de subida."
+            if eccentric_ratio > (1 + velocity_threshold):
+                feedback["velocidad_bajada"] = (
+                    "La fase de bajada es moderadamente rápida. "
+                    "Intenta controlar más el descenso."
+                )
+            else:
+                feedback["velocidad_bajada"] = (
+                    "La fase de bajada es moderadamente lenta. "
+                    "Controla el descenso pero no lo ralentices en exceso."
+                )
+    elif final_score >= 50:
+        # Casos moderados-críticos
+        if concentric_ratio < (1 - velocity_threshold):
             feedback["velocidad_subida"] = (
                 "La fase de subida es demasiado lenta comparada con el experto. "
                 "Intenta ser más explosivo en la fase concéntrica."
             )
-            concentric_score = max(
-                15, concentric_base_score - 15
-            )  # Penalización moderada
-    elif concentric_ratio > (1 + velocity_threshold):
-        feedback["velocidad_subida"] = (
-            "La fase de subida es demasiado rápida. Controla más el movimiento."
-        )
-        concentric_score = max(20, concentric_base_score - 10)  # Penalización moderada
-    else:
-        feedback["velocidad_subida"] = "Excelente velocidad en la fase de subida."
-        concentric_score = max(90, concentric_base_score)  # Score excelente
-
-    # Evaluar fase excéntrica
-    if eccentric_ratio < (1 - velocity_threshold):
-        feedback["velocidad_bajada"] = (
-            "La fase de bajada es demasiado lenta. Controla el descenso pero no lo ralentices en exceso."
-        )
-        eccentric_score = max(30, eccentric_base_score - 10)  # Penalización leve
-    elif eccentric_ratio > (1 + velocity_threshold):
-        if sensitivity_factor > 1.5:
-            feedback["velocidad_bajada"] = (
-                "La fase de bajada es significativamente muy rápida. "
-                "Es crítico controlar más el descenso para técnica segura."
+        elif concentric_ratio > (1 + velocity_threshold):
+            feedback["velocidad_subida"] = (
+                "La fase de subida es demasiado rápida. "
+                "Controla más el movimiento para mejor técnica."
             )
-            eccentric_score = max(
-                5, eccentric_base_score - 25
-            )  # Penalización extra por ser crítico
         else:
-            feedback["velocidad_bajada"] = (
-                "La fase de bajada es demasiado rápida. Intenta controlar más el descenso."
-            )
-            eccentric_score = max(
-                15, eccentric_base_score - 15
-            )  # Penalización moderada
-    else:
-        feedback["velocidad_bajada"] = "Excelente control en la fase de bajada."
-        eccentric_score = max(90, eccentric_base_score)  # Score excelente
+            feedback["velocidad_subida"] = "Velocidad de subida aceptable."
 
-    # Score combinado (promedio)
-    combined_score = (concentric_score + eccentric_score) / 2
+        if eccentric_ratio < (1 - velocity_threshold):
+            feedback["velocidad_bajada"] = (
+                "La fase de bajada es demasiado lenta. "
+                "Controla el descenso pero no lo ralentices en exceso."
+            )
+        elif eccentric_ratio > (1 + velocity_threshold):
+            feedback["velocidad_bajada"] = (
+                "La fase de bajada es demasiado rápida. "
+                "Intenta controlar más el descenso para mejor técnica."
+            )
+        else:
+            feedback["velocidad_bajada"] = "Control de bajada aceptable."
+    else:
+        # Casos críticos
+        if concentric_ratio < (1 - velocity_threshold):
+            if sensitivity_factor > 1.5:
+                feedback["velocidad_subida"] = (
+                    "La fase de subida es significativamente muy lenta comparada con el experto. "
+                    "Es importante ser más explosivo en la fase concéntrica."
+                )
+            else:
+                feedback["velocidad_subida"] = (
+                    "La fase de subida es demasiado lenta comparada con el experto. "
+                    "Intenta ser más explosivo en la fase concéntrica."
+                )
+        elif concentric_ratio > (1 + velocity_threshold):
+            feedback["velocidad_subida"] = (
+                "La fase de subida es excesivamente rápida. "
+                "Es crítico controlar más el movimiento para técnica segura."
+            )
+        else:
+            feedback["velocidad_subida"] = "Velocidad de subida problemática."
+
+        if eccentric_ratio > (1 + velocity_threshold):
+            if sensitivity_factor > 1.5:
+                feedback["velocidad_bajada"] = (
+                    "La fase de bajada es significativamente muy rápida. "
+                    "Es crítico controlar más el descenso para técnica segura."
+                )
+            else:
+                feedback["velocidad_bajada"] = (
+                    "La fase de bajada es demasiado rápida. "
+                    "Intenta controlar más el descenso."
+                )
+        elif eccentric_ratio < (1 - velocity_threshold):
+            feedback["velocidad_bajada"] = (
+                "La fase de bajada es excesivamente lenta. "
+                "Encuentra un mejor equilibrio en el control del descenso."
+            )
+        else:
+            feedback["velocidad_bajada"] = "Control de bajada problemático."
 
     metrics = {
         "velocidad_subida_usuario": user_concentric_avg,
@@ -852,11 +817,11 @@ def analyze_speed(user_data, expert_data, exercise_config):
         "ratio_bajada": eccentric_ratio,
     }
 
-    return {"metrics": metrics, "feedback": feedback, "score": combined_score}
+    return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
 def analyze_scapular_stability(user_data, expert_data, exercise_config):
-    """UNIFICADO: Analiza estabilidad escapular y calcula feedback + score."""
+    """CORREGIDO: Analiza estabilidad escapular con sensibilidad suavizada."""
     sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
         "estabilidad_escapular", 1.0
     )
@@ -891,70 +856,60 @@ def analyze_scapular_stability(user_data, expert_data, exercise_config):
             else 1.0
         )
 
-        # Aplicar sensibilidad al umbral
+        # CORREGIDO: Calcular score base usando el peor ratio
+        worst_stability_ratio = max(movement_ratio, asymmetry_ratio)
+        base_score = calculate_deviation_score(
+            worst_stability_ratio, 1.0, max_penalty=35, metric_type="ratio"
+        )
+
+        # CORREGIDO: Aplicar sensibilidad de manera unificada (SUAVIZADA para evitar colapsos)
+        # Limitar el impacto de la sensibilidad para esta métrica específica
+        capped_sensitivity = (
+            min(sensitivity_factor, 2.0)
+            if sensitivity_factor > 1.5
+            else sensitivity_factor
+        )
+        final_score = apply_unified_sensitivity(
+            base_score, capped_sensitivity, "estabilidad_escapular"
+        )
+
+        # Mantener lógica de feedback original
         stability_threshold = apply_sensitivity_to_threshold(
             exercise_config.get("scapular_stability_threshold", 1.5), sensitivity_factor
         )
 
-        # UNIFICADO: Evaluar y calcular feedback + score
         feedback = {}
-        score = 75
-
-        # CORREGIDO: Cálculo simétrico basado en desviaciones de los ideales
-        stability_threshold = apply_sensitivity_to_threshold(
-            exercise_config.get("scapular_stability_threshold", 1.5), sensitivity_factor
-        )
-
-        feedback = {}
-
-        # Calcular desviaciones de los ideales (movement_ratio = 1.0, asymmetry_ratio = 1.0)
-        movement_deviation = abs(movement_ratio - 1.0)
-        asymmetry_deviation = abs(asymmetry_ratio - 1.0)
-
-        # Score base usando la peor desviación
-        worst_deviation = max(movement_deviation, asymmetry_deviation)
-        base_score = max(
-            0, min(100, 100 - (worst_deviation * 100))
-        )  # Penalización simétrica
-
-        # MANTENER lógica original de feedback
         if movement_ratio > (2.0 / sensitivity_factor):
             if sensitivity_factor > 1.5:
                 feedback["estabilidad_escapular"] = (
                     "Tus hombros se mueven excesivamente durante el press. "
                     "Es crítico mantener una posición mucho más estable de la cintura escapular."
                 )
-                score = max(5, base_score - 30)  # Penalización extra por ser crítico
             else:
                 feedback["estabilidad_escapular"] = (
                     "Tus hombros se mueven excesivamente durante el press. "
                     "Mantén una posición más estable de la cintura escapular."
                 )
-                score = max(15, base_score - 20)  # Penalización moderada
         elif asymmetry_ratio > (2.0 / sensitivity_factor):
             feedback["estabilidad_escapular"] = (
                 "Se detecta asimetría en el movimiento de tus hombros. "
                 "Concéntrate en mantener ambos hombros equilibrados."
             )
-            score = max(20, base_score - 15)  # Penalización moderada
         elif movement_ratio > stability_threshold:
             if sensitivity_factor > 1.5:
                 feedback["estabilidad_escapular"] = (
                     "Se detecta inestabilidad notable en tu cintura escapular. "
                     "Es importante practicar mantener los hombros en una posición más fija."
                 )
-                score = max(10, base_score - 25)  # Penalización extra por ser crítico
             else:
                 feedback["estabilidad_escapular"] = (
                     "Se detecta cierta inestabilidad en tu cintura escapular. "
                     "Practica mantener los hombros en una posición más fija."
                 )
-                score = max(30, base_score - 10)  # Penalización moderada
         else:
             feedback["estabilidad_escapular"] = (
                 "Buena estabilidad de la cintura escapular."
             )
-            score = max(75, base_score)  # Score bueno si está cerca del ideal
 
         metrics = {
             "movimiento_hombros_usuario": user_shoulder_movement,
@@ -965,7 +920,7 @@ def analyze_scapular_stability(user_data, expert_data, exercise_config):
             "ratio_asimetria": float(asymmetry_ratio),
         }
 
-        return {"metrics": metrics, "feedback": feedback, "score": score}
+        return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
     except Exception as e:
         logger.error(f"Error en análisis de estabilidad escapular: {e}")
@@ -989,7 +944,9 @@ def run_exercise_analysis(
     user_data, expert_data, exercise_name="press_militar", config_path="config.json"
 ):
     """UNIFICADO: Ejecuta análisis completo y calcula scores directamente."""
-    logger.info(f"Iniciando análisis unificado: {exercise_name}")
+    logger.info(
+        f"Iniciando análisis unificado con sensibilidad corregida: {exercise_name}"
+    )
 
     # Cargar configuración
     exercise_config = get_exercise_config(exercise_name, config_path)
@@ -1103,7 +1060,7 @@ def generate_analysis_report(analysis_results, exercise_name, output_path=None):
             analysis_results["feedback"], analysis_results["score"]
         ),
         "sensitivity_factors": analysis_results.get("sensitivity_factors", {}),
-        "version_analisis": "unified_system_v2.0",  # Actualizado
+        "version_analisis": "unified_sensitivity_v2.0",  # Actualizado
     }
 
     # Identificar áreas de mejora y puntos fuertes
