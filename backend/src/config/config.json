@@ -80,7 +80,7 @@
                 "simetria": 1.0,
                 "trayectoria": 1.0,
                 "velocidad": 1.0,
-                "estabilidad_escapular": 2.0
+                "estabilidad_escapular": 1.0
             }
         }
     },

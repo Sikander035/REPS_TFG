@@ -1,4 +1,4 @@
-# src/feedback/analysis_graphics.py - CORRECCIÓN SIMPLE: Solo cambiar import
+# src/feedback/analysis_graphics.py - ACTUALIZADO para usar sistema unificado
 import sys
 import numpy as np
 import pandas as pd
@@ -8,10 +8,9 @@ import logging
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-# ÚNICO CAMBIO: Importar de analysis_utils en lugar de usar función duplicada
+# ACTUALIZADO: Solo importar funciones necesarias
 from src.utils.analysis_utils import (
     calculate_elbow_abduction_angle,
-    calculate_individual_scores,
     generate_recommendations,
 )
 
@@ -22,23 +21,27 @@ def visualize_analysis_results(
     analysis_results, user_data, expert_data, exercise_name, output_dir=None
 ):
     """
-    Crea visualizaciones de los resultados del análisis.
-    LÓGICA ORIGINAL INTACTA.
+    Crea visualizaciones de los resultados del análisis UNIFICADO.
+    Ahora usa los scores que vienen directamente del análisis.
     """
     metrics = analysis_results["metrics"]
+    individual_scores = analysis_results.get(
+        "individual_scores", {}
+    )  # NUEVO: usar scores unificados
+
     visualizations = []
 
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-    # 1. Gráfico de amplitud de movimiento (ACTUALIZADO para codos)
+    # 1. Gráfico de amplitud de movimiento
     visualizations.append(
         _create_amplitude_chart(
             metrics, user_data, expert_data, exercise_name, output_dir
         )
     )
 
-    # 2. Gráfico de abducción de codos (ACTUALIZADO)
+    # 2. Gráfico de abducción de codos
     visualizations.append(
         _create_abduction_chart(user_data, expert_data, exercise_name, output_dir)
     )
@@ -48,22 +51,22 @@ def visualize_analysis_results(
         _create_trajectory_chart(user_data, expert_data, exercise_name, output_dir)
     )
 
-    # 4. Gráfico de simetría (ACTUALIZADO para codos)
+    # 4. Gráfico de simetría
     visualizations.append(
         _create_symmetry_chart(user_data, analysis_results, exercise_name, output_dir)
     )
 
-    # 5. Gráfico de velocidad (ACTUALIZADO para codos)
+    # 5. Gráfico de velocidad
     visualizations.append(
         _create_velocity_chart(user_data, expert_data, exercise_name, output_dir)
     )
 
-    # 6. Gráfico de puntuaciones por categoría (ACTUALIZADO)
+    # 6. Gráfico de puntuaciones por categoría - ACTUALIZADO
     visualizations.append(
         _create_scores_chart(analysis_results, exercise_name, output_dir)
     )
 
-    # 7. Gráfico de radar (ACTUALIZADO)
+    # 7. Gráfico de radar - ACTUALIZADO
     visualizations.append(
         _create_radar_chart(analysis_results, exercise_name, output_dir)
     )
@@ -81,7 +84,7 @@ def _create_amplitude_chart(metrics, user_data, expert_data, exercise_name, outp
     """Crea gráfico de amplitud de movimiento usando CODOS."""
     plt.figure(figsize=(10, 6))
 
-    # ACTUALIZADO: Usar codos en lugar de muñecas
+    # Usar codos en lugar de muñecas
     user_elbow_y = (
         user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
     ) / 2
@@ -135,7 +138,7 @@ def _create_amplitude_chart(metrics, user_data, expert_data, exercise_name, outp
 
 
 def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de abducción lateral de codos CORREGIDO."""
+    """Crea gráfico de abducción lateral de codos."""
     plt.figure(figsize=(10, 6))
 
     user_abduction_angles = []
@@ -199,7 +202,7 @@ def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
                 and not np.isnan(expert_left_elbow).any()
             ):
 
-                # CORREGIDO: Usar la nueva función de abducción lateral
+                # Usar la función de abducción lateral
                 user_right_angle = calculate_elbow_abduction_angle(
                     user_right_shoulder, user_right_elbow
                 )
@@ -235,7 +238,7 @@ def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
         plt.legend()
         plt.grid(True, alpha=0.3)
 
-        # Añadir líneas de referencia para interpretación - VALORES ORIGINALES
+        # Añadir líneas de referencia para interpretación
         plt.axhline(
             y=30, color="green", linestyle="--", alpha=0.5, label="Muy abierto (30°)"
         )
@@ -322,7 +325,7 @@ def _create_symmetry_chart(user_data, analysis_results, exercise_name, output_di
     """Crea gráfico de simetría bilateral usando CODOS."""
     plt.figure(figsize=(10, 6))
 
-    # ACTUALIZADO: Usar codos en lugar de muñecas
+    # Usar codos en lugar de muñecas
     diff_y = abs(
         user_data["landmark_right_elbow_y"].values
         - user_data["landmark_left_elbow_y"].values
@@ -356,7 +359,7 @@ def _create_velocity_chart(user_data, expert_data, exercise_name, output_dir):
     """Crea gráfico de velocidad usando CODOS."""
     plt.figure(figsize=(10, 6))
 
-    # ACTUALIZADO: Usar codos en lugar de muñecas
+    # Usar codos en lugar de muñecas
     user_elbow_y = (
         user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
     ) / 2
@@ -387,11 +390,20 @@ def _create_velocity_chart(user_data, expert_data, exercise_name, output_dir):
 
 
 def _create_radar_chart(analysis_results, exercise_name, output_dir):
-    """Crea gráfico de radar CORREGIDO."""
+    """
+    Crea gráfico de radar USANDO SCORES UNIFICADOS.
+    """
     try:
         plt.figure(figsize=(10, 8))
 
-        # CORREGIDO: Definir 6 categorías exactas
+        # ACTUALIZADO: Usar scores unificados directamente
+        individual_scores = analysis_results.get("individual_scores", {})
+
+        if not individual_scores:
+            logger.error("No se encontraron scores individuales en analysis_results")
+            return None
+
+        # Categorías exactas
         categories_radar = [
             "Amplitud",
             "Abducción\nCodos",
@@ -401,33 +413,29 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
             "Estabilidad\nEscapular",
         ]
 
-        scores = calculate_individual_scores(
-            analysis_results["metrics"], analysis_results["exercise_config"]
-        )
-
-        # CORREGIDO: Extraer exactamente 6 scores normalizados
+        # ACTUALIZADO: Extraer scores directamente del análisis unificado
         scores_normalized = [
-            scores["rom_score"] / 100,
-            scores["abduction_score"] / 100,
-            scores["sym_score"] / 100,
-            scores["path_score"] / 100,
-            scores["speed_score"] / 100,
-            scores["scapular_score"] / 100,
+            individual_scores.get("rom_score", 50) / 100,
+            individual_scores.get("abduction_score", 50) / 100,
+            individual_scores.get("sym_score", 50) / 100,
+            individual_scores.get("path_score", 50) / 100,
+            individual_scores.get("speed_score", 50) / 100,
+            individual_scores.get("scapular_score", 50) / 100,
         ]
 
         # DEBUG: Imprimir valores para verificación
-        logger.info("=== DEBUG RADAR CHART ===")
+        logger.info("=== DEBUG RADAR CHART UNIFICADO ===")
         for i, (cat, score_norm, score_raw) in enumerate(
             zip(
                 categories_radar,
                 scores_normalized,
                 [
-                    scores["rom_score"],
-                    scores["abduction_score"],
-                    scores["sym_score"],
-                    scores["path_score"],
-                    scores["speed_score"],
-                    scores["scapular_score"],
+                    individual_scores.get("rom_score", 50),
+                    individual_scores.get("abduction_score", 50),
+                    individual_scores.get("sym_score", 50),
+                    individual_scores.get("path_score", 50),
+                    individual_scores.get("speed_score", 50),
+                    individual_scores.get("scapular_score", 50),
                 ],
             )
         ):
@@ -435,8 +443,7 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
                 f"{i}: {cat.replace(chr(10), ' ')} = {score_raw:.1f} ({score_norm:.3f})"
             )
 
-        # CORREGIDO: Calcular ángulos ANTES de cerrar el polígono
-        # Crear exactamente 6 ángulos para 6 categorías
+        # Calcular ángulos ANTES de cerrar el polígono
         angles = np.linspace(
             0, 2 * np.pi, len(categories_radar), endpoint=False
         ).tolist()
@@ -444,16 +451,16 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
         # DEBUG: Verificar ángulos
         logger.info(f"Ángulos (grados): {[f'{np.degrees(a):.1f}°' for a in angles]}")
 
-        # CORREGIDO: Ahora sí, cerrar el polígono duplicando el primer elemento
+        # Cerrar el polígono duplicando el primer elemento
         scores_normalized = np.concatenate((scores_normalized, [scores_normalized[0]]))
-        angles = angles + [angles[0]]  # Duplicar solo el primer ángulo
+        angles = angles + [angles[0]]
 
         # Crear gráfico de radar
         ax = plt.subplot(111, polar=True)
         ax.fill(angles, scores_normalized, color="blue", alpha=0.25)
         ax.plot(angles, scores_normalized, color="blue", linewidth=2)
 
-        # CORREGIDO: Usar ángulos originales (sin duplicado) para las etiquetas
+        # Usar ángulos originales (sin duplicado) para las etiquetas
         original_angles = np.linspace(
             0, 2 * np.pi, len(categories_radar), endpoint=False
         ).tolist()
@@ -482,10 +489,19 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
 
 
 def _create_scores_chart(analysis_results, exercise_name, output_dir):
-    """Crea gráfico de puntuaciones por categoría CORREGIDO."""
+    """
+    Crea gráfico de puntuaciones por categoría USANDO SCORES UNIFICADOS.
+    """
     plt.figure(figsize=(10, 6))
 
-    # CORREGIDO: Usar exactamente las mismas 6 categorías que el radar
+    # ACTUALIZADO: Usar scores unificados directamente
+    individual_scores = analysis_results.get("individual_scores", {})
+
+    if not individual_scores:
+        logger.error("No se encontraron scores individuales en analysis_results")
+        return None
+
+    # Categorías
     categories = [
         "Amplitud",
         "Abducción\nCodos",
@@ -496,23 +512,19 @@ def _create_scores_chart(analysis_results, exercise_name, output_dir):
         "Global",
     ]
 
-    scores = calculate_individual_scores(
-        analysis_results["metrics"], analysis_results["exercise_config"]
-    )
-
-    # CORREGIDO: Usar exactamente los mismos scores que el radar + global
+    # ACTUALIZADO: Usar exactamente los mismos scores del análisis unificado
     scores_list = [
-        scores["rom_score"],
-        scores["abduction_score"],
-        scores["sym_score"],
-        scores["path_score"],
-        scores["speed_score"],
-        scores["scapular_score"],
-        analysis_results["score"],
+        individual_scores.get("rom_score", 50),
+        individual_scores.get("abduction_score", 50),
+        individual_scores.get("sym_score", 50),
+        individual_scores.get("path_score", 50),
+        individual_scores.get("speed_score", 50),
+        individual_scores.get("scapular_score", 50),
+        analysis_results["score"],  # Score global
     ]
 
     # DEBUG: Imprimir valores para verificación
-    logger.info("=== DEBUG SCORES CHART ===")
+    logger.info("=== DEBUG SCORES CHART UNIFICADO ===")
     for cat, score in zip(categories, scores_list):
         logger.info(f"{cat.replace(chr(10), ' ')}: {score:.1f}")
 
