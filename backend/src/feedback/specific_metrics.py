@@ -145,7 +145,7 @@ def analyze_elbow_abduction_angle_press(user_data, expert_data, exercise_config)
         return {
             "metrics": {},
             "feedback": {
-                "abduccion_codos": "No se pudo analizar la abducción de los codos."
+                "elbow_abduction": "No se pudo analizar la abducción de los codos."
             },
             "score": 50,
         }
@@ -165,7 +165,7 @@ def analyze_elbow_abduction_angle_press(user_data, expert_data, exercise_config)
         return {
             "metrics": {},
             "feedback": {
-                "abduccion_codos": "Datos insuficientes para analizar abducción."
+                "elbow_abduction": "Datos insuficientes para analizar abducción."
             },
             "score": 50,
         }
@@ -238,43 +238,43 @@ def analyze_elbow_abduction_angle_press(user_data, expert_data, exercise_config)
         base_score, sensitivity_factor, "abduccion_codos"
     )
 
-    # CORREGIDO: Feedback basado en score final para consistencia
+    # CORREGIDO: Feedback basado en score final para consistencia CON KEY EN INGLÉS
     feedback = {}
 
     if final_score >= 80:
-        feedback["abduccion_codos"] = "Excelente posición lateral de codos."
+        feedback["elbow_abduction"] = "Excelente posición lateral de codos."
     elif final_score >= 60:
         if abduction_diff > 0:  # Usuario tiene ángulo mayor = más cerrado
-            feedback["abduccion_codos"] = (
+            feedback["elbow_abduction"] = (
                 "Tus codos están ligeramente más cerrados que el experto. "
                 "Sepáralos un poco más del cuerpo."
             )
         else:  # Usuario tiene ángulo menor = más abierto
-            feedback["abduccion_codos"] = (
+            feedback["elbow_abduction"] = (
                 "Tus codos están ligeramente más abiertos que el experto. "
                 "Acércalos un poco más al cuerpo."
             )
     elif final_score >= 40:
         # Casos moderados
         if abduction_diff > 0:
-            feedback["abduccion_codos"] = (
+            feedback["elbow_abduction"] = (
                 "Tus codos están moderadamente más cerrados que el experto. "
                 "Sepáralos más del cuerpo para mejor mecánica."
             )
         else:
-            feedback["abduccion_codos"] = (
+            feedback["elbow_abduction"] = (
                 "Tus codos se abren moderadamente durante el ejercicio. "
                 "Acércalos más al cuerpo para mayor estabilidad."
             )
     else:
         # Casos críticos
         if abduction_diff > 0:
-            feedback["abduccion_codos"] = (
+            feedback["elbow_abduction"] = (
                 "Tus codos están significativamente más cerrados que el experto. "
                 "Es importante separarlos más del cuerpo para mejor mecánica."
             )
         else:
-            feedback["abduccion_codos"] = (
+            feedback["elbow_abduction"] = (
                 "Tus codos se abren excesivamente durante el ejercicio. "
                 "Es crítico acercarlos más al cuerpo para mayor seguridad."
             )
@@ -349,7 +349,7 @@ def analyze_scapular_stability_press(user_data, expert_data, exercise_config):
             base_score, capped_sensitivity, "estabilidad_escapular"
         )
 
-        # Mantener lógica de feedback original
+        # Mantener lógica de feedback original CON KEY EN INGLÉS
         stability_threshold = apply_sensitivity_to_threshold(
             exercise_config.get("scapular_stability_threshold", 1.5), sensitivity_factor
         )
@@ -357,33 +357,33 @@ def analyze_scapular_stability_press(user_data, expert_data, exercise_config):
         feedback = {}
         if movement_ratio > (2.0 / sensitivity_factor):
             if sensitivity_factor > 1.5:
-                feedback["estabilidad_escapular"] = (
+                feedback["scapular_stability"] = (
                     "Tus hombros se mueven excesivamente durante el press. "
                     "Es crítico mantener una posición mucho más estable de la cintura escapular."
                 )
             else:
-                feedback["estabilidad_escapular"] = (
+                feedback["scapular_stability"] = (
                     "Tus hombros se mueven excesivamente durante el press. "
                     "Mantén una posición más estable de la cintura escapular."
                 )
         elif asymmetry_ratio > (2.0 / sensitivity_factor):
-            feedback["estabilidad_escapular"] = (
+            feedback["scapular_stability"] = (
                 "Se detecta asimetría en el movimiento de tus hombros. "
                 "Concéntrate en mantener ambos hombros equilibrados."
             )
         elif movement_ratio > stability_threshold:
             if sensitivity_factor > 1.5:
-                feedback["estabilidad_escapular"] = (
+                feedback["scapular_stability"] = (
                     "Se detecta inestabilidad notable en tu cintura escapular. "
                     "Es importante practicar mantener los hombros en una posición más fija."
                 )
             else:
-                feedback["estabilidad_escapular"] = (
+                feedback["scapular_stability"] = (
                     "Se detecta cierta inestabilidad en tu cintura escapular. "
                     "Practica mantener los hombros en una posición más fija."
                 )
         else:
-            feedback["estabilidad_escapular"] = (
+            feedback["scapular_stability"] = (
                 "Buena estabilidad de la cintura escapular."
             )
 
@@ -410,7 +410,7 @@ def analyze_scapular_stability_press(user_data, expert_data, exercise_config):
                 "ratio_asimetria": 1.0,
             },
             "feedback": {
-                "estabilidad_escapular": "Análisis de estabilidad escapular no disponible."
+                "scapular_stability": "Análisis de estabilidad escapular no disponible."
             },
             "score": 50,
         }
@@ -484,7 +484,7 @@ def analyze_squat_depth(user_data, expert_data, exercise_config):
         return {
             "metrics": {},
             "feedback": {
-                "profundidad": "No se pudo analizar la profundidad de la sentadilla."
+                "squat_depth": "No se pudo analizar la profundidad de la sentadilla."
             },
             "score": 50,
         }
@@ -502,24 +502,24 @@ def analyze_squat_depth(user_data, expert_data, exercise_config):
         base_score, sensitivity_factor, "profundidad"
     )
 
-    # Generar feedback
+    # Generar feedback CON KEY EN INGLÉS
     feedback = {}
     if final_score >= 85:
-        feedback["profundidad"] = "Excelente profundidad en la sentadilla."
+        feedback["squat_depth"] = "Excelente profundidad en la sentadilla."
     elif final_score >= 70:
         if user_min_angle > expert_min_angle + 10:
-            feedback["profundidad"] = (
+            feedback["squat_depth"] = (
                 "Tu sentadilla podría ser más profunda. Baja más las caderas."
             )
         else:
-            feedback["profundidad"] = "Buena profundidad en la sentadilla."
+            feedback["squat_depth"] = "Buena profundidad en la sentadilla."
     else:
         if user_min_angle > expert_min_angle + 15:
-            feedback["profundidad"] = (
+            feedback["squat_depth"] = (
                 "Tu sentadilla es muy superficial. Es importante bajar más para una técnica correcta."
             )
         else:
-            feedback["profundidad"] = (
+            feedback["squat_depth"] = (
                 "La profundidad de tu sentadilla necesita trabajo."
             )
 
@@ -569,7 +569,7 @@ def analyze_knee_tracking_squat(user_data, expert_data, exercise_config):
         return {
             "metrics": {},
             "feedback": {
-                "tracking_rodillas": "No se pudo analizar el tracking de rodillas."
+                "knee_tracking": "No se pudo analizar el tracking de rodillas."
             },
             "score": 50,
         }
@@ -589,16 +589,16 @@ def analyze_knee_tracking_squat(user_data, expert_data, exercise_config):
         base_score, sensitivity_factor, "tracking_rodillas"
     )
 
-    # Generar feedback
+    # Generar feedback CON KEY EN INGLÉS
     feedback = {}
     if final_score >= 85:
-        feedback["tracking_rodillas"] = "Excelente control del tracking de rodillas."
+        feedback["knee_tracking"] = "Excelente control del tracking de rodillas."
     elif final_score >= 70:
-        feedback["tracking_rodillas"] = (
+        feedback["knee_tracking"] = (
             "Buen control general de las rodillas con ligeras variaciones."
         )
     else:
-        feedback["tracking_rodillas"] = (
+        feedback["knee_tracking"] = (
             "Las rodillas tienden a moverse hacia adentro. Mantén las rodillas alineadas con los pies."
         )
 
@@ -664,14 +664,14 @@ def analyze_body_swing_control_pullup(user_data, expert_data, exercise_config):
         base_score, sensitivity_factor, "control_swing"
     )
 
-    # Generar feedback
+    # Generar feedback CON KEY EN INGLÉS
     feedback = {}
     if final_score >= 85:
-        feedback["control_swing"] = "Excelente control del cuerpo durante la dominada."
+        feedback["swing_control"] = "Excelente control del cuerpo durante la dominada."
     elif final_score >= 70:
-        feedback["control_swing"] = "Buen control del cuerpo con ligero balanceo."
+        feedback["swing_control"] = "Buen control del cuerpo con ligero balanceo."
     else:
-        feedback["control_swing"] = (
+        feedback["swing_control"] = (
             "Hay demasiado balanceo del cuerpo. Mantén el core contraído para mayor estabilidad."
         )
 
@@ -726,21 +726,21 @@ def analyze_scapular_retraction_pullup(user_data, expert_data, exercise_config):
         base_score, sensitivity_factor, "retraccion_escapular"
     )
 
-    # Generar feedback
+    # Generar feedback CON KEY EN INGLÉS
     feedback = {}
     if final_score >= 85:
-        feedback["retraccion_escapular"] = "Excelente retracción escapular al inicio."
+        feedback["scapular_retraction"] = "Excelente retracción escapular al inicio."
     elif final_score >= 70:
-        feedback["retraccion_escapular"] = (
+        feedback["scapular_retraction"] = (
             "Buena retracción escapular con ligeras variaciones."
         )
     else:
         if separation_ratio > 1.1:
-            feedback["retraccion_escapular"] = (
+            feedback["scapular_retraction"] = (
                 "Necesitas mayor retracción escapular. Junta más las escápulas al inicio."
             )
         else:
-            feedback["retraccion_escapular"] = (
+            feedback["scapular_retraction"] = (
                 "La retracción escapular necesita trabajo."
             )
 
@@ -824,18 +824,18 @@ def get_specific_metric_names_for_exercise(exercise_name):
 
     if exercise_name == "press_militar":
         return {
-            "metrica_especifica_a": "abduccion_codos",
-            "metrica_especifica_b": "estabilidad_escapular",
+            "metrica_especifica_a": "abduction_score",
+            "metrica_especifica_b": "scapular_score",
         }
     elif exercise_name == "sentadilla":
         return {
-            "metrica_especifica_a": "profundidad",
-            "metrica_especifica_b": "tracking_rodillas",
+            "metrica_especifica_a": "depth_score",
+            "metrica_especifica_b": "knee_score",
         }
     elif exercise_name == "dominada":
         return {
-            "metrica_especifica_a": "control_swing",
-            "metrica_especifica_b": "retraccion_escapular",
+            "metrica_especifica_a": "swing_score",
+            "metrica_especifica_b": "retraction_score",
         }
     else:
         raise ValueError(f"Ejercicio no soportado: {exercise_name}")

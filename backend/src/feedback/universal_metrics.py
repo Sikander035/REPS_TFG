@@ -68,31 +68,31 @@ def analyze_movement_amplitude_universal(
     )
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "amplitud")
 
-    # FEEDBACK ADAPTADO - mantener lógica pero cambiar contexto
+    # FEEDBACK ADAPTADO - mantener lógica pero cambiar contexto y KEY EN INGLÉS
     feedback = {}
     if final_score >= 85:
-        feedback["amplitud"] = (
+        feedback["amplitude"] = (
             f"Excelente amplitud de movimiento en los {feedback_context}."
         )
     elif final_score >= 70:
         if rom_ratio > 1.15:
             if movement_direction == "down":  # Sentadilla
-                feedback["amplitud"] = (
+                feedback["amplitude"] = (
                     f"Tu rango de movimiento es excesivo. Controla la bajada para evitar "
                     f"hiperflexión de los {feedback_context}."
                 )
             else:  # Press, dominada
-                feedback["amplitud"] = (
+                feedback["amplitude"] = (
                     f"Tu rango de movimiento es excesivo. Controla la bajada para evitar "
                     f"hiperextensión de los {feedback_context}."
                 )
         else:
             if movement_direction == "down":
-                feedback["amplitud"] = (
+                feedback["amplitude"] = (
                     f"Tu rango de movimento podría ser más amplio. Baja más los {feedback_context}."
                 )
             else:
-                feedback["amplitud"] = (
+                feedback["amplitude"] = (
                     f"Tu rango de movimento podría ser más amplio. Baja hasta que las mancuernas "
                     f"estén aproximadamente a la altura de los hombros."
                 )
@@ -106,29 +106,29 @@ def analyze_movement_amplitude_universal(
         )
 
         if rom_ratio > 1.25:
-            feedback["amplitud"] = (
+            feedback["amplitude"] = (
                 f"Tu rango de movimiento es excesivamente amplio. Es crítico "
                 f"controlar la bajada para evitar hiperextensión de los {feedback_context}."
             )
         elif bottom_diff > bottom_diff_threshold * 1.5:
-            feedback["amplitud"] = (
+            feedback["amplitude"] = (
                 f"Tu rango de movimiento es insuficiente. Es importante bajar hasta que "
                 f"los {feedback_context} lleguen a la posición correcta para técnica adecuada."
             )
         else:
-            feedback["amplitud"] = (
+            feedback["amplitude"] = (
                 f"Tu rango de movimiento es limitado. Baja más los {feedback_context} para una flexión completa "
                 f"y extiende completamente arriba."
             )
     else:
         # Casos críticos
         if rom_ratio > 1.25:
-            feedback["amplitud"] = (
+            feedback["amplitude"] = (
                 f"Tu rango de movimiento es excesivamente amplio. Es crítico "
                 f"controlar la bajada para evitar hiperextensión de los {feedback_context}."
             )
         else:
-            feedback["amplitud"] = (
+            feedback["amplitude"] = (
                 f"Tu rango de movimiento es significativamente limitado. Es crítico "
                 f"trabajar en la amplitud completa: baja más los {feedback_context} y extiende completamente arriba."
             )
@@ -196,7 +196,7 @@ def analyze_symmetry_universal(
     )
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "simetria")
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback
+    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEY EN INGLÉS
     symmetry_threshold = apply_sensitivity_to_threshold(
         exercise_config["symmetry_threshold"], sensitivity_factor
     )
@@ -204,28 +204,28 @@ def analyze_symmetry_universal(
     feedback = {}
     if asymmetry_ratio > (1.8 / sensitivity_factor):
         if sensitivity_factor > 1.5:
-            feedback["simetria"] = (
+            feedback["symmetry"] = (
                 f"Hay una asimetría muy notable entre tu lado derecho e izquierdo en el {feedback_context}. "
                 f"Es prioritario trabajar en equilibrar ambos brazos."
             )
         else:
-            feedback["simetria"] = (
+            feedback["symmetry"] = (
                 f"Hay una asimetría notable entre tu lado derecho e izquierdo en el {feedback_context}. "
                 f"Enfócate en levantar ambos brazos por igual."
             )
     elif normalized_diff > symmetry_threshold:
         if sensitivity_factor > 1.5 and normalized_diff > symmetry_threshold * 1.5:
-            feedback["simetria"] = (
+            feedback["symmetry"] = (
                 f"Se detecta asimetría significativa en el {feedback_context}. "
                 f"Es importante trabajar en mantener ambos lados a la misma altura."
             )
         else:
-            feedback["simetria"] = (
+            feedback["symmetry"] = (
                 f"Se detecta cierta asimetría en el {feedback_context}. "
                 f"Intenta mantener ambos lados a la misma altura."
             )
     else:
-        feedback["simetria"] = f"Excelente simetría bilateral en el {feedback_context}."
+        feedback["symmetry"] = f"Excelente simetría bilateral en el {feedback_context}."
 
     # MÉTRICAS EXACTAS DEL CÓDIGO ACTUAL
     metrics = {
@@ -304,7 +304,7 @@ def analyze_movement_trajectory_3d_universal(
         base_score, sensitivity_factor, "trayectoria"
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback
+    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEYS EN INGLÉS
     lateral_threshold = apply_sensitivity_to_threshold(
         exercise_config["lateral_dev_threshold"], sensitivity_factor
     )
@@ -333,7 +333,7 @@ def analyze_movement_trajectory_3d_universal(
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Evaluar lateral
     if lateral_deviation_ratio > (2.0 / sensitivity_factor):
-        feedback["trayectoria_lateral"] = (
+        feedback["trajectory_lateral"] = (
             "Tu movimiento se desvía excesivamente en dirección lateral. "
             "Concéntrate urgentemente en mantener las muñecas en línea vertical."
         )
@@ -342,21 +342,21 @@ def analyze_movement_trajectory_3d_universal(
             sensitivity_factor > 1.5
             and normalized_trajectory_diff_x > lateral_threshold * 1.5
         ):
-            feedback["trayectoria_lateral"] = (
+            feedback["trajectory_lateral"] = (
                 "Se detecta desviación lateral significativa en tu trayectoria. "
                 "Es importante corregir para mantener un movimiento más vertical."
             )
         else:
-            feedback["trayectoria_lateral"] = (
+            feedback["trajectory_lateral"] = (
                 "Se detecta cierta desviación lateral en tu trayectoria. "
                 "Intenta mantener un movimiento más vertical."
             )
     else:
-        feedback["trayectoria_lateral"] = "Excelente control lateral del movimiento."
+        feedback["trajectory_lateral"] = "Excelente control lateral del movimiento."
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Evaluar frontal
     if frontal_deviation_ratio > (2.0 / sensitivity_factor):
-        feedback["trayectoria_frontal"] = (
+        feedback["trajectory_frontal"] = (
             "Tu movimiento se desvía hacia adelante/atrás significativamente. "
             "Mantén las muñecas en un plano vertical consistente."
         )
@@ -365,24 +365,24 @@ def analyze_movement_trajectory_3d_universal(
             sensitivity_factor > 1.5
             and normalized_trajectory_diff_z > frontal_threshold * 1.5
         ):
-            feedback["trayectoria_frontal"] = (
+            feedback["trajectory_frontal"] = (
                 "Se detecta desviación frontal significativa en tu movimiento. "
                 "Es importante mantener un plano vertical más consistente."
             )
         else:
-            feedback["trayectoria_frontal"] = (
+            feedback["trajectory_frontal"] = (
                 "Se detecta cierta desviación frontal en tu movimiento."
             )
     else:
-        feedback["trayectoria_frontal"] = "Buen control frontal del movimiento."
+        feedback["trajectory_frontal"] = "Buen control frontal del movimiento."
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback general
     if max(lateral_deviation_ratio, frontal_deviation_ratio) < (
         1.5 / sensitivity_factor
     ):
-        feedback["trayectoria"] = "Excelente trayectoria 3D del movimiento."
+        feedback["trajectory"] = "Excelente trayectoria 3D del movimiento."
     else:
-        feedback["trayectoria"] = "La trayectoria del movimiento puede mejorarse."
+        feedback["trajectory"] = "La trayectoria del movimiento puede mejorarse."
 
     # MÉTRICAS EXACTAS DEL CÓDIGO ACTUAL
     metrics = {
@@ -476,7 +476,7 @@ def analyze_speed_universal(user_data, expert_data, exercise_config, landmarks_c
     )
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "velocidad")
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback
+    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEYS EN INGLÉS
     feedback = {}
     velocity_threshold = apply_sensitivity_to_threshold(
         exercise_config["velocity_ratio_threshold"], sensitivity_factor
@@ -484,102 +484,102 @@ def analyze_speed_universal(user_data, expert_data, exercise_config, landmarks_c
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback unificado basado en score final
     if final_score >= 85:
-        feedback["velocidad_subida"] = "Excelente velocidad en la fase de subida."
-        feedback["velocidad_bajada"] = "Excelente control en la fase de bajada."
+        feedback["speed_concentric"] = "Excelente velocidad en la fase de subida."
+        feedback["speed_eccentric"] = "Excelente control en la fase de bajada."
     elif final_score >= 70:
         # Determinar cuál fase es problemática para feedback específico
         if concentric_deviation > eccentric_deviation:
             # Problema principal en fase concéntrica
             if concentric_ratio < (1 - velocity_threshold):
-                feedback["velocidad_subida"] = (
+                feedback["speed_concentric"] = (
                     "La fase de subida es moderadamente lenta. "
                     "Intenta ser más explosivo en la fase concéntrica."
                 )
             else:
-                feedback["velocidad_subida"] = (
+                feedback["speed_concentric"] = (
                     "La fase de subida es moderadamente rápida. "
                     "Controla un poco más el movimiento."
                 )
-            feedback["velocidad_bajada"] = "Buen control en la fase de bajada."
+            feedback["speed_eccentric"] = "Buen control en la fase de bajada."
         else:
             # Problema principal en fase excéntrica
-            feedback["velocidad_subida"] = "Buena velocidad en la fase de subida."
+            feedback["speed_concentric"] = "Buena velocidad en la fase de subida."
             if eccentric_ratio > (1 + velocity_threshold):
-                feedback["velocidad_bajada"] = (
+                feedback["speed_eccentric"] = (
                     "La fase de bajada es moderadamente rápida. "
                     "Intenta controlar más el descenso."
                 )
             else:
-                feedback["velocidad_bajada"] = (
+                feedback["speed_eccentric"] = (
                     "La fase de bajada es moderadamente lenta. "
                     "Controla el descenso pero no lo ralentices en exceso."
                 )
     elif final_score >= 50:
         # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Casos moderados-críticos
         if concentric_ratio < (1 - velocity_threshold):
-            feedback["velocidad_subida"] = (
+            feedback["speed_concentric"] = (
                 "La fase de subida es demasiado lenta comparada con el experto. "
                 "Intenta ser más explosivo en la fase concéntrica."
             )
         elif concentric_ratio > (1 + velocity_threshold):
-            feedback["velocidad_subida"] = (
+            feedback["speed_concentric"] = (
                 "La fase de subida es demasiado rápida. "
                 "Controla más el movimiento para mejor técnica."
             )
         else:
-            feedback["velocidad_subida"] = "Velocidad de subida aceptable."
+            feedback["speed_concentric"] = "Velocidad de subida aceptable."
 
         if eccentric_ratio < (1 - velocity_threshold):
-            feedback["velocidad_bajada"] = (
+            feedback["speed_eccentric"] = (
                 "La fase de bajada es demasiado lenta. "
                 "Controla el descenso pero no lo ralentices en exceso."
             )
         elif eccentric_ratio > (1 + velocity_threshold):
-            feedback["velocidad_bajada"] = (
+            feedback["speed_eccentric"] = (
                 "La fase de bajada es demasiado rápida. "
                 "Intenta controlar más el descenso para mejor técnica."
             )
         else:
-            feedback["velocidad_bajada"] = "Control de bajada aceptable."
+            feedback["speed_eccentric"] = "Control de bajada aceptable."
     else:
         # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Casos críticos
         if concentric_ratio < (1 - velocity_threshold):
             if sensitivity_factor > 1.5:
-                feedback["velocidad_subida"] = (
+                feedback["speed_concentric"] = (
                     "La fase de subida es significativamente muy lenta comparada con el experto. "
                     "Es importante ser más explosivo en la fase concéntrica."
                 )
             else:
-                feedback["velocidad_subida"] = (
+                feedback["speed_concentric"] = (
                     "La fase de subida es demasiado lenta comparada con el experto. "
                     "Intenta ser más explosivo en la fase concéntrica."
                 )
         elif concentric_ratio > (1 + velocity_threshold):
-            feedback["velocidad_subida"] = (
+            feedback["speed_concentric"] = (
                 "La fase de subida es excesivamente rápida. "
                 "Es crítico controlar más el movimiento para técnica segura."
             )
         else:
-            feedback["velocidad_subida"] = "Velocidad de subida problemática."
+            feedback["speed_concentric"] = "Velocidad de subida problemática."
 
         if eccentric_ratio > (1 + velocity_threshold):
             if sensitivity_factor > 1.5:
-                feedback["velocidad_bajada"] = (
+                feedback["speed_eccentric"] = (
                     "La fase de bajada es significativamente muy rápida. "
                     "Es crítico controlar más el descenso para técnica segura."
                 )
             else:
-                feedback["velocidad_bajada"] = (
+                feedback["speed_eccentric"] = (
                     "La fase de bajada es demasiado rápida. "
                     "Intenta controlar más el descenso."
                 )
         elif eccentric_ratio < (1 - velocity_threshold):
-            feedback["velocidad_bajada"] = (
+            feedback["speed_eccentric"] = (
                 "La fase de bajada es excesivamente lenta. "
                 "Encuentra un mejor equilibrio en el control del descenso."
             )
         else:
-            feedback["velocidad_bajada"] = "Control de bajada problemático."
+            feedback["speed_eccentric"] = "Control de bajada problemático."
 
     # MÉTRICAS EXACTAS DEL CÓDIGO ACTUAL
     metrics = {
