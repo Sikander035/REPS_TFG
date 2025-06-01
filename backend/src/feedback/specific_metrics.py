@@ -14,6 +14,7 @@ from src.utils.analysis_utils import (
     calculate_elbow_abduction_angle,  # Mantener función original
     apply_sensitivity_to_threshold,
 )
+from src.config.config_manager import config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,9 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-def analyze_elbow_abduction_angle_press(user_data, expert_data, exercise_config):
+def analyze_elbow_abduction_angle_press(
+    user_data, expert_data, exercise_config, config_path="config.json"
+):
     """
     PRESS MILITAR: Análisis de abducción de codos - CÓDIGO ORIGINAL EXACTO COPIADO.
     """
@@ -229,8 +232,15 @@ def analyze_elbow_abduction_angle_press(user_data, expert_data, exercise_config)
         expert_valley_values = expert_clean_signal
 
     # CORREGIDO: Calcular score base con penalty reducido para mejor calibración
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="press_militar",
+        metric_type="specific",
+        metric_name="elbow_abduction",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        abs(abduction_diff), 0, max_penalty=25, metric_type="linear"
+        abs(abduction_diff), 0, max_penalty=max_penalty, metric_type="linear"
     )
 
     # CORREGIDO: Aplicar sensibilidad de manera unificada
@@ -294,7 +304,9 @@ def analyze_elbow_abduction_angle_press(user_data, expert_data, exercise_config)
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
-def analyze_scapular_stability_press(user_data, expert_data, exercise_config):
+def analyze_scapular_stability_press(
+    user_data, expert_data, exercise_config, config_path="config.json"
+):
     """
     PRESS MILITAR: Análisis de estabilidad escapular - CÓDIGO ORIGINAL EXACTO COPIADO.
     """
@@ -334,8 +346,15 @@ def analyze_scapular_stability_press(user_data, expert_data, exercise_config):
 
         # CORREGIDO: Calcular score base usando el peor ratio
         worst_stability_ratio = max(movement_ratio, asymmetry_ratio)
+        # Obtener penalty de configuración
+        max_penalty = config_manager.get_penalty_config(
+            exercise_name="press_militar",
+            metric_type="specific",
+            metric_name="scapular_stability",
+            config_path=config_path,
+        )
         base_score = calculate_deviation_score(
-            worst_stability_ratio, 1.0, max_penalty=35, metric_type="ratio"
+            worst_stability_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
         )
 
         # CORREGIDO: Aplicar sensibilidad de manera unificada (SUAVIZADA para evitar colapsos)
@@ -421,7 +440,9 @@ def analyze_scapular_stability_press(user_data, expert_data, exercise_config):
 # =============================================================================
 
 
-def analyze_squat_depth(user_data, expert_data, exercise_config):
+def analyze_squat_depth(
+    user_data, expert_data, exercise_config, config_path="config.json"
+):
     """
     SENTADILLA: Análisis específico de profundidad usando ángulo de rodillas.
     """
@@ -495,8 +516,15 @@ def analyze_squat_depth(user_data, expert_data, exercise_config):
     angle_diff = abs(user_min_angle - expert_min_angle)
 
     # Calcular score
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="sentadilla",
+        metric_type="specific",
+        metric_name="squat_depth",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        angle_diff, 0, max_penalty=40, metric_type="linear"
+        angle_diff, 0, max_penalty=max_penalty, metric_type="linear"
     )
     final_score = apply_unified_sensitivity(
         base_score, sensitivity_factor, "profundidad"
@@ -533,7 +561,9 @@ def analyze_squat_depth(user_data, expert_data, exercise_config):
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
-def analyze_knee_tracking_squat(user_data, expert_data, exercise_config):
+def analyze_knee_tracking_squat(
+    user_data, expert_data, exercise_config, config_path="config.json"
+):
     """
     SENTADILLA: Análisis del tracking de rodillas (no colapso hacia adentro).
     """
@@ -582,8 +612,15 @@ def analyze_knee_tracking_squat(user_data, expert_data, exercise_config):
     )
 
     # Calcular score
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="sentadilla",
+        metric_type="specific",
+        metric_name="knee_tracking",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        stability_ratio, 1.0, max_penalty=30, metric_type="ratio"
+        stability_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(
         base_score, sensitivity_factor, "tracking_rodillas"
@@ -618,7 +655,9 @@ def analyze_knee_tracking_squat(user_data, expert_data, exercise_config):
 # =============================================================================
 
 
-def analyze_body_swing_control_pullup(user_data, expert_data, exercise_config):
+def analyze_body_swing_control_pullup(
+    user_data, expert_data, exercise_config, config_path="config.json"
+):
     """
     DOMINADA: Análisis específico de control de swing del cuerpo.
     """
@@ -657,8 +696,15 @@ def analyze_body_swing_control_pullup(user_data, expert_data, exercise_config):
     swing_ratio = user_total_swing / expert_total_swing if expert_total_swing > 0 else 1
 
     # Calcular score
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="dominada",
+        metric_type="specific",
+        metric_name="swing_control",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        swing_ratio, 1.0, max_penalty=35, metric_type="ratio"
+        swing_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(
         base_score, sensitivity_factor, "control_swing"
@@ -688,7 +734,9 @@ def analyze_body_swing_control_pullup(user_data, expert_data, exercise_config):
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
-def analyze_scapular_retraction_pullup(user_data, expert_data, exercise_config):
+def analyze_scapular_retraction_pullup(
+    user_data, expert_data, exercise_config, config_path="config.json"
+):
     """
     DOMINADA: Análisis de retracción escapular al inicio del movimiento.
     """
@@ -719,8 +767,15 @@ def analyze_scapular_retraction_pullup(user_data, expert_data, exercise_config):
     )
 
     # Calcular score (menor separación = mejor retracción)
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="dominada",
+        metric_type="specific",
+        metric_name="scapular_retraction",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        separation_ratio, 1.0, max_penalty=30, metric_type="ratio"
+        separation_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(
         base_score, sensitivity_factor, "retraccion_escapular"

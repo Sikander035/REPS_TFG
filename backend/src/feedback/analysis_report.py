@@ -54,41 +54,53 @@ def run_exercise_analysis(
     specific_names = get_specific_metric_names_for_exercise(exercise_name)
 
     # =================================================================
-    # EJECUTAR LAS 4 MÉTRICAS UNIVERSALES
+    # EJECUTAR LAS 4 MÉTRICAS UNIVERSALES (PASANDO config_path)
     # =================================================================
 
     # 1. AMPLITUD (universal)
     amplitude_result = analyze_movement_amplitude_universal(
-        user_data, expert_data, exercise_config, landmarks_config["amplitude"]
+        user_data,
+        expert_data,
+        exercise_config,
+        landmarks_config["amplitude"],
+        config_path,
     )
 
     # 2. SIMETRÍA (universal)
     symmetry_result = analyze_symmetry_universal(
-        user_data, expert_data, exercise_config, landmarks_config["symmetry"]
+        user_data,
+        expert_data,
+        exercise_config,
+        landmarks_config["symmetry"],
+        config_path,
     )
 
     # 3. TRAYECTORIA (universal)
     trajectory_result = analyze_movement_trajectory_3d_universal(
-        user_data, expert_data, exercise_config, landmarks_config["trajectory"]
+        user_data,
+        expert_data,
+        exercise_config,
+        landmarks_config["trajectory"],
+        config_path,
     )
 
     # 4. VELOCIDAD (universal)
     speed_result = analyze_speed_universal(
-        user_data, expert_data, exercise_config, landmarks_config["speed"]
+        user_data, expert_data, exercise_config, landmarks_config["speed"], config_path
     )
 
     # =================================================================
-    # EJECUTAR LAS 2 MÉTRICAS ESPECÍFICAS
+    # EJECUTAR LAS 2 MÉTRICAS ESPECÍFICAS (PASANDO config_path)
     # =================================================================
 
     # 5. MÉTRICA ESPECÍFICA A (abducción/profundidad/swing)
     specific_a_result = specific_functions["metrica_especifica_a"](
-        user_data, expert_data, exercise_config
+        user_data, expert_data, exercise_config, config_path
     )
 
     # 6. MÉTRICA ESPECÍFICA B (estabilidad/tracking/retracción)
     specific_b_result = specific_functions["metrica_especifica_b"](
-        user_data, expert_data, exercise_config
+        user_data, expert_data, exercise_config, config_path
     )
 
     # =================================================================
@@ -440,9 +452,7 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
 
 
 def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
-    """MANTENER FUNCIÓN ORIGINAL EXACTA - COPIAR DEL CÓDIGO ACTUAL"""
-    # TODO: AQUÍ DEBE IR LA FUNCIÓN COMPLETA ACTUAL DE analysis_report.py
-    # Por ahora placeholder para mantener estructura
+    """WRAPPER: Mantiene compatibilidad con código original del press militar."""
     from src.feedback.specific_metrics import analyze_elbow_abduction_angle_press
 
     return analyze_elbow_abduction_angle_press(user_data, expert_data, exercise_config)
@@ -486,9 +496,7 @@ def analyze_speed(user_data, expert_data, exercise_config):
 
 
 def analyze_scapular_stability(user_data, expert_data, exercise_config):
-    """MANTENER FUNCIÓN ORIGINAL EXACTA - COPIAR DEL CÓDIGO ACTUAL"""
-    # TODO: AQUÍ DEBE IR LA FUNCIÓN COMPLETA ACTUAL DE analysis_report.py
-    # Por ahora placeholder para mantener estructura
+    """WRAPPER: Mantiene compatibilidad con código original del press militar."""
     from src.feedback.specific_metrics import analyze_scapular_stability_press
 
     return analyze_scapular_stability_press(user_data, expert_data, exercise_config)

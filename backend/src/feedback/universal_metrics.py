@@ -12,12 +12,13 @@ from src.utils.analysis_utils import (
     calculate_deviation_score,
     apply_sensitivity_to_threshold,
 )
+from src.config.config_manager import config_manager
 
 logger = logging.getLogger(__name__)
 
 
 def analyze_movement_amplitude_universal(
-    user_data, expert_data, exercise_config, landmarks_config
+    user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
 ):
     """
     UNIVERSAL: Análisis de amplitud extraído del código actual del press militar.
@@ -63,8 +64,15 @@ def analyze_movement_amplitude_universal(
     )
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Score y sensibilidad
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="",
+        metric_type="universal",
+        metric_name="amplitude",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        rom_ratio, 1.0, max_penalty=40, metric_type="ratio"
+        rom_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "amplitud")
 
@@ -149,7 +157,7 @@ def analyze_movement_amplitude_universal(
 
 
 def analyze_symmetry_universal(
-    user_data, expert_data, exercise_config, landmarks_config
+    user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
 ):
     """
     UNIVERSAL: Análisis de simetría extraído del código actual del press militar.
@@ -191,8 +199,15 @@ def analyze_symmetry_universal(
     )
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Score y sensibilidad
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="",
+        metric_type="universal",
+        metric_name="symmetry",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        asymmetry_ratio, 1.0, max_penalty=30, metric_type="ratio"
+        asymmetry_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "simetria")
 
@@ -240,7 +255,7 @@ def analyze_symmetry_universal(
 
 
 def analyze_movement_trajectory_3d_universal(
-    user_data, expert_data, exercise_config, landmarks_config
+    user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
 ):
     """
     UNIVERSAL: Análisis de trayectoria extraído del código actual del press militar.
@@ -297,8 +312,15 @@ def analyze_movement_trajectory_3d_universal(
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Score
     worst_deviation_ratio = max(lateral_deviation_ratio, frontal_deviation_ratio)
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="",
+        metric_type="universal",
+        metric_name="trajectory",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        worst_deviation_ratio, 1.0, max_penalty=30, metric_type="ratio"
+        worst_deviation_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(
         base_score, sensitivity_factor, "trayectoria"
@@ -399,7 +421,9 @@ def analyze_movement_trajectory_3d_universal(
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
-def analyze_speed_universal(user_data, expert_data, exercise_config, landmarks_config):
+def analyze_speed_universal(
+    user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
+):
     """
     UNIVERSAL: Análisis de velocidad extraído del código actual del press militar.
     Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
@@ -471,8 +495,15 @@ def analyze_speed_universal(user_data, expert_data, exercise_config, landmarks_c
     eccentric_deviation = abs(eccentric_ratio - 1.0)
     worst_velocity_deviation = max(concentric_deviation, eccentric_deviation)
 
+    # Obtener penalty de configuración
+    max_penalty = config_manager.get_penalty_config(
+        exercise_name="",
+        metric_type="universal",
+        metric_name="speed",
+        config_path=config_path,
+    )
     base_score = calculate_deviation_score(
-        worst_velocity_deviation, 0, max_penalty=25, metric_type="linear"
+        worst_velocity_deviation, 0, max_penalty=max_penalty, metric_type="linear"
     )
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "velocidad")
 

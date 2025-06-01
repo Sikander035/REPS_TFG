@@ -186,6 +186,97 @@ class ConfigManager:
         self._exercise_configs[config_key] = result
         return result
 
+    def get_penalty_config(self, exercise_name, metric_type, metric_name, config_path):
+        """
+        Obtiene la configuración de penalty para una métrica específica.
+
+        Args:
+            exercise_name: Nombre del ejercicio ("press_militar", "sentadilla", etc.)
+            metric_type: Tipo de métrica ("universal" o "specific")
+            metric_name: Nombre específico de la métrica ("amplitude", "elbow_abduction", etc.)
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            int: Valor de penalty configurado o valor por defecto
+        """
+        # Cargar archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        config_data = self._loaded_files[config_path]
+
+        # Valores por defecto si no hay configuración
+        default_penalties = {
+            "universal": {
+                "amplitude": 40,
+                "symmetry": 30,
+                "trajectory": 30,
+                "speed": 25,
+            },
+            "specific": {
+                "elbow_abduction": 25,
+                "scapular_stability": 35,
+                "squat_depth": 40,
+                "knee_tracking": 30,
+                "swing_control": 35,
+                "scapular_retraction": 30,
+            },
+        }
+
+        try:
+            # Buscar en penalty_config
+            penalty_config = config_data.get("penalty_config", {})
+
+            if metric_type == "universal":
+                # Para métricas universales
+                universal_penalties = penalty_config.get("universal_metrics", {})
+                penalty = universal_penalties.get(metric_name)
+
+                if penalty is not None:
+                    logger.debug(f"Penalty para {metric_name} (universal): {penalty}")
+                    return penalty
+                else:
+                    # Fallback a valor por defecto
+                    default_penalty = default_penalties["universal"].get(
+                        metric_name, 30
+                    )
+                    logger.warning(
+                        f"Penalty no configurado para {metric_name} (universal). Usando default: {default_penalty}"
+                    )
+                    return default_penalty
+
+            elif metric_type == "specific":
+                # Para métricas específicas
+                specific_penalties = penalty_config.get("specific_metrics", {})
+                exercise_penalties = specific_penalties.get(exercise_name, {})
+                penalty = exercise_penalties.get(metric_name)
+
+                if penalty is not None:
+                    logger.debug(
+                        f"Penalty para {metric_name} ({exercise_name}): {penalty}"
+                    )
+                    return penalty
+                else:
+                    # Fallback a valor por defecto
+                    default_penalty = default_penalties["specific"].get(metric_name, 30)
+                    logger.warning(
+                        f"Penalty no configurado para {metric_name} ({exercise_name}). Usando default: {default_penalty}"
+                    )
+                    return default_penalty
+            else:
+                logger.error(
+                    f"Tipo de métrica inválido: {metric_type}. Debe ser 'universal' o 'specific'"
+                )
+                return 30  # Valor por defecto genérico
+
+        except Exception as e:
+            logger.error(f"Error obteniendo penalty config: {e}")
+            # Retornar valor por defecto según el tipo
+            if metric_type == "universal":
+                return default_penalties["universal"].get(metric_name, 30)
+            else:
+                return default_penalties["specific"].get(metric_name, 30)
+
     def _validate_basic_exercise_config(self, exercise_config, exercise_name):
         """
         Valida que la configuración básica del ejercicio sea correcta.

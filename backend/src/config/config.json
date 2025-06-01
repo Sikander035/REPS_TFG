@@ -1,4 +1,26 @@
 {
+    "penalty_config": {
+        "universal_metrics": {
+            "amplitude": 40,
+            "symmetry": 30,
+            "trajectory": 30,
+            "speed": 25
+        },
+        "specific_metrics": {
+            "press_militar": {
+                "elbow_abduction": 25,
+                "scapular_stability": 35
+            },
+            "sentadilla": {
+                "squat_depth": 40,
+                "knee_tracking": 30
+            },
+            "dominada": {
+                "swing_control": 35,
+                "scapular_retraction": 30
+            }
+        }
+    },
     "global_visualization": {
         "user_color": [0, 255, 0],
         "expert_color": [0, 0, 255],
