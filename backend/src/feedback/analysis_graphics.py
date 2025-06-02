@@ -61,11 +61,28 @@ def visualize_analysis_results(
             logger.error(f"Failed to create output directory {output_dir}: {e}")
             raise ValueError(f"Cannot create output directory: {e}")
 
-    # Get landmarks configuration for this exercise
+    # CORREGIDO: Get landmarks configuration for this exercise with proper error handling
     try:
-        landmarks_config = config_manager.get_exercise_landmarks_config(
-            exercise_name, config_path
-        )
+        # Verificar si config_path es una ruta absoluta o relativa
+        if not os.path.isabs(config_path):
+            # Si es relativa, construir ruta absoluta
+            base_dir = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "..")
+            )
+            full_config_path = os.path.join(base_dir, "src", "config", config_path)
+        else:
+            full_config_path = config_path
+
+        # Verificar que el archivo existe
+        if not os.path.exists(full_config_path):
+            logger.warning(
+                f"Config file not found at {full_config_path}, using fallback"
+            )
+            landmarks_config = _get_fallback_landmarks_config(exercise_name)
+        else:
+            landmarks_config = config_manager.get_exercise_landmarks_config(
+                exercise_name, full_config_path
+            )
     except Exception as e:
         logger.error(f"Failed to get landmarks configuration for {exercise_name}: {e}")
         # Fallback to hardcoded for compatibility
@@ -101,14 +118,14 @@ def visualize_analysis_results(
     except Exception as e:
         logger.error(f"Error creating trajectory chart: {e}")
 
-    # 4. Symmetry chart
+    # 4. Symmetry chart - CORREGIDO: pasar config_path completo
     try:
         viz_path = _create_symmetry_chart(
             user_data,
             analysis_results,
             exercise_name,
             output_dir,
-            config_path,
+            full_config_path,  # CORREGIDO: usar ruta completa
             landmarks_config,
         )
         if viz_path:
@@ -539,7 +556,7 @@ def _create_symmetry_chart(
 
     plt.plot(diff_y, label=f"Difference between {landmark_name}", color="purple")
 
-    # Get threshold using config_manager with safe fallback
+    # CORREGIDO: Get threshold using config_manager with better error handling
     try:
         symmetry_threshold = config_manager.get_analysis_threshold(
             "symmetry_threshold", exercise_name, config_path
@@ -554,7 +571,14 @@ def _create_symmetry_chart(
         logger.debug(f"Successfully got symmetry threshold: {symmetry_threshold}")
     except Exception as e:
         logger.warning(f"Could not get symmetry threshold from config: {e}")
-        # No threshold line if can't get it
+        # Use fallback threshold
+        symmetry_threshold = 0.15
+        plt.axhline(
+            y=symmetry_threshold,
+            linestyle="--",
+            color="red",
+            label=f"Asymmetry threshold (fallback: {symmetry_threshold})",
+        )
 
     plt.title(f"Bilateral Symmetry ({landmark_name.title()}) - {exercise_name}")
     plt.xlabel("Frame")
