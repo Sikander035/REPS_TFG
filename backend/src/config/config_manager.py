@@ -23,7 +23,7 @@ class ConfigManager:
     def __new__(cls, config_path=None):
         """Crea o devuelve la instancia singleton."""
         if cls._instance is None:
-            logger.debug("Creando nueva instancia de ConfigManager")
+            logger.debug("Creating new ConfigManager instance")
             cls._instance = super(ConfigManager, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
@@ -34,7 +34,7 @@ class ConfigManager:
         if self._initialized:
             return
 
-        logger.info(f"Inicializando ConfigManager con configuración: {config_path}")
+        logger.info(f"Initializing ConfigManager with configuration: {config_path}")
         self._initialized = True
 
         # Atributos de estado interno
@@ -100,7 +100,7 @@ class ConfigManager:
         """
         # Verificar si ya se cargó este archivo
         if config_path in self._loaded_files:
-            logger.debug(f"Archivo ya cargado: {config_path}")
+            logger.debug(f"File already loaded: {config_path}")
             return True
 
         # Verificar existencia del archivo
@@ -168,6 +168,7 @@ class ConfigManager:
                     and k != "penalty_config"
                     and k != "skill_levels"
                     and k != "scoring_weights"
+                    and k != "exercise_landmarks_config"
                 ]
             )
             raise ValueError(
@@ -184,12 +185,52 @@ class ConfigManager:
         self._exercise_configs[config_key] = exercise_config
         return exercise_config
 
+    def get_exercise_landmarks_config(self, exercise_name, config_path):
+        """
+        Obtiene la configuración de landmarks para un ejercicio específico.
+
+        Args:
+            exercise_name: Nombre del ejercicio
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            dict: Configuración de landmarks por métrica
+
+        Raises:
+            ValueError: Si el ejercicio no existe o la configuración está incompleta
+        """
+        # Normalizar nombre de ejercicio
+        exercise_name = exercise_name.strip().lower().replace(" ", "_")
+
+        # Cargar archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        config_data = self._loaded_files[config_path]
+
+        # Verificar que existe exercise_landmarks_config
+        if "exercise_landmarks_config" not in config_data:
+            raise ValueError(
+                "'exercise_landmarks_config' section not found in configuration file"
+            )
+
+        landmarks_config = config_data["exercise_landmarks_config"]
+
+        # Verificar que existe el ejercicio
+        if exercise_name not in landmarks_config:
+            available = ", ".join(landmarks_config.keys())
+            raise ValueError(
+                f"Landmarks configuration for exercise '{exercise_name}' not found. Available: {available}"
+            )
+
+        return landmarks_config[exercise_name]
+
     def get_penalty_config(self, exercise_name, metric_type, metric_name, config_path):
         """
         Obtiene la configuración de penalty para una métrica específica.
 
         Args:
-            exercise_name: Nombre del ejercicio ("press_militar", "sentadilla", etc.)
+            exercise_name: Nombre del ejercicio ("military_press", "squat", etc.)
             metric_type: Tipo de métrica ("universal" o "specific")
             metric_name: Nombre específico de la métrica
             config_path: Ruta al archivo de configuración
@@ -543,6 +584,7 @@ class ConfigManager:
             "penalty_config",
             "scoring_weights",
             "skill_levels",
+            "exercise_landmarks_config",
         }
 
         return [k for k in config_data.keys() if k not in excluded_keys]

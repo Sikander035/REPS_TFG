@@ -9,23 +9,23 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-# Configuración de logging
+# Logging configuration
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Ruta absoluta base del proyecto
+# Absolute base path of the project
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 VIDEOS_DIR = os.path.join(BASE_DIR, "media", "videos")
 CONFIG_PATH = os.path.join(BASE_DIR, "src", "config", "config.json")
 MODEL_PATH = os.path.join(BASE_DIR, "models", "pose_landmarker_lite.task")
 
-# Leer el nombre del ejercicio desde config.json
-nombre_ejercicio = "press_militar"
-OUTPUT_DIR = os.path.join(BASE_DIR, "media", "output", f"resultados_{nombre_ejercicio}")
+# Read exercise name from config.json
+exercise_name = "military_press"
+OUTPUT_DIR = os.path.join(BASE_DIR, "media", "output", f"results_{exercise_name}")
 
-# Añadir la ruta al directorio raíz del proyecto (backend)
+# Add path to project root directory (backend)
 sys.path.append(BASE_DIR)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
@@ -45,7 +45,7 @@ try:
         visualize_frame_dual_skeletons,
     )
 
-    # CORREGIDO: Usar solo el singleton, no la función duplicada
+    # CORRECTED: Use only singleton, not duplicated function
     from src.config.config_manager import config_manager
     from src.feedback.analysis_report import (
         run_exercise_analysis,
@@ -53,22 +53,22 @@ try:
     )
     from src.feedback.analysis_graphics import visualize_analysis_results
 
-    # NUEVO: Importar módulo de feedback personalizado
+    # NEW: Import custom feedback module
     from src.feedback.analysis_llm import (
         generate_trainer_feedback,
         TrainerFeedbackGenerator,
     )
 
     TRAINER_FEEDBACK_AVAILABLE = True
-    logger.info("Módulo de feedback con DeepSeek V3 cargado correctamente")
+    logger.info("Feedback module with DeepSeek V3 loaded correctly")
 
-    # CORREGIDO: Cargar configuración usando el singleton una sola vez al inicio
+    # CORRECTED: Load configuration using singleton once at startup
     config_manager.load_config_file(CONFIG_PATH)
-    logger.info("Configuración cargada usando config_manager singleton")
+    logger.info("Configuration loaded using config_manager singleton")
 
 except ImportError as e:
-    logger.warning(f"No se encontraron todos los módulos necesarios: {e}")
-    logger.warning("El procesamiento puede fallar")
+    logger.warning(f"Not all necessary modules found: {e}")
+    logger.warning("Processing may fail")
     TRAINER_FEEDBACK_AVAILABLE = False
 
 
@@ -89,10 +89,10 @@ def process_exercise(
     skip_normalization=False,
     skip_visualization=False,
     skip_analysis=False,
-    skip_trainer_feedback=False,  # NUEVO PARÁMETRO
+    skip_trainer_feedback=False,  # NEW PARAMETER
     diagnostics=False,
     model_path=None,
-    deepseek_api_key=None,  # NUEVO PARÁMETRO
+    deepseek_api_key=None,  # NEW PARAMETER
 ):
     start_time = time.time()
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -105,14 +105,14 @@ def process_exercise(
     )
     if diagnostics_dir:
         os.makedirs(diagnostics_dir, exist_ok=True)
-        logger.info(f"Generando diagnósticos en: {diagnostics_dir}")
+        logger.info(f"Generating diagnostics at: {diagnostics_dir}")
 
     try:
-        # CORREGIDO: Usar el singleton correctamente
+        # CORRECTED: Use singleton correctly
         exercise_config = config_manager.get_exercise_config(exercise_name, config_path)
-        logger.info(f"Configuración cargada para ejercicio: {exercise_name}")
+        logger.info(f"Configuration loaded for exercise: {exercise_name}")
     except Exception as e:
-        logger.error(f"Error al cargar configuración: {e}")
+        logger.error(f"Error loading configuration: {e}")
         exercise_config = {"sync_config": {}}
 
     if diagnostics_dir:
@@ -120,9 +120,9 @@ def process_exercise(
             json.dump(exercise_config, f, indent=2)
 
     if user_video is None:
-        user_video = os.path.join(videos_dir, f"{exercise_name}_Usuario.mp4")
+        user_video = os.path.join(videos_dir, f"{exercise_name}_User.mp4")
     if expert_video is None:
-        expert_video = os.path.join(videos_dir, f"{exercise_name}_Experto.mp4")
+        expert_video = os.path.join(videos_dir, f"{exercise_name}_Expert.mp4")
     else:
         expert_video = (
             os.path.join(videos_dir, expert_video)
@@ -130,26 +130,26 @@ def process_exercise(
             else expert_video
         )
 
-    video_usuario = user_video
-    video_experto = expert_video
-    csv_usuario = os.path.join(output_dir, f"{exercise_name}_Usuario.csv")
-    csv_experto = os.path.join(output_dir, f"{exercise_name}_Experto.csv")
+    video_user = user_video
+    video_expert = expert_video
+    csv_user = os.path.join(output_dir, f"{exercise_name}_User.csv")
+    csv_expert = os.path.join(output_dir, f"{exercise_name}_Expert.csv")
 
-    logger.info(f"USANDO VIDEO USUARIO: {video_usuario}")
-    logger.info(f"USANDO VIDEO EXPERTO: {video_experto}")
-    logger.info(f"USANDO MODELO: {model_path}")
-    if not os.path.exists(video_usuario):
-        logger.error(f"No se encontró el video del usuario: {video_usuario}")
+    logger.info(f"USING USER VIDEO: {video_user}")
+    logger.info(f"USING EXPERT VIDEO: {video_expert}")
+    logger.info(f"USING MODEL: {model_path}")
+    if not os.path.exists(video_user):
+        logger.error(f"User video not found: {video_user}")
         return None
-    if not os.path.exists(video_experto):
-        logger.error(f"No se encontró el video del experto: {video_experto}")
+    if not os.path.exists(video_expert):
+        logger.error(f"Expert video not found: {video_expert}")
         return None
 
     results = {
         "exercise_name": exercise_name,
         "input": {
-            "user_video": video_usuario,
-            "expert_video": video_experto,
+            "user_video": video_user,
+            "expert_video": video_expert,
             "config": config_path,
         },
         "output": {
@@ -164,92 +164,92 @@ def process_exercise(
         },
     }
 
-    # 1. EXTRACCIÓN DE LANDMARKS
+    # 1. LANDMARK EXTRACTION
     if not skip_extraction:
-        logger.info("1. FASE DE EXTRACCIÓN DE LANDMARKS")
+        logger.info("1. LANDMARK EXTRACTION PHASE")
         if model_path is None:
             model_path = MODEL_PATH
 
-        if os.path.exists(csv_usuario):
-            os.remove(csv_usuario)
-        if os.path.exists(csv_experto):
-            os.remove(csv_experto)
+        if os.path.exists(csv_user):
+            os.remove(csv_user)
+        if os.path.exists(csv_expert):
+            os.remove(csv_expert)
 
         try:
-            logger.info(f"Extrayendo landmarks del video del usuario: {video_usuario}")
+            logger.info(f"Extracting landmarks from user video: {video_user}")
             user_data = extract_landmarks_from_video(
-                video_usuario,
-                csv_usuario,
+                video_user,
+                csv_user,
                 exercise_name,
                 config_path=config_path,
                 model_path=model_path,
                 force_model_reload=False,
             )
 
-            logger.info(f"Extrayendo landmarks del video del experto: {video_experto}")
+            logger.info(f"Extracting landmarks from expert video: {video_expert}")
             expert_data = extract_landmarks_from_video(
-                video_experto,
-                csv_experto,
+                video_expert,
+                csv_expert,
                 exercise_name,
                 config_path=config_path,
                 model_path=model_path,
                 force_model_reload=True,
             )
 
-            results["output"]["landmarks"]["user"] = csv_usuario
-            results["output"]["landmarks"]["expert"] = csv_experto
+            results["output"]["landmarks"]["user"] = csv_user
+            results["output"]["landmarks"]["expert"] = csv_expert
 
             logger.info(
-                f"Extracción completada: {len(user_data)} frames de usuario, {len(expert_data)} frames de experto"
+                f"Extraction completed: {len(user_data)} user frames, {len(expert_data)} expert frames"
             )
 
         except Exception as e:
-            logger.error(f"Error en extracción de landmarks: {e}")
+            logger.error(f"Error in landmark extraction: {e}")
             if skip_normalization:
-                logger.error("No se puede continuar sin datos de landmarks.")
+                logger.error("Cannot continue without landmark data.")
                 return results
     else:
-        logger.info("Cargando landmarks previamente extraídos...")
+        logger.info("Loading previously extracted landmarks...")
         try:
-            user_data = pd.read_csv(csv_usuario)
-            expert_data = pd.read_csv(csv_experto)
+            user_data = pd.read_csv(csv_user)
+            expert_data = pd.read_csv(csv_expert)
 
-            results["output"]["landmarks"]["user"] = csv_usuario
-            results["output"]["landmarks"]["expert"] = csv_experto
+            results["output"]["landmarks"]["user"] = csv_user
+            results["output"]["landmarks"]["expert"] = csv_expert
 
             logger.info(
-                f"Datos cargados: {len(user_data)} frames de usuario, {len(expert_data)} frames de experto"
+                f"Data loaded: {len(user_data)} user frames, {len(expert_data)} expert frames"
             )
         except Exception as e:
-            logger.error(f"Error al cargar landmarks: {e}")
+            logger.error(f"Error loading landmarks: {e}")
             return results
 
-    # Guardar datos originales para referencias posteriores
+    # Save original data for later references
     user_data_original = user_data.copy()
     expert_data_original = expert_data.copy()
 
-    # 2. DETECCIÓN DE REPETICIONES (UNA SOLA VEZ)
-    logger.info("2. FASE DE DETECCIÓN DE REPETICIONES")
+    # 2. REPETITION DETECTION (ONCE ONLY)
+    logger.info("2. REPETITION DETECTION PHASE")
     try:
-        # Detectar repeticiones del usuario
+        # Detect user repetitions
         user_repetitions = detect_repetitions(user_data)
         num_user_reps = len(user_repetitions) if user_repetitions else 0
-        logger.info(f"Repeticiones detectadas en usuario: {num_user_reps}")
+        logger.info(f"Repetitions detected in user: {num_user_reps}")
 
-        # Detectar repeticiones del experto
+        # Detect expert repetitions
         expert_repetitions = detect_repetitions(expert_data)
         num_expert_reps = len(expert_repetitions) if expert_repetitions else 0
-        logger.info(f"Repeticiones detectadas en experto: {num_expert_reps}")
+        logger.info(f"Repetitions detected in expert: {num_expert_reps}")
 
-        # Calcular rango de ejercicio para visualización (del usuario)
+        # Calculate exercise range for visualization (from user)
         exercise_frame_range = None
         if user_repetitions:
             min_frame = min(rep["start_frame"] for rep in user_repetitions)
             max_frame = max(rep["end_frame"] for rep in user_repetitions)
             exercise_frame_range = (int(min_frame), int(max_frame))
-            logger.info(f"Rango de ejercicio: frames {min_frame} a {max_frame}")
+            logger.info(f"Exercise range: frames {min_frame} to {max_frame}")
         else:
-            logger.warning("No se detectaron repeticiones - usando video completo")
+            logger.warning("No repetitions detected - using complete video")
 
         if diagnostics_dir and user_repetitions:
             rep_info = []
@@ -270,21 +270,21 @@ def process_exercise(
             with open(os.path.join(diagnostics_dir, "repetitions.json"), "w") as f:
                 json.dump(rep_info, f, indent=2)
     except Exception as e:
-        logger.error(f"Error en detección de repeticiones: {e}")
+        logger.error(f"Error in repetition detection: {e}")
         user_repetitions = None
         expert_repetitions = None
         exercise_frame_range = None
 
-    # 3. SINCRONIZACIÓN DE DATOS (CON REPETICIONES PRE-DETECTADAS)
-    logger.info("3. FASE DE SINCRONIZACIÓN DE DATOS")
+    # 3. DATA SYNCHRONIZATION (WITH PRE-DETECTED REPETITIONS)
+    logger.info("3. DATA SYNCHRONIZATION PHASE")
     try:
         user_processed_data, expert_processed_data = synchronize_data(
             user_data,
             expert_data,
             exercise_name=exercise_name,
             config_path=config_path,
-            user_repetitions=user_repetitions,  # PASAR REPETICIONES
-            expert_repetitions=expert_repetitions,  # PASAR REPETICIONES
+            user_repetitions=user_repetitions,  # PASS REPETITIONS
+            expert_repetitions=expert_repetitions,  # PASS REPETITIONS
         )
         user_sync_path = os.path.join(
             output_dir, f"{exercise_name}_user_synchronized.csv"
@@ -297,7 +297,7 @@ def process_exercise(
         results["output"]["processed"]["user_sync"] = user_sync_path
         results["output"]["processed"]["expert_sync"] = expert_sync_path
 
-        logger.info(f"Sincronización completada: {len(user_processed_data)} frames")
+        logger.info(f"Synchronization completed: {len(user_processed_data)} frames")
 
         if diagnostics_dir:
             try:
@@ -314,19 +314,19 @@ def process_exercise(
                 with open(os.path.join(diagnostics_dir, "sync_stats.json"), "w") as f:
                     json.dump(sync_stats, f, indent=2)
             except Exception as e:
-                logger.error(f"Error al generar diagnósticos de sincronización: {e}")
+                logger.error(f"Error generating synchronization diagnostics: {e}")
     except Exception as e:
-        logger.error(f"Error en sincronización: {e}")
+        logger.error(f"Error in synchronization: {e}")
         return results
 
     if skip_normalization:
-        logger.info("Omitiendo normalización y alineación según parámetros.")
+        logger.info("Skipping normalization and alignment per parameters.")
         return results
 
-    # 4. NORMALIZACIÓN POR CUADRADOS MÍNIMOS
-    logger.info("4. FASE DE NORMALIZACIÓN POR CUADRADOS MÍNIMOS")
+    # 4. LEAST SQUARES NORMALIZATION
+    logger.info("4. LEAST SQUARES NORMALIZATION PHASE")
     try:
-        logger.info("Normalizando datos del experto usando transformación afín...")
+        logger.info("Normalizing expert data using affine transformation...")
         normalized_expert_data = normalize_skeletons_with_affine_method(
             user_processed_data, expert_processed_data
         )
@@ -335,15 +335,15 @@ def process_exercise(
         )
         normalized_expert_data.to_csv(norm_expert_path, index=False)
         results["output"]["processed"]["expert_norm"] = norm_expert_path
-        logger.info(f"Normalización completada: {len(normalized_expert_data)} frames")
+        logger.info(f"Normalization completed: {len(normalized_expert_data)} frames")
     except Exception as e:
-        logger.error(f"Error en normalización: {e}")
+        logger.error(f"Error in normalization: {e}")
         return results
 
-    # 5. ALINEACIÓN DE ESQUELETOS
-    logger.info("5. FASE DE ALINEACIÓN DE ESQUELETOS")
+    # 5. SKELETON ALIGNMENT
+    logger.info("5. SKELETON ALIGNMENT PHASE")
     try:
-        logger.info("Alineando esqueletos...")
+        logger.info("Aligning skeletons...")
         aligned_expert_data = align_skeletons_dataframe(
             user_processed_data, normalized_expert_data
         )
@@ -352,31 +352,31 @@ def process_exercise(
         )
         aligned_expert_data.to_csv(aligned_expert_path, index=False)
         results["output"]["processed"]["expert_aligned"] = aligned_expert_path
-        logger.info(f"Alineación completada: {len(aligned_expert_data)} frames")
+        logger.info(f"Alignment completed: {len(aligned_expert_data)} frames")
     except Exception as e:
-        logger.error(f"Error en alineación: {e}")
+        logger.error(f"Error in alignment: {e}")
         aligned_expert_data = normalized_expert_data
-        logger.warning("Usando datos normalizados sin alineación final")
+        logger.warning("Using normalized data without final alignment")
 
-    # # 6. GENERACIÓN DE VISUALIZACIONES (CON RANGO DE EJERCICIO)
+    # # 6. VISUALIZATION GENERATION (WITH EXERCISE RANGE)
     # if not skip_visualization:
-    #     logger.info("6. FASE DE GENERACIÓN DE VISUALIZACIONES")
+    #     logger.info("6. VISUALIZATION GENERATION PHASE")
     #     try:
     #         output_video_path = os.path.join(
     #             output_dir, f"{exercise_name}_comparison_video.mp4"
     #         )
     #         ensure_dir_exists(output_video_path)
     #         generate_dual_skeleton_video(
-    #             original_video_path=video_usuario,
+    #             original_video_path=video_user,
     #             user_data=user_processed_data,
     #             expert_data=aligned_expert_data,
     #             output_video_path=output_video_path,
     #             config_path=CONFIG_PATH,
     #             original_user_data=user_data_original,
-    #             exercise_frame_range=exercise_frame_range,  # PASAR RANGO DE EJERCICIO
+    #             exercise_frame_range=exercise_frame_range,  # PASS EXERCISE RANGE
     #         )
     #         results["output"]["visualizations"]["video"] = output_video_path
-    #         logger.info(f"Video comparativo generado: {output_video_path}")
+    #         logger.info(f"Comparison video generated: {output_video_path}")
 
     #         try:
     #             mid_frame = len(user_processed_data) // 2
@@ -392,36 +392,36 @@ def process_exercise(
     #                 show_image=False,
     #             )
     #             results["output"]["visualizations"]["frame"] = frame_image_path
-    #             logger.info(f"Imagen de comparación generada: {frame_image_path}")
+    #             logger.info(f"Comparison image generated: {frame_image_path}")
     #         except Exception as frame_error:
-    #             logger.error(f"Error al generar imagen de comparación: {frame_error}")
+    #             logger.error(f"Error generating comparison image: {frame_error}")
     #     except Exception as e:
-    #         logger.error(f"Error al generar visualizaciones: {e}")
+    #         logger.error(f"Error generating visualizations: {e}")
 
-    # 7. ANÁLISIS DETALLADO DEL EJERCICIO
+    # 7. DETAILED EXERCISE ANALYSIS
     if not skip_analysis:
-        logger.info("7. FASE DE ANÁLISIS DETALLADO DEL EJERCICIO")
+        logger.info("7. DETAILED EXERCISE ANALYSIS PHASE")
         try:
             analysis_dir = os.path.join(output_dir, f"{exercise_name}_analysis")
             os.makedirs(analysis_dir, exist_ok=True)
 
-            # CORREGIDO: Análisis usando singleton - pasamos config_path para usar singleton
+            # CORRECTED: Analysis using singleton - pass config_path to use singleton
             analysis_results = run_exercise_analysis(
                 user_data=user_processed_data,
                 expert_data=aligned_expert_data,
                 exercise_name=exercise_name,
-                config_path=config_path,  # Asegurar que usa singleton
+                config_path=config_path,  # Ensure it uses singleton
             )
 
-            # Generar reporte
-            report_path = os.path.join(analysis_dir, f"{exercise_name}_informe.json")
+            # Generate report
+            report_path = os.path.join(analysis_dir, f"{exercise_name}_report.json")
             report = generate_analysis_report(
                 analysis_results=analysis_results,
                 exercise_name=exercise_name,
                 output_path=report_path,
             )
 
-            # Generar visualizaciones
+            # Generate visualizations
             viz_paths = visualize_analysis_results(
                 analysis_results=analysis_results,
                 user_data=user_processed_data,
@@ -430,7 +430,7 @@ def process_exercise(
                 output_dir=analysis_dir,
             )
 
-            # Almacenar resultados
+            # Store results
             results["output"]["analysis"] = {
                 "report": report_path,
                 "visualizations": viz_paths,
@@ -439,58 +439,58 @@ def process_exercise(
                 "repetitions_used": {
                     "user_reps": len(user_repetitions) if user_repetitions else 0,
                     "expert_reps": len(expert_repetitions) if expert_repetitions else 0,
-                    "abduction_analysis": (
-                        "bajada_only" if user_repetitions else "completo"
+                    "analysis_type": (
+                        "descent_only" if user_repetitions else "complete"
                     ),
                 },
                 "config_source": "singleton_config_manager",
             }
 
             logger.info(
-                f"Análisis completado - Puntuación: {report['puntuacion_global']:.1f}/100 - Nivel: {report['nivel']}"
+                f"Analysis completed - Score: {report['overall_score']:.1f}/100 - Level: {report['level']}"
             )
 
-            if report["areas_mejora"]:
-                logger.info("Áreas de mejora:")
-                for area in report["areas_mejora"]:
+            if report["improvement_areas"]:
+                logger.info("Improvement areas:")
+                for area in report["improvement_areas"]:
                     logger.info(f"  - {area}")
-            if report["puntos_fuertes"]:
-                logger.info("Puntos fuertes:")
-                for punto in report["puntos_fuertes"]:
-                    logger.info(f"  + {punto}")
+            if report["strengths"]:
+                logger.info("Strengths:")
+                for strength in report["strengths"]:
+                    logger.info(f"  + {strength}")
 
         except Exception as e:
-            logger.error(f"Error en análisis detallado del ejercicio: {e}")
+            logger.error(f"Error in detailed exercise analysis: {e}")
             import traceback
 
             logger.error(traceback.format_exc())
 
-    # 8. GENERACIÓN DE FEEDBACK PERSONALIZADO (NUEVO PASO)
+    # 8. PERSONALIZED FEEDBACK GENERATION (NEW STEP)
     if not skip_trainer_feedback and TRAINER_FEEDBACK_AVAILABLE:
-        logger.info("8. FASE DE GENERACIÓN DE FEEDBACK PERSONALIZADO")
+        logger.info("8. PERSONALIZED FEEDBACK GENERATION PHASE")
         try:
-            # CORREGIDO: Rutas basadas en la estructura real del proyecto
+            # CORRECTED: Paths based on real project structure
             analysis_dir = os.path.join(output_dir, f"{exercise_name}_analysis")
-            report_path = os.path.join(analysis_dir, f"{exercise_name}_informe.json")
+            report_path = os.path.join(analysis_dir, f"{exercise_name}_report.json")
 
-            logger.info(f"Buscando informe en: {report_path}")
+            logger.info(f"Looking for report at: {report_path}")
 
             if os.path.exists(report_path):
-                # Generar feedback usando DeepSeek V3
+                # Generate feedback using DeepSeek V3
                 feedback_path = os.path.join(
-                    analysis_dir, f"{exercise_name}_feedback_personalizado.txt"
+                    analysis_dir, f"{exercise_name}_personalized_feedback.txt"
                 )
 
-                logger.info("Generando feedback personalizado con DeepSeek V3...")
+                logger.info("Generating personalized feedback with DeepSeek V3...")
 
-                # Usar API key hardcodeada
+                # Use hardcoded API key
                 feedback = generate_trainer_feedback(
                     informe_path=report_path,
                     output_path=feedback_path,
                     api_key=deepseek_api_key,
                 )
 
-                # Añadir resultado al diccionario de resultados
+                # Add result to results dictionary
                 if "analysis" not in results["output"]:
                     results["output"]["analysis"] = {}
 
@@ -499,47 +499,47 @@ def process_exercise(
                     feedback[:200] + "..." if len(feedback) > 200 else feedback
                 )
 
-                logger.info(f"Feedback personalizado generado: {feedback_path}")
+                logger.info(f"Personalized feedback generated: {feedback_path}")
 
-                # Mostrar preview del feedback en los logs
-                logger.info("=== PREVIEW DEL FEEDBACK ===")
-                lines = feedback.split("\n")[:5]  # Primeras 5 líneas
+                # Show feedback preview in logs
+                logger.info("=== FEEDBACK PREVIEW ===")
+                lines = feedback.split("\n")[:5]  # First 5 lines
                 for line in lines:
                     if line.strip():
                         logger.info(f"  {line.strip()}")
-                logger.info("=== FIN PREVIEW ===")
+                logger.info("=== END PREVIEW ===")
 
-                # MOSTRAR EL FEEDBACK COMPLETO AL FINAL
+                # SHOW COMPLETE FEEDBACK AT THE END
                 print("\n" + "=" * 60)
-                print("🤖 FEEDBACK DEL ENTRENADOR PERSONAL")
+                print("🤖 PERSONAL TRAINER FEEDBACK")
                 print("=" * 60)
                 print(feedback)
                 print("=" * 60 + "\n")
 
             else:
                 logger.warning(
-                    f"No se encontró informe de análisis en {report_path}. Saltando generación de feedback."
+                    f"Analysis report not found at {report_path}. Skipping feedback generation."
                 )
-                logger.info("Estructura de directorios:")
+                logger.info("Directory structure:")
                 if os.path.exists(output_dir):
                     for item in os.listdir(output_dir):
                         logger.info(f"  - {item}")
                 else:
-                    logger.warning(f"Directorio de salida no existe: {output_dir}")
+                    logger.warning(f"Output directory doesn't exist: {output_dir}")
 
         except Exception as e:
-            logger.error(f"Error en generación de feedback personalizado: {e}")
+            logger.error(f"Error in personalized feedback generation: {e}")
             import traceback
 
             logger.error(traceback.format_exc())
     elif skip_trainer_feedback:
-        logger.info("Omitiendo generación de feedback personalizado según parámetros.")
+        logger.info("Skipping personalized feedback generation per parameters.")
     else:
         logger.warning(
-            "Módulo de trainer feedback no disponible. Instala las dependencias necesarias."
+            "Trainer feedback module not available. Install necessary dependencies."
         )
 
-    # Información final sobre configuración
+    # Final information about configuration
     total_time = time.time() - start_time
     results["processing_info"] = {
         "total_time_seconds": total_time,
@@ -549,7 +549,7 @@ def process_exercise(
     }
 
     logger.info(
-        f"Procesamiento completado en {total_time:.2f} segundos usando singleton correctamente"
+        f"Processing completed in {total_time:.2f} seconds using singleton correctly"
     )
 
     config_manager.clear_cache()
@@ -558,40 +558,40 @@ def process_exercise(
 
 
 def main():
-    print("DEBUG: Verificando rutas y archivos...")
-    print("DEBUG: Directorio de trabajo actual:", os.getcwd())
+    print("DEBUG: Verifying paths and files...")
+    print("DEBUG: Current working directory:", os.getcwd())
     print(f"DEBUG: BASE_DIR: {BASE_DIR}")
     print(f"DEBUG: VIDEOS_DIR: {VIDEOS_DIR}")
     print(f"DEBUG: OUTPUT_DIR: {OUTPUT_DIR}")
     print(f"DEBUG: CONFIG_PATH: {CONFIG_PATH}")
     print(f"DEBUG: MODEL_PATH: {MODEL_PATH}")
 
-    exercise_name = nombre_ejercicio
+    exercise_name_for_files = exercise_name
     user_video = os.path.join(VIDEOS_DIR, "Press_Militar_Cerca_Usuario.mp4")
     expert_video = os.path.join(VIDEOS_DIR, "Press_Militar_Cerca_Monitor.mp4")
 
-    print(f"DEBUG: Ruta completa al video de usuario: {user_video}")
-    print(f"DEBUG: ¿Existe el video de usuario?: {os.path.exists(user_video)}")
-    print(f"DEBUG: Ruta completa al video de experto: {expert_video}")
-    print(f"DEBUG: ¿Existe el video de experto?: {os.path.exists(expert_video)}")
-    print(f"DEBUG: Ruta al modelo: {MODEL_PATH}")
-    print(f"DEBUG: ¿Existe el modelo?: {os.path.exists(MODEL_PATH)}")
-    print(f"DEBUG: Ruta a config.json: {CONFIG_PATH}")
-    print(f"DEBUG: ¿Existe config.json?: {os.path.exists(CONFIG_PATH)}")
+    print(f"DEBUG: Full path to user video: {user_video}")
+    print(f"DEBUG: Does user video exist?: {os.path.exists(user_video)}")
+    print(f"DEBUG: Full path to expert video: {expert_video}")
+    print(f"DEBUG: Does expert video exist?: {os.path.exists(expert_video)}")
+    print(f"DEBUG: Path to model: {MODEL_PATH}")
+    print(f"DEBUG: Does model exist?: {os.path.exists(MODEL_PATH)}")
+    print(f"DEBUG: Path to config.json: {CONFIG_PATH}")
+    print(f"DEBUG: Does config.json exist?: {os.path.exists(CONFIG_PATH)}")
 
-    # INFORMACIÓN ADICIONAL: Verificar que el singleton funciona
+    # ADDITIONAL INFORMATION: Verify singleton works
     try:
         print(
-            f"DEBUG: Configuración cargada en singleton: {len(config_manager._loaded_files)} archivos"
+            f"DEBUG: Configuration loaded in singleton: {len(config_manager._loaded_files)} files"
         )
         print(
-            f"DEBUG: Ejercicios disponibles: {config_manager.get_available_exercises(CONFIG_PATH)}"
+            f"DEBUG: Available exercises: {config_manager.get_available_exercises(CONFIG_PATH)}"
         )
     except Exception as e:
-        print(f"DEBUG: Error verificando singleton: {e}")
+        print(f"DEBUG: Error verifying singleton: {e}")
 
-    # CONFIGURACIÓN DE DEEPSEEK API KEY HARDCODEADA
-    deepseek_api_key = "CLAVE"  # CAMBIAR POR TU API KEY REAL
+    # HARDCODED DEEPSEEK API KEY CONFIGURATION
+    deepseek_api_key = "CLAVE"  # CHANGE TO YOUR REAL API KEY
 
     results = process_exercise(
         exercise_name=exercise_name,
@@ -603,33 +603,29 @@ def main():
         diagnostics=True,
         skip_extraction=False,
         skip_normalization=False,
-        skip_visualization=True,  # Cambiar a False si quieres generar videos
+        skip_visualization=True,  # Change to False if you want to generate videos
         skip_analysis=False,
-        skip_trainer_feedback=False,  # NUEVO: Cambiar a True para desactivar feedback
+        skip_trainer_feedback=False,  # NEW: Change to True to disable feedback
         model_path=MODEL_PATH,
-        deepseek_api_key=deepseek_api_key,  # NUEVO PARÁMETRO
+        deepseek_api_key=deepseek_api_key,  # NEW PARAMETER
     )
 
     if results:
-        logger.info(
-            f"Procesamiento completado con éxito usando singleton correctamente."
-        )
-        logger.info(f"Información de configuración: {results.get('config_info', {})}")
-        logger.info(
-            f"Información de procesamiento: {results.get('processing_info', {})}"
-        )
+        logger.info(f"Processing completed successfully using singleton correctly.")
+        logger.info(f"Configuration information: {results.get('config_info', {})}")
+        logger.info(f"Processing information: {results.get('processing_info', {})}")
 
-        # NUEVO: Mostrar información del feedback si está disponible
+        # NEW: Show feedback information if available
         if (
             "analysis" in results["output"]
             and "trainer_feedback" in results["output"]["analysis"]
         ):
             feedback_path = results["output"]["analysis"]["trainer_feedback"]
-            logger.info(f"Feedback personalizado generado en: {feedback_path}")
+            logger.info(f"Personalized feedback generated at: {feedback_path}")
 
-        logger.info(f"Todos los resultados están disponibles en: {OUTPUT_DIR}")
+        logger.info(f"All results are available at: {OUTPUT_DIR}")
     else:
-        logger.error("Error en el procesamiento del ejercicio.")
+        logger.error("Error in exercise processing.")
 
 
 if __name__ == "__main__":

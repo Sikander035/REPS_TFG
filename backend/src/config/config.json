@@ -7,15 +7,15 @@
             "speed": 25
         },
         "specific_metrics": {
-            "press_militar": {
+            "military_press": {
                 "elbow_abduction": 25,
                 "scapular_stability": 35
             },
-            "sentadilla": {
+            "squat": {
                 "squat_depth": 40,
                 "knee_tracking": 30
             },
-            "dominada": {
+            "pull_up": {
                 "swing_control": 35,
                 "scapular_retraction": 30
             }
@@ -69,13 +69,90 @@
         "scapular_score": 0.10
     },
     "skill_levels": {
-        "excelente": 90,
-        "muy_bueno": 80,
-        "bueno": 70,
-        "aceptable": 60,
-        "necesita_mejorar": 50
+        "excellent": 90,
+        "very_good": 80,
+        "good": 70,
+        "acceptable": 60,
+        "needs_improvement": 50
     },
-    "press_militar": {
+    "exercise_landmarks_config": {
+        "military_press": {
+            "amplitude": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "axis": "y",
+                "movement_direction": "up",
+                "feedback_context": "elbows"
+            },
+            "symmetry": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "axis": "y",
+                "feedback_context": "elbow movement"
+            },
+            "trajectory": {
+                "left_landmark": "landmark_left_wrist",
+                "right_landmark": "landmark_right_wrist"
+            },
+            "speed": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "axis": "y",
+                "movement_direction": "up"
+            }
+        },
+        "squat": {
+            "amplitude": {
+                "left_landmark": "landmark_left_hip",
+                "right_landmark": "landmark_right_hip",
+                "axis": "y",
+                "movement_direction": "down",
+                "feedback_context": "hips"
+            },
+            "symmetry": {
+                "left_landmark": "landmark_left_knee",
+                "right_landmark": "landmark_right_knee",
+                "axis": "y",
+                "feedback_context": "knee movement"
+            },
+            "trajectory": {
+                "left_landmark": "landmark_left_hip",
+                "right_landmark": "landmark_right_hip"
+            },
+            "speed": {
+                "left_landmark": "landmark_left_hip",
+                "right_landmark": "landmark_right_hip",
+                "axis": "y",
+                "movement_direction": "down"
+            }
+        },
+        "pull_up": {
+            "amplitude": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "axis": "y",
+                "movement_direction": "up",
+                "feedback_context": "elbows"
+            },
+            "symmetry": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "axis": "y",
+                "feedback_context": "elbow movement"
+            },
+            "trajectory": {
+                "left_landmark": "landmark_left_wrist",
+                "right_landmark": "landmark_right_wrist"
+            },
+            "speed": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "axis": "y",
+                "movement_direction": "up"
+            }
+        }
+    },
+    "military_press": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
         "sync_config": {
             "landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
@@ -97,12 +174,12 @@
         },
         "analysis_config": {
             "sensitivity_factors": {
-                "amplitud": 1.5,
-                "abduccion_codos": 1.0,
-                "simetria": 1.0,
-                "trayectoria": 1.0,
-                "velocidad": 1.0,
-                "estabilidad_escapular": 1.0
+                "amplitude": 1.5,
+                "elbow_abduction": 1.0,
+                "symmetry": 1.0,
+                "trajectory": 1.0,
+                "speed": 1.0,
+                "scapular_stability": 1.0
             }
         },
         "scoring_weights": {
@@ -114,7 +191,7 @@
             "scapular_score": 0.10
         }
     },
-    "press_banca": {
+    "bench_press": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
         "sync_config": {
             "landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
@@ -136,12 +213,12 @@
         },
         "analysis_config": {
             "sensitivity_factors": {
-                "amplitud": 1.0,
-                "abduccion_codos": 2.0,
-                "simetria": 1.0,
-                "trayectoria": 1.0,
-                "velocidad": 1.0,
-                "estabilidad_escapular": 1.0
+                "amplitude": 1.0,
+                "elbow_abduction": 2.0,
+                "symmetry": 1.0,
+                "trajectory": 1.0,
+                "speed": 1.0,
+                "scapular_stability": 1.0
             }
         },
         "scoring_weights": {
@@ -153,7 +230,7 @@
             "scapular_score": 0.10
         }
     },
-    "sentadilla": {
+    "squat": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28],
         "sync_config": {
             "landmarks": ["landmark_right_hip", "landmark_left_hip"],
@@ -175,12 +252,12 @@
         },
         "analysis_config": {
             "sensitivity_factors": {
-                "amplitud": 1.5,
-                "profundidad": 2.0,
-                "simetria": 2.0,
-                "trayectoria": 1.5,
-                "velocidad": 1.0,
-                "tracking_rodillas": 2.0
+                "amplitude": 1.5,
+                "depth": 2.0,
+                "symmetry": 2.0,
+                "trajectory": 1.5,
+                "speed": 1.0,
+                "knee_tracking": 2.0
             }
         },
         "scoring_weights": {
@@ -192,7 +269,7 @@
             "knee_score": 0.20
         }
     },
-    "dominada": {
+    "pull_up": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
         "sync_config": {
             "landmarks": ["landmark_right_wrist", "landmark_left_wrist"],
@@ -214,12 +291,12 @@
         },
         "analysis_config": {
             "sensitivity_factors": {
-                "amplitud": 2.5,
-                "control_swing": 2.0,
-                "simetria": 1.0,
-                "trayectoria": 1.0,
-                "velocidad": 1.5,
-                "retraccion_escapular": 1.5
+                "amplitude": 2.5,
+                "swing_control": 2.0,
+                "symmetry": 1.0,
+                "trajectory": 1.0,
+                "speed": 1.5,
+                "scapular_retraction": 1.5
             }
         },
         "scoring_weights": {

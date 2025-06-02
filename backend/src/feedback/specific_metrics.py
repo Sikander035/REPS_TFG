@@ -1,4 +1,4 @@
-# backend/src/feedback/specific_metrics.py - MÉTRICAS ESPECÍFICAS SIN DEFAULTS
+# backend/src/feedback/specific_metrics.py - UNIFIED VERSION
 import sys
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 from src.utils.analysis_utils import (
     apply_unified_sensitivity,
     calculate_deviation_score,
-    calculate_elbow_abduction_angle,  # Mantener función original
+    calculate_elbow_abduction_angle,  # Keep original function
     apply_sensitivity_to_threshold,
 )
 from src.config.config_manager import config_manager
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# PRESS MILITAR - MÉTRICAS ESPECÍFICAS (usando config_manager)
+# MILITARY PRESS - SPECIFIC METRICS (using config_manager)
 # =============================================================================
 
 
@@ -28,13 +28,13 @@ def analyze_elbow_abduction_angle_press(
     user_data, expert_data, exercise_config, config_path="config.json"
 ):
     """
-    PRESS MILITAR: Análisis de abducción de codos usando config_manager.
+    MILITARY PRESS: Elbow abduction analysis using config_manager.
     """
-    exercise_name = "press_militar"
+    exercise_name = "military_press"
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "abduccion_codos", exercise_name, config_path
+        "elbow_abduction", exercise_name, config_path
     )
 
     user_right_abduction = []
@@ -42,12 +42,12 @@ def analyze_elbow_abduction_angle_press(
     expert_right_abduction = []
     expert_left_abduction = []
 
-    # Calcular ángulo de abducción para TODOS los frames
-    logger.info("Calculando ángulos de abducción lateral (proyección XZ con eje X)")
+    # Calculate abduction angle for ALL frames
+    logger.info("Calculating lateral abduction angles (XZ projection with X axis)")
 
     for i in range(len(user_data)):
         try:
-            # === USUARIO - AMBOS CODOS ===
+            # === USER - BOTH ELBOWS ===
             user_right_shoulder = [
                 user_data.iloc[i]["landmark_right_shoulder_x"],
                 user_data.iloc[i]["landmark_right_shoulder_y"],
@@ -69,14 +69,14 @@ def analyze_elbow_abduction_angle_press(
                 user_data.iloc[i]["landmark_left_elbow_z"],
             ]
 
-            # Verificar que no hay NaN en las coordenadas
+            # Check for NaN in coordinates
             if (
                 not np.isnan(user_right_shoulder).any()
                 and not np.isnan(user_right_elbow).any()
                 and not np.isnan(user_left_shoulder).any()
                 and not np.isnan(user_left_elbow).any()
             ):
-                # Calcular ángulos de abducción del usuario
+                # Calculate user abduction angles
                 user_right_angle = calculate_elbow_abduction_angle(
                     user_right_shoulder, user_right_elbow
                 )
@@ -91,13 +91,11 @@ def analyze_elbow_abduction_angle_press(
                 user_left_abduction.append(np.nan)
 
         except Exception as e:
-            logger.warning(
-                f"Error al calcular ángulo de abducción del usuario en frame {i}: {e}"
-            )
+            logger.warning(f"Error calculating user abduction angle at frame {i}: {e}")
             user_right_abduction.append(np.nan)
             user_left_abduction.append(np.nan)
 
-    # Calcular ángulos del experto (similar al usuario)
+    # Calculate expert angles (similar to user)
     for i in range(len(expert_data)):
         try:
             expert_right_shoulder = [
@@ -142,7 +140,7 @@ def analyze_elbow_abduction_angle_press(
 
         except Exception as e:
             logger.warning(
-                f"Error al calcular ángulo de abducción del experto en frame {i}: {e}"
+                f"Error calculating expert abduction angle at frame {i}: {e}"
             )
             expert_right_abduction.append(np.nan)
             expert_left_abduction.append(np.nan)
@@ -150,9 +148,7 @@ def analyze_elbow_abduction_angle_press(
     if not user_right_abduction or not expert_right_abduction:
         return {
             "metrics": {},
-            "feedback": {
-                "elbow_abduction": "No se pudo analizar la abducción de los codos."
-            },
+            "feedback": {"elbow_abduction": "Could not analyze elbow abduction."},
             "score": 50,
         }
 
@@ -170,9 +166,7 @@ def analyze_elbow_abduction_angle_press(
     if np.sum(user_valid) < 10 or np.sum(expert_valid) < 10:
         return {
             "metrics": {},
-            "feedback": {
-                "elbow_abduction": "Datos insuficientes para analizar abducción."
-            },
+            "feedback": {"elbow_abduction": "Insufficient data to analyze abduction."},
             "score": 50,
         }
 
@@ -226,7 +220,7 @@ def analyze_elbow_abduction_angle_press(
         absolute_diff = user_absolute_min - expert_absolute_min
 
     except Exception as e:
-        logger.error(f"Error en detección de mínimos: {e}")
+        logger.error(f"Error in minimum detection: {e}")
         user_min_abduction = np.mean(user_clean_signal)
         expert_min_abduction = np.mean(expert_clean_signal)
         abduction_diff = user_min_abduction - expert_min_abduction
@@ -234,7 +228,7 @@ def analyze_elbow_abduction_angle_press(
         user_valley_values = user_clean_signal
         expert_valley_values = expert_clean_signal
 
-    # Calcular score base usando config_manager
+    # Calculate base score using config_manager
     max_penalty = config_manager.get_penalty_config(
         exercise_name=exercise_name,
         metric_type="specific",
@@ -245,62 +239,62 @@ def analyze_elbow_abduction_angle_press(
         abs(abduction_diff), 0, max_penalty=max_penalty, metric_type="linear"
     )
 
-    # Aplicar sensibilidad de manera unificada
+    # Apply unified sensitivity
     final_score = apply_unified_sensitivity(
-        base_score, sensitivity_factor, "abduccion_codos"
+        base_score, sensitivity_factor, "elbow_abduction"
     )
 
-    # Feedback basado en score final para consistencia CON KEY EN INGLÉS
+    # Feedback based on final score for consistency
     feedback = {}
 
     if final_score >= 80:
-        feedback["elbow_abduction"] = "Excelente posición lateral de codos."
+        feedback["elbow_abduction"] = "Excellent lateral elbow position."
     elif final_score >= 60:
-        if abduction_diff > 0:  # Usuario tiene ángulo mayor = más cerrado
+        if abduction_diff > 0:  # User has higher angle = more closed
             feedback["elbow_abduction"] = (
-                "Tus codos están ligeramente más cerrados que el experto. "
-                "Sepáralos un poco más del cuerpo."
+                "Your elbows are slightly more closed than the expert. "
+                "Try to separate them a bit more from your body."
             )
-        else:  # Usuario tiene ángulo menor = más abierto
+        else:  # User has lower angle = more open
             feedback["elbow_abduction"] = (
-                "Tus codos están ligeramente más abiertos que el experto. "
-                "Acércalos un poco más al cuerpo."
+                "Your elbows are slightly more open than the expert. "
+                "Bring them a bit closer to your body."
             )
     elif final_score >= 40:
-        # Casos moderados
+        # Moderate cases
         if abduction_diff > 0:
             feedback["elbow_abduction"] = (
-                "Tus codos están moderadamente más cerrados que el experto. "
-                "Sepáralos más del cuerpo para mejor mecánica."
+                "Your elbows are moderately more closed than the expert. "
+                "Separate them more from your body for better mechanics."
             )
         else:
             feedback["elbow_abduction"] = (
-                "Tus codos se abren moderadamente durante el ejercicio. "
-                "Acércalos más al cuerpo para mayor estabilidad."
+                "Your elbows open moderately during the exercise. "
+                "Bring them closer to your body for greater stability."
             )
     else:
-        # Casos críticos
+        # Critical cases
         if abduction_diff > 0:
             feedback["elbow_abduction"] = (
-                "Tus codos están significativamente más cerrados que el experto. "
-                "Es importante separarlos más del cuerpo para mejor mecánica."
+                "Your elbows are significantly more closed than the expert. "
+                "It's important to separate them more from your body for better mechanics."
             )
         else:
             feedback["elbow_abduction"] = (
-                "Tus codos se abren excesivamente durante el ejercicio. "
-                "Es crítico acercarlos más al cuerpo para mayor seguridad."
+                "Your elbows open excessively during the exercise. "
+                "It's critical to bring them closer to your body for safety."
             )
 
     metrics = {
-        "abduccion_lateral_minima_usuario": user_min_abduction,
-        "abduccion_lateral_minima_experto": expert_min_abduction,
-        "diferencia_abduccion": abduction_diff,
-        "min_absoluto_usuario": user_absolute_min,
-        "min_absoluto_experto": expert_absolute_min,
-        "diferencia_absoluta": absolute_diff,
-        "num_minimos_detectados": len(user_valley_values),
-        "frames_totales_usuario": len(user_data),
-        "frames_totales_experto": len(expert_data),
+        "user_min_lateral_abduction": user_min_abduction,
+        "expert_min_lateral_abduction": expert_min_abduction,
+        "abduction_difference": abduction_diff,
+        "user_absolute_min": user_absolute_min,
+        "expert_absolute_min": expert_absolute_min,
+        "absolute_difference": absolute_diff,
+        "num_minimums_detected": len(user_valley_values),
+        "total_user_frames": len(user_data),
+        "total_expert_frames": len(expert_data),
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
@@ -310,17 +304,17 @@ def analyze_scapular_stability_press(
     user_data, expert_data, exercise_config, config_path="config.json"
 ):
     """
-    PRESS MILITAR: Análisis de estabilidad escapular usando config_manager.
+    MILITARY PRESS: Scapular stability analysis using config_manager.
     """
-    exercise_name = "press_militar"
+    exercise_name = "military_press"
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "estabilidad_escapular", exercise_name, config_path
+        "scapular_stability", exercise_name, config_path
     )
 
     try:
-        # Calcular centro de hombros
+        # Calculate shoulder center
         user_r_shoulder_y = user_data["landmark_right_shoulder_y"].values
         user_l_shoulder_y = user_data["landmark_left_shoulder_y"].values
         expert_r_shoulder_y = expert_data["landmark_right_shoulder_y"].values
@@ -329,7 +323,7 @@ def analyze_scapular_stability_press(
         user_shoulder_center_y = (user_r_shoulder_y + user_l_shoulder_y) / 2
         expert_shoulder_center_y = (expert_r_shoulder_y + expert_l_shoulder_y) / 2
 
-        # Analizar estabilidad como variabilidad del centro de hombros
+        # Analyze stability as variability of shoulder center
         user_shoulder_movement = float(np.std(user_shoulder_center_y))
         expert_shoulder_movement = float(np.std(expert_shoulder_center_y))
         movement_ratio = (
@@ -338,7 +332,7 @@ def analyze_scapular_stability_press(
             else 1.0
         )
 
-        # Analizar simetría de hombros
+        # Analyze shoulder symmetry
         user_shoulder_asymmetry = float(np.std(user_r_shoulder_y - user_l_shoulder_y))
         expert_shoulder_asymmetry = float(
             np.std(expert_r_shoulder_y - expert_l_shoulder_y)
@@ -349,9 +343,9 @@ def analyze_scapular_stability_press(
             else 1.0
         )
 
-        # Calcular score base usando el peor ratio
+        # Calculate base score using worst ratio
         worst_stability_ratio = max(movement_ratio, asymmetry_ratio)
-        # Obtener penalty de configuración
+        # Get penalty from configuration
         max_penalty = config_manager.get_penalty_config(
             exercise_name=exercise_name,
             metric_type="specific",
@@ -362,18 +356,18 @@ def analyze_scapular_stability_press(
             worst_stability_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
         )
 
-        # Aplicar sensibilidad de manera unificada (SUAVIZADA para evitar colapsos)
-        # Limitar el impacto de la sensibilidad para esta métrica específica
+        # Apply unified sensitivity (SMOOTHED to avoid collapses)
+        # Limit sensitivity impact for this specific metric
         capped_sensitivity = (
             min(sensitivity_factor, 2.0)
             if sensitivity_factor > 1.5
             else sensitivity_factor
         )
         final_score = apply_unified_sensitivity(
-            base_score, capped_sensitivity, "estabilidad_escapular"
+            base_score, capped_sensitivity, "scapular_stability"
         )
 
-        # Obtener umbral usando config_manager
+        # Get threshold using config_manager
         stability_threshold = config_manager.get_analysis_threshold(
             "scapular_stability_threshold", exercise_name, config_path
         )
@@ -385,66 +379,64 @@ def analyze_scapular_stability_press(
         if movement_ratio > (2.0 / sensitivity_factor):
             if sensitivity_factor > 1.5:
                 feedback["scapular_stability"] = (
-                    "Tus hombros se mueven excesivamente durante el press. "
-                    "Es crítico mantener una posición mucho más estable de la cintura escapular."
+                    "Your shoulders move excessively during the press. "
+                    "It's critical to maintain a much more stable scapular belt position."
                 )
             else:
                 feedback["scapular_stability"] = (
-                    "Tus hombros se mueven excesivamente durante el press. "
-                    "Mantén una posición más estable de la cintura escapular."
+                    "Your shoulders move excessively during the press. "
+                    "Maintain a more stable scapular belt position."
                 )
         elif asymmetry_ratio > (2.0 / sensitivity_factor):
             feedback["scapular_stability"] = (
-                "Se detecta asimetría en el movimiento de tus hombros. "
-                "Concéntrate en mantener ambos hombros equilibrados."
+                "Asymmetry detected in your shoulder movement. "
+                "Focus on keeping both shoulders balanced."
             )
         elif movement_ratio > stability_threshold_adj:
             if sensitivity_factor > 1.5:
                 feedback["scapular_stability"] = (
-                    "Se detecta inestabilidad notable en tu cintura escapular. "
-                    "Es importante practicar mantener los hombros en una posición más fija."
+                    "Notable instability detected in your scapular belt. "
+                    "It's important to practice keeping your shoulders in a more fixed position."
                 )
             else:
                 feedback["scapular_stability"] = (
-                    "Se detecta cierta inestabilidad en tu cintura escapular. "
-                    "Practica mantener los hombros en una posición más fija."
+                    "Some instability detected in your scapular belt. "
+                    "Practice keeping your shoulders in a more fixed position."
                 )
         else:
-            feedback["scapular_stability"] = (
-                "Buena estabilidad de la cintura escapular."
-            )
+            feedback["scapular_stability"] = "Good scapular belt stability."
 
         metrics = {
-            "movimiento_hombros_usuario": user_shoulder_movement,
-            "movimiento_hombros_experto": expert_shoulder_movement,
-            "ratio_movimiento": float(movement_ratio),
-            "asimetria_hombros_usuario": user_shoulder_asymmetry,
-            "asimetria_hombros_experto": expert_shoulder_asymmetry,
-            "ratio_asimetria": float(asymmetry_ratio),
+            "user_shoulder_movement": user_shoulder_movement,
+            "expert_shoulder_movement": expert_shoulder_movement,
+            "movement_ratio": float(movement_ratio),
+            "user_shoulder_asymmetry": user_shoulder_asymmetry,
+            "expert_shoulder_asymmetry": expert_shoulder_asymmetry,
+            "asymmetry_ratio": float(asymmetry_ratio),
         }
 
         return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
     except Exception as e:
-        logger.error(f"Error en análisis de estabilidad escapular: {e}")
+        logger.error(f"Error in scapular stability analysis: {e}")
         return {
             "metrics": {
-                "movimiento_hombros_usuario": 0.0,
-                "movimiento_hombros_experto": 0.0,
-                "ratio_movimiento": 1.0,
-                "asimetria_hombros_usuario": 0.0,
-                "asimetria_hombros_experto": 0.0,
-                "ratio_asimetria": 1.0,
+                "user_shoulder_movement": 0.0,
+                "expert_shoulder_movement": 0.0,
+                "movement_ratio": 1.0,
+                "user_shoulder_asymmetry": 0.0,
+                "expert_shoulder_asymmetry": 0.0,
+                "asymmetry_ratio": 1.0,
             },
             "feedback": {
-                "scapular_stability": "Análisis de estabilidad escapular no disponible."
+                "scapular_stability": "Scapular stability analysis not available."
             },
             "score": 50,
         }
 
 
 # =============================================================================
-# SENTADILLA - MÉTRICAS ESPECÍFICAS (usando config_manager)
+# SQUAT - SPECIFIC METRICS (using config_manager)
 # =============================================================================
 
 
@@ -452,13 +444,13 @@ def analyze_squat_depth(
     user_data, expert_data, exercise_config, config_path="config.json"
 ):
     """
-    SENTADILLA: Análisis específico de profundidad usando ángulo de rodillas.
+    SQUAT: Specific depth analysis using knee angle.
     """
-    exercise_name = "sentadilla"
+    exercise_name = "squat"
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "profundidad", exercise_name, config_path
+        "depth", exercise_name, config_path
     )
 
     user_knee_angles = []
@@ -466,7 +458,7 @@ def analyze_squat_depth(
 
     for i in range(len(user_data)):
         try:
-            # USUARIO - calcular ángulo de rodilla (cadera-rodilla-tobillo)
+            # USER - calculate knee angle (hip-knee-ankle)
             user_hip = [
                 user_data.iloc[i]["landmark_left_hip_x"],
                 user_data.iloc[i]["landmark_left_hip_y"],
@@ -487,7 +479,7 @@ def analyze_squat_depth(
                 angle = _calculate_angle_3points(user_hip, user_knee, user_ankle)
                 user_knee_angles.append(angle)
 
-            # EXPERTO - similar
+            # EXPERT - similar
             expert_hip = [
                 expert_data.iloc[i]["landmark_left_hip_x"],
                 expert_data.iloc[i]["landmark_left_hip_y"],
@@ -509,24 +501,22 @@ def analyze_squat_depth(
                 expert_knee_angles.append(angle)
 
         except Exception as e:
-            logger.warning(f"Error calculando ángulo de rodilla en frame {i}: {e}")
+            logger.warning(f"Error calculating knee angle at frame {i}: {e}")
             continue
 
     if not user_knee_angles or not expert_knee_angles:
         return {
             "metrics": {},
-            "feedback": {
-                "squat_depth": "No se pudo analizar la profundidad de la sentadilla."
-            },
+            "feedback": {"squat_depth": "Could not analyze squat depth."},
             "score": 50,
         }
 
-    # Calcular ángulo mínimo (máxima flexión)
+    # Calculate minimum angle (maximum flexion)
     user_min_angle = np.min(user_knee_angles)
     expert_min_angle = np.min(expert_knee_angles)
     angle_diff = abs(user_min_angle - expert_min_angle)
 
-    # Calcular score usando config_manager
+    # Calculate score using config_manager
     max_penalty = config_manager.get_penalty_config(
         exercise_name=exercise_name,
         metric_type="specific",
@@ -536,36 +526,32 @@ def analyze_squat_depth(
     base_score = calculate_deviation_score(
         angle_diff, 0, max_penalty=max_penalty, metric_type="linear"
     )
-    final_score = apply_unified_sensitivity(
-        base_score, sensitivity_factor, "profundidad"
-    )
+    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "depth")
 
-    # Generar feedback CON KEY EN INGLÉS
+    # Generate feedback
     feedback = {}
     if final_score >= 85:
-        feedback["squat_depth"] = "Excelente profundidad en la sentadilla."
+        feedback["squat_depth"] = "Excellent squat depth."
     elif final_score >= 70:
         if user_min_angle > expert_min_angle + 10:
             feedback["squat_depth"] = (
-                "Tu sentadilla podría ser más profunda. Baja más las caderas."
+                "Your squat could be deeper. Lower your hips more."
             )
         else:
-            feedback["squat_depth"] = "Buena profundidad en la sentadilla."
+            feedback["squat_depth"] = "Good squat depth."
     else:
         if user_min_angle > expert_min_angle + 15:
             feedback["squat_depth"] = (
-                "Tu sentadilla es muy superficial. Es importante bajar más para una técnica correcta."
+                "Your squat is very shallow. It's important to go lower for correct technique."
             )
         else:
-            feedback["squat_depth"] = (
-                "La profundidad de tu sentadilla necesita trabajo."
-            )
+            feedback["squat_depth"] = "Your squat depth needs work."
 
     metrics = {
-        "angulo_minimo_usuario": user_min_angle,
-        "angulo_minimo_experto": expert_min_angle,
-        "diferencia_angulo": angle_diff,
-        "frames_analizados": len(user_knee_angles),
+        "user_min_angle": user_min_angle,
+        "expert_min_angle": expert_min_angle,
+        "angle_difference": angle_diff,
+        "frames_analyzed": len(user_knee_angles),
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
@@ -575,22 +561,22 @@ def analyze_knee_tracking_squat(
     user_data, expert_data, exercise_config, config_path="config.json"
 ):
     """
-    SENTADILLA: Análisis del tracking de rodillas usando config_manager.
+    SQUAT: Knee tracking analysis using config_manager.
     """
-    exercise_name = "sentadilla"
+    exercise_name = "squat"
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "tracking_rodillas", exercise_name, config_path
+        "knee_tracking", exercise_name, config_path
     )
 
-    # Calcular separación entre rodillas a lo largo del movimiento
+    # Calculate knee separation throughout movement
     user_knee_separation = []
     expert_knee_separation = []
 
     for i in range(len(user_data)):
         try:
-            # Separación entre rodillas (distancia en X)
+            # Knee separation (distance in X)
             user_sep = abs(
                 user_data.iloc[i]["landmark_left_knee_x"]
                 - user_data.iloc[i]["landmark_right_knee_x"]
@@ -605,26 +591,24 @@ def analyze_knee_tracking_squat(
                 expert_knee_separation.append(expert_sep)
 
         except Exception as e:
-            logger.warning(f"Error calculando separación de rodillas en frame {i}: {e}")
+            logger.warning(f"Error calculating knee separation at frame {i}: {e}")
             continue
 
     if not user_knee_separation or not expert_knee_separation:
         return {
             "metrics": {},
-            "feedback": {
-                "knee_tracking": "No se pudo analizar el tracking de rodillas."
-            },
+            "feedback": {"knee_tracking": "Could not analyze knee tracking."},
             "score": 50,
         }
 
-    # Analizar variabilidad de la separación (menor variabilidad = mejor tracking)
+    # Analyze separation variability (less variability = better tracking)
     user_knee_stability = np.std(user_knee_separation)
     expert_knee_stability = np.std(expert_knee_separation)
     stability_ratio = (
         user_knee_stability / expert_knee_stability if expert_knee_stability > 0 else 1
     )
 
-    # Calcular score usando config_manager
+    # Calculate score using config_manager
     max_penalty = config_manager.get_penalty_config(
         exercise_name=exercise_name,
         metric_type="specific",
@@ -635,35 +619,33 @@ def analyze_knee_tracking_squat(
         stability_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(
-        base_score, sensitivity_factor, "tracking_rodillas"
+        base_score, sensitivity_factor, "knee_tracking"
     )
 
-    # Generar feedback CON KEY EN INGLÉS
+    # Generate feedback
     feedback = {}
     if final_score >= 85:
-        feedback["knee_tracking"] = "Excelente control del tracking de rodillas."
+        feedback["knee_tracking"] = "Excellent knee tracking control."
     elif final_score >= 70:
-        feedback["knee_tracking"] = (
-            "Buen control general de las rodillas con ligeras variaciones."
-        )
+        feedback["knee_tracking"] = "Good overall knee control with slight variations."
     else:
         feedback["knee_tracking"] = (
-            "Las rodillas tienden a moverse hacia adentro. Mantén las rodillas alineadas con los pies."
+            "Knees tend to move inward. Keep knees aligned with feet."
         )
 
     metrics = {
-        "estabilidad_rodillas_usuario": user_knee_stability,
-        "estabilidad_rodillas_experto": expert_knee_stability,
-        "ratio_estabilidad": stability_ratio,
-        "separacion_promedio_usuario": np.mean(user_knee_separation),
-        "separacion_promedio_experto": np.mean(expert_knee_separation),
+        "user_knee_stability": user_knee_stability,
+        "expert_knee_stability": expert_knee_stability,
+        "stability_ratio": stability_ratio,
+        "user_avg_separation": np.mean(user_knee_separation),
+        "expert_avg_separation": np.mean(expert_knee_separation),
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
 # =============================================================================
-# DOMINADA - MÉTRICAS ESPECÍFICAS (usando config_manager)
+# PULL-UP - SPECIFIC METRICS (using config_manager)
 # =============================================================================
 
 
@@ -671,16 +653,16 @@ def analyze_body_swing_control_pullup(
     user_data, expert_data, exercise_config, config_path="config.json"
 ):
     """
-    DOMINADA: Análisis específico de control de swing del cuerpo.
+    PULL-UP: Specific body swing control analysis.
     """
-    exercise_name = "dominada"
+    exercise_name = "pull_up"
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "control_swing", exercise_name, config_path
+        "swing_control", exercise_name, config_path
     )
 
-    # Analizar movimiento de caderas como indicador de swing
+    # Analyze hip movement as swing indicator
     user_hip_center_x = (
         user_data["landmark_left_hip_x"].values
         + user_data["landmark_right_hip_x"].values
@@ -699,18 +681,18 @@ def analyze_body_swing_control_pullup(
         + expert_data["landmark_right_hip_z"].values
     ) / 2
 
-    # Calcular variabilidad del movimiento de caderas
+    # Calculate hip movement variability
     user_swing_x = np.std(user_hip_center_x)
     user_swing_z = np.std(user_hip_center_z)
     expert_swing_x = np.std(expert_hip_center_x)
     expert_swing_z = np.std(expert_hip_center_z)
 
-    # Calcular ratio de swing total
+    # Calculate total swing ratio
     user_total_swing = np.sqrt(user_swing_x**2 + user_swing_z**2)
     expert_total_swing = np.sqrt(expert_swing_x**2 + expert_swing_z**2)
     swing_ratio = user_total_swing / expert_total_swing if expert_total_swing > 0 else 1
 
-    # Calcular score usando config_manager
+    # Calculate score using config_manager
     max_penalty = config_manager.get_penalty_config(
         exercise_name=exercise_name,
         metric_type="specific",
@@ -721,28 +703,28 @@ def analyze_body_swing_control_pullup(
         swing_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(
-        base_score, sensitivity_factor, "control_swing"
+        base_score, sensitivity_factor, "swing_control"
     )
 
-    # Generar feedback CON KEY EN INGLÉS
+    # Generate feedback
     feedback = {}
     if final_score >= 85:
-        feedback["swing_control"] = "Excelente control del cuerpo durante la dominada."
+        feedback["swing_control"] = "Excellent body control during pull-up."
     elif final_score >= 70:
-        feedback["swing_control"] = "Buen control del cuerpo con ligero balanceo."
+        feedback["swing_control"] = "Good body control with slight swaying."
     else:
         feedback["swing_control"] = (
-            "Hay demasiado balanceo del cuerpo. Mantén el core contraído para mayor estabilidad."
+            "Too much body swaying. Keep core engaged for greater stability."
         )
 
     metrics = {
-        "swing_usuario_x": user_swing_x,
-        "swing_usuario_z": user_swing_z,
-        "swing_total_usuario": user_total_swing,
-        "swing_experto_x": expert_swing_x,
-        "swing_experto_z": expert_swing_z,
-        "swing_total_experto": expert_total_swing,
-        "ratio_swing": swing_ratio,
+        "user_swing_x": user_swing_x,
+        "user_swing_z": user_swing_z,
+        "user_total_swing": user_total_swing,
+        "expert_swing_x": expert_swing_x,
+        "expert_swing_z": expert_swing_z,
+        "expert_total_swing": expert_total_swing,
+        "swing_ratio": swing_ratio,
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
@@ -752,16 +734,16 @@ def analyze_scapular_retraction_pullup(
     user_data, expert_data, exercise_config, config_path="config.json"
 ):
     """
-    DOMINADA: Análisis de retracción escapular al inicio del movimiento.
+    PULL-UP: Scapular retraction analysis at movement start.
     """
-    exercise_name = "dominada"
+    exercise_name = "pull_up"
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "retraccion_escapular", exercise_name, config_path
+        "scapular_retraction", exercise_name, config_path
     )
 
-    # Analizar separación entre hombros (menor separación = mayor retracción)
+    # Analyze shoulder separation (less separation = more retraction)
     user_shoulder_separation = abs(
         user_data["landmark_left_shoulder_x"].values
         - user_data["landmark_right_shoulder_x"].values
@@ -771,19 +753,19 @@ def analyze_scapular_retraction_pullup(
         - expert_data["landmark_right_shoulder_x"].values
     )
 
-    # Analizar primeros frames (posición inicial)
+    # Analyze initial frames (starting position)
     initial_frames = min(10, len(user_shoulder_separation) // 4)
     user_initial_separation = np.mean(user_shoulder_separation[:initial_frames])
     expert_initial_separation = np.mean(expert_shoulder_separation[:initial_frames])
 
-    # Ratio de separación inicial
+    # Initial separation ratio
     separation_ratio = (
         user_initial_separation / expert_initial_separation
         if expert_initial_separation > 0
         else 1
     )
 
-    # Calcular score usando config_manager
+    # Calculate score using config_manager
     max_penalty = config_manager.get_penalty_config(
         exercise_name=exercise_name,
         metric_type="specific",
@@ -794,44 +776,42 @@ def analyze_scapular_retraction_pullup(
         separation_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(
-        base_score, sensitivity_factor, "retraccion_escapular"
+        base_score, sensitivity_factor, "scapular_retraction"
     )
 
-    # Generar feedback CON KEY EN INGLÉS
+    # Generate feedback
     feedback = {}
     if final_score >= 85:
-        feedback["scapular_retraction"] = "Excelente retracción escapular al inicio."
+        feedback["scapular_retraction"] = "Excellent scapular retraction at start."
     elif final_score >= 70:
         feedback["scapular_retraction"] = (
-            "Buena retracción escapular con ligeras variaciones."
+            "Good scapular retraction with slight variations."
         )
     else:
         if separation_ratio > 1.1:
             feedback["scapular_retraction"] = (
-                "Necesitas mayor retracción escapular. Junta más las escápulas al inicio."
+                "Need more scapular retraction. Pull shoulder blades together more at start."
             )
         else:
-            feedback["scapular_retraction"] = (
-                "La retracción escapular necesita trabajo."
-            )
+            feedback["scapular_retraction"] = "Scapular retraction needs work."
 
     metrics = {
-        "separacion_inicial_usuario": user_initial_separation,
-        "separacion_inicial_experto": expert_initial_separation,
-        "ratio_separacion": separation_ratio,
-        "frames_analizados": initial_frames,
+        "user_initial_separation": user_initial_separation,
+        "expert_initial_separation": expert_initial_separation,
+        "separation_ratio": separation_ratio,
+        "frames_analyzed": initial_frames,
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
 
 
 # =============================================================================
-# FUNCIONES AUXILIARES
+# AUXILIARY FUNCTIONS
 # =============================================================================
 
 
 def _calculate_angle_3points(p1, p2, p3):
-    """Calcula ángulo entre 3 puntos (p2 es el vértice)"""
+    """Calculate angle between 3 points (p2 is vertex)"""
     v1 = np.array(p1) - np.array(p2)
     v2 = np.array(p3) - np.array(p2)
 
@@ -843,7 +823,7 @@ def _calculate_angle_3points(p1, p2, p3):
 
 
 def _calculate_angle_2vectors(v1, v2):
-    """Calcula ángulo entre 2 vectores"""
+    """Calculate angle between 2 vectors"""
     cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
     cos_angle = np.clip(cos_angle, -1.0, 1.0)
     angle = np.degrees(np.arccos(cos_angle))
@@ -852,36 +832,36 @@ def _calculate_angle_2vectors(v1, v2):
 
 
 # =============================================================================
-# FACTORY PARA MÉTRICAS ESPECÍFICAS
+# FACTORY FOR SPECIFIC METRICS
 # =============================================================================
 
 
 def get_specific_metrics_for_exercise(exercise_name):
     """
-    Factory que retorna las funciones de métricas específicas para cada ejercicio.
+    Factory that returns specific metric functions for each exercise.
 
     Returns:
-        dict: Diccionario con las funciones específicas del ejercicio
+        dict: Dictionary with exercise-specific functions
 
     Raises:
-        ValueError: Si el ejercicio no está soportado
+        ValueError: If exercise is not supported
     """
     exercise_name = exercise_name.lower().replace(" ", "_")
 
-    if exercise_name == "press_militar":
+    if exercise_name == "military_press":
         return {
-            "metrica_especifica_a": analyze_elbow_abduction_angle_press,
-            "metrica_especifica_b": analyze_scapular_stability_press,
+            "specific_metric_a": analyze_elbow_abduction_angle_press,
+            "specific_metric_b": analyze_scapular_stability_press,
         }
-    elif exercise_name == "sentadilla":
+    elif exercise_name == "squat":
         return {
-            "metrica_especifica_a": analyze_squat_depth,
-            "metrica_especifica_b": analyze_knee_tracking_squat,
+            "specific_metric_a": analyze_squat_depth,
+            "specific_metric_b": analyze_knee_tracking_squat,
         }
-    elif exercise_name == "dominada":
+    elif exercise_name == "pull_up":
         return {
-            "metrica_especifica_a": analyze_body_swing_control_pullup,
-            "metrica_especifica_b": analyze_scapular_retraction_pullup,
+            "specific_metric_a": analyze_body_swing_control_pullup,
+            "specific_metric_b": analyze_scapular_retraction_pullup,
         }
     else:
         raise ValueError(f"Unsupported exercise: {exercise_name}")
@@ -889,30 +869,30 @@ def get_specific_metrics_for_exercise(exercise_name):
 
 def get_specific_metric_names_for_exercise(exercise_name):
     """
-    Retorna los nombres de las métricas específicas para un ejercicio.
+    Returns the names of specific metrics for an exercise.
 
     Returns:
-        dict: Nombres de las métricas específicas
+        dict: Names of specific metrics
 
     Raises:
-        ValueError: Si el ejercicio no está soportado
+        ValueError: If exercise is not supported
     """
     exercise_name = exercise_name.lower().replace(" ", "_")
 
-    if exercise_name == "press_militar":
+    if exercise_name == "military_press":
         return {
-            "metrica_especifica_a": "abduction_score",
-            "metrica_especifica_b": "scapular_score",
+            "specific_metric_a": "abduction_score",
+            "specific_metric_b": "scapular_score",
         }
-    elif exercise_name == "sentadilla":
+    elif exercise_name == "squat":
         return {
-            "metrica_especifica_a": "depth_score",
-            "metrica_especifica_b": "knee_score",
+            "specific_metric_a": "depth_score",
+            "specific_metric_b": "knee_score",
         }
-    elif exercise_name == "dominada":
+    elif exercise_name == "pull_up":
         return {
-            "metrica_especifica_a": "swing_score",
-            "metrica_especifica_b": "retraction_score",
+            "specific_metric_a": "swing_score",
+            "specific_metric_b": "retraction_score",
         }
     else:
         raise ValueError(f"Unsupported exercise: {exercise_name}")

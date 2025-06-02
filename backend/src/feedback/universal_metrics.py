@@ -21,25 +21,25 @@ def analyze_movement_amplitude_universal(
     user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
 ):
     """
-    UNIVERSAL: Análisis de amplitud extraído del código actual del press militar.
-    Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
+    UNIVERSAL: Amplitude analysis extracted from current military press code.
+    Only landmarks change, logic is EXACTLY the same.
     """
-    # Obtener exercise_name del config_path (extraer de exercise_config si es posible)
+    # Get exercise_name from config_path (extract from exercise_config if possible)
     exercise_name = exercise_config.get("_exercise_name", "unknown")
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "amplitud", exercise_name, config_path
+        "amplitude", exercise_name, config_path
     )
 
-    # Extraer landmarks de la configuración
+    # Extract landmarks from configuration
     landmark_left = landmarks_config.get("left_landmark", "landmark_left_elbow")
     landmark_right = landmarks_config.get("right_landmark", "landmark_right_elbow")
     axis = landmarks_config.get("axis", "y")
     movement_direction = landmarks_config.get("movement_direction", "up")
-    feedback_context = landmarks_config.get("feedback_context", "codos")
+    feedback_context = landmarks_config.get("feedback_context", "elbows")
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - calcular promedio de landmarks
+    # EXACT LOGIC FROM CURRENT CODE - calculate average of landmarks
     user_signal = (
         user_data[f"{landmark_left}_{axis}"].values
         + user_data[f"{landmark_right}_{axis}"].values
@@ -49,26 +49,26 @@ def analyze_movement_amplitude_universal(
         + expert_data[f"{landmark_right}_{axis}"].values
     ) / 2
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - En MediaPipe: Y=0 arriba, Y=1 abajo
+    # EXACT LOGIC FROM CURRENT CODE - In MediaPipe: Y=0 top, Y=1 bottom
     user_highest_point = np.min(user_signal)
     user_lowest_point = np.max(user_signal)
     expert_highest_point = np.min(expert_signal)
     expert_lowest_point = np.max(expert_signal)
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Calcular rango de movimiento
+    # EXACT LOGIC FROM CURRENT CODE - Calculate range of motion
     user_rom = user_lowest_point - user_highest_point
     expert_rom = expert_lowest_point - expert_highest_point
     rom_ratio = user_rom / expert_rom if expert_rom > 0 else 0
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Analizar diferencia en el punto más bajo
+    # EXACT LOGIC FROM CURRENT CODE - Analyze difference at lowest point
     bottom_diff = (
         abs(user_lowest_point - expert_lowest_point) / expert_rom
         if expert_rom > 0
         else 0
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Score y sensibilidad
-    # Obtener penalty de configuración
+    # EXACT LOGIC FROM CURRENT CODE - Score and sensitivity
+    # Get penalty from configuration
     max_penalty = config_manager.get_penalty_config(
         exercise_name="",
         metric_type="universal",
@@ -78,9 +78,9 @@ def analyze_movement_amplitude_universal(
     base_score = calculate_deviation_score(
         rom_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
-    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "amplitud")
+    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "amplitude")
 
-    # Obtener umbrales usando config_manager
+    # Get thresholds using config_manager
     rom_threshold = config_manager.get_analysis_threshold(
         "rom_threshold", exercise_name, config_path
     )
@@ -88,36 +88,34 @@ def analyze_movement_amplitude_universal(
         "bottom_diff_threshold", exercise_name, config_path
     )
 
-    # FEEDBACK ADAPTADO - mantener lógica pero cambiar contexto y KEY EN INGLÉS
+    # ADAPTED FEEDBACK - keep logic but change context
     feedback = {}
     if final_score >= 85:
-        feedback["amplitude"] = (
-            f"Excelente amplitud de movimiento en los {feedback_context}."
-        )
+        feedback["amplitude"] = f"Excellent range of motion in the {feedback_context}."
     elif final_score >= 70:
         if rom_ratio > 1.15:
-            if movement_direction == "down":  # Sentadilla
+            if movement_direction == "down":  # Squat
                 feedback["amplitude"] = (
-                    f"Tu rango de movimiento es excesivo. Controla la bajada para evitar "
-                    f"hiperflexión de los {feedback_context}."
+                    f"Your range of motion is excessive. Control the descent to avoid "
+                    f"hyperflexion of the {feedback_context}."
                 )
-            else:  # Press, dominada
+            else:  # Press, pull-up
                 feedback["amplitude"] = (
-                    f"Tu rango de movimiento es excesivo. Controla la bajada para evitar "
-                    f"hiperextensión de los {feedback_context}."
+                    f"Your range of motion is excessive. Control the descent to avoid "
+                    f"hyperextension of the {feedback_context}."
                 )
         else:
             if movement_direction == "down":
                 feedback["amplitude"] = (
-                    f"Tu rango de movimento podría ser más amplio. Baja más los {feedback_context}."
+                    f"Your range of motion could be wider. Lower the {feedback_context} more."
                 )
             else:
                 feedback["amplitude"] = (
-                    f"Tu rango de movimento podría ser más amplio. Baja hasta que las mancuernas "
-                    f"estén aproximadamente a la altura de los hombros."
+                    f"Your range of motion could be wider. Lower until the weights "
+                    f"are approximately at shoulder height."
                 )
     elif final_score >= 50:
-        # LÓGICA EXACTA DEL CÓDIGO ACTUAL
+        # EXACT LOGIC FROM CURRENT CODE
         rom_threshold_adj = apply_sensitivity_to_threshold(
             rom_threshold, sensitivity_factor
         )
@@ -127,42 +125,42 @@ def analyze_movement_amplitude_universal(
 
         if rom_ratio > 1.25:
             feedback["amplitude"] = (
-                f"Tu rango de movimiento es excesivamente amplio. Es crítico "
-                f"controlar la bajada para evitar hiperextensión de los {feedback_context}."
+                f"Your range of motion is excessively wide. It's critical "
+                f"to control the descent to avoid hyperextension of the {feedback_context}."
             )
         elif bottom_diff > bottom_diff_threshold_adj * 1.5:
             feedback["amplitude"] = (
-                f"Tu rango de movimiento es insuficiente. Es importante bajar hasta que "
-                f"los {feedback_context} lleguen a la posición correcta para técnica adecuada."
+                f"Your range of motion is insufficient. It's important to lower until "
+                f"the {feedback_context} reach the correct position for proper technique."
             )
         else:
             feedback["amplitude"] = (
-                f"Tu rango de movimiento es limitado. Baja más los {feedback_context} para una flexión completa "
-                f"y extiende completamente arriba."
+                f"Your range of motion is limited. Lower the {feedback_context} more for complete flexion "
+                f"and extend fully at the top."
             )
     else:
-        # Casos críticos
+        # Critical cases
         if rom_ratio > 1.25:
             feedback["amplitude"] = (
-                f"Tu rango de movimiento es excesivamente amplio. Es crítico "
-                f"controlar la bajada para evitar hiperextensión de los {feedback_context}."
+                f"Your range of motion is excessively wide. It's critical "
+                f"to control the descent to avoid hyperextension of the {feedback_context}."
             )
         else:
             feedback["amplitude"] = (
-                f"Tu rango de movimiento es significativamente limitado. Es crítico "
-                f"trabajar en la amplitud completa: baja más los {feedback_context} y extiende completamente arriba."
+                f"Your range of motion is significantly limited. It's critical "
+                f"to work on full amplitude: lower the {feedback_context} more and extend fully at the top."
             )
 
-    # MÉTRICAS EXACTAS DEL CÓDIGO ACTUAL
+    # EXACT METRICS FROM CURRENT CODE
     metrics = {
-        "rom_usuario": user_rom,
-        "rom_experto": expert_rom,
+        "user_rom": user_rom,
+        "expert_rom": expert_rom,
         "rom_ratio": rom_ratio,
-        "diferencia_posicion_baja": bottom_diff,
-        "punto_mas_alto_usuario": user_highest_point,
-        "punto_mas_bajo_usuario": user_lowest_point,
-        "punto_mas_alto_experto": expert_highest_point,
-        "punto_mas_bajo_experto": expert_lowest_point,
+        "bottom_position_difference": bottom_diff,
+        "user_highest_point": user_highest_point,
+        "user_lowest_point": user_lowest_point,
+        "expert_highest_point": expert_highest_point,
+        "expert_lowest_point": expert_lowest_point,
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
@@ -172,35 +170,35 @@ def analyze_symmetry_universal(
     user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
 ):
     """
-    UNIVERSAL: Análisis de simetría extraído del código actual del press militar.
-    Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
+    UNIVERSAL: Symmetry analysis extracted from current military press code.
+    Only landmarks change, logic is EXACTLY the same.
     """
-    # Obtener exercise_name del config_path (extraer de exercise_config si es posible)
+    # Get exercise_name from config_path (extract from exercise_config if possible)
     exercise_name = exercise_config.get("_exercise_name", "unknown")
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "simetria", exercise_name, config_path
+        "symmetry", exercise_name, config_path
     )
 
-    # Extraer landmarks de la configuración
+    # Extract landmarks from configuration
     landmark_left = landmarks_config.get("left_landmark", "landmark_left_elbow")
     landmark_right = landmarks_config.get("right_landmark", "landmark_right_elbow")
     axis = landmarks_config.get("axis", "y")
-    feedback_context = landmarks_config.get("feedback_context", "movimiento")
+    feedback_context = landmarks_config.get("feedback_context", "movement")
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Extraer posiciones verticales
+    # EXACT LOGIC FROM CURRENT CODE - Extract vertical positions
     user_r_signal = user_data[f"{landmark_right}_{axis}"].values
     user_l_signal = user_data[f"{landmark_left}_{axis}"].values
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Calcular diferencia promedio entre lados
+    # EXACT LOGIC FROM CURRENT CODE - Calculate average difference between sides
     height_diff = np.mean(np.abs(user_r_signal - user_l_signal))
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Normalizar diferencia respecto al rango de movimiento promedio
+    # EXACT LOGIC FROM CURRENT CODE - Normalize difference relative to average range of motion
     user_range = np.max(user_r_signal) - np.min(user_r_signal)
     normalized_diff = height_diff / user_range if user_range > 0 else 0
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Comparar con simetría del experto
+    # EXACT LOGIC FROM CURRENT CODE - Compare with expert symmetry
     expert_r_signal = expert_data[f"{landmark_right}_{axis}"].values
     expert_l_signal = expert_data[f"{landmark_left}_{axis}"].values
     expert_height_diff = np.mean(np.abs(expert_r_signal - expert_l_signal))
@@ -209,13 +207,13 @@ def analyze_symmetry_universal(
         expert_height_diff / expert_range if expert_range > 0 else 0
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Ratio de asimetría usuario vs experto
+    # EXACT LOGIC FROM CURRENT CODE - User vs expert asymmetry ratio
     asymmetry_ratio = (
         normalized_diff / expert_normalized_diff if expert_normalized_diff > 0 else 1
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Score y sensibilidad
-    # Obtener penalty de configuración
+    # EXACT LOGIC FROM CURRENT CODE - Score and sensitivity
+    # Get penalty from configuration
     max_penalty = config_manager.get_penalty_config(
         exercise_name="",
         metric_type="universal",
@@ -225,9 +223,9 @@ def analyze_symmetry_universal(
     base_score = calculate_deviation_score(
         asymmetry_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
-    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "simetria")
+    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "symmetry")
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEY EN INGLÉS
+    # EXACT LOGIC FROM CURRENT CODE - Feedback
     symmetry_threshold = config_manager.get_analysis_threshold(
         "symmetry_threshold", exercise_name, config_path
     )
@@ -239,35 +237,37 @@ def analyze_symmetry_universal(
     if asymmetry_ratio > (1.8 / sensitivity_factor):
         if sensitivity_factor > 1.5:
             feedback["symmetry"] = (
-                f"Hay una asimetría muy notable entre tu lado derecho e izquierdo en el {feedback_context}. "
-                f"Es prioritario trabajar en equilibrar ambos brazos."
+                f"There is very notable asymmetry between your right and left side in the {feedback_context}. "
+                f"It's a priority to work on balancing both arms."
             )
         else:
             feedback["symmetry"] = (
-                f"Hay una asimetría notable entre tu lado derecho e izquierdo en el {feedback_context}. "
-                f"Enfócate en levantar ambos brazos por igual."
+                f"There is notable asymmetry between your right and left side in the {feedback_context}. "
+                f"Focus on lifting both arms equally."
             )
     elif normalized_diff > symmetry_threshold_adj:
         if sensitivity_factor > 1.5 and normalized_diff > symmetry_threshold_adj * 1.5:
             feedback["symmetry"] = (
-                f"Se detecta asimetría significativa en el {feedback_context}. "
-                f"Es importante trabajar en mantener ambos lados a la misma altura."
+                f"Significant asymmetry detected in the {feedback_context}. "
+                f"It's important to work on keeping both sides at the same height."
             )
         else:
             feedback["symmetry"] = (
-                f"Se detecta cierta asimetría en el {feedback_context}. "
-                f"Intenta mantener ambos lados a la misma altura."
+                f"Some asymmetry detected in the {feedback_context}. "
+                f"Try to keep both sides at the same height."
             )
     else:
-        feedback["symmetry"] = f"Excelente simetría bilateral en el {feedback_context}."
+        feedback["symmetry"] = (
+            f"Excellent bilateral symmetry in the {feedback_context}."
+        )
 
-    # MÉTRICAS EXACTAS DEL CÓDIGO ACTUAL
+    # EXACT METRICS FROM CURRENT CODE
     metrics = {
-        "diferencia_altura": height_diff,
-        "diferencia_normalizada": normalized_diff,
-        "diferencia_experto_normalizada": expert_normalized_diff,
-        "ratio_asimetria": asymmetry_ratio,
-        "rango_movimiento_usuario": user_range,
+        "height_difference": height_diff,
+        "normalized_difference": normalized_diff,
+        "expert_normalized_difference": expert_normalized_diff,
+        "asymmetry_ratio": asymmetry_ratio,
+        "user_range_of_motion": user_range,
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
@@ -277,22 +277,22 @@ def analyze_movement_trajectory_3d_universal(
     user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
 ):
     """
-    UNIVERSAL: Análisis de trayectoria extraído del código actual del press militar.
-    Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
+    UNIVERSAL: Trajectory analysis extracted from current military press code.
+    Only landmarks change, logic is EXACTLY the same.
     """
-    # Obtener exercise_name del config_path (extraer de exercise_config si es posible)
+    # Get exercise_name from config_path (extract from exercise_config if possible)
     exercise_name = exercise_config.get("_exercise_name", "unknown")
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "trayectoria", exercise_name, config_path
+        "trajectory", exercise_name, config_path
     )
 
-    # Extraer landmarks de la configuración
+    # Extract landmarks from configuration
     landmark_left = landmarks_config.get("left_landmark", "landmark_left_wrist")
     landmark_right = landmarks_config.get("right_landmark", "landmark_right_wrist")
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Usar promedio de ambas muñecas/landmarks para mayor estabilidad
+    # EXACT LOGIC FROM CURRENT CODE - Use average of both wrists/landmarks for greater stability
     user_x = (
         user_data[f"{landmark_right}_x"].values + user_data[f"{landmark_left}_x"].values
     ) / 2
@@ -316,7 +316,7 @@ def analyze_movement_trajectory_3d_universal(
         + expert_data[f"{landmark_left}_z"].values
     ) / 2
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Análisis de desviaciones
+    # EXACT LOGIC FROM CURRENT CODE - Deviation analysis
     lateral_deviation_user = np.std(user_x)
     lateral_deviation_expert = np.std(expert_x)
     lateral_deviation_ratio = (
@@ -333,9 +333,9 @@ def analyze_movement_trajectory_3d_universal(
         else 1
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Score
+    # EXACT LOGIC FROM CURRENT CODE - Score
     worst_deviation_ratio = max(lateral_deviation_ratio, frontal_deviation_ratio)
-    # Obtener penalty de configuración
+    # Get penalty from configuration
     max_penalty = config_manager.get_penalty_config(
         exercise_name="",
         metric_type="universal",
@@ -346,10 +346,10 @@ def analyze_movement_trajectory_3d_universal(
         worst_deviation_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
     final_score = apply_unified_sensitivity(
-        base_score, sensitivity_factor, "trayectoria"
+        base_score, sensitivity_factor, "trajectory"
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEYS EN INGLÉS
+    # EXACT LOGIC FROM CURRENT CODE - Feedback
     lateral_threshold = config_manager.get_analysis_threshold(
         "lateral_dev_threshold", exercise_name, config_path
     )
@@ -366,7 +366,7 @@ def analyze_movement_trajectory_3d_universal(
 
     feedback = {}
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Diferencias directas con experto
+    # EXACT LOGIC FROM CURRENT CODE - Direct differences with expert
     shoulder_width = np.mean(
         np.abs(
             user_data["landmark_right_shoulder_x"].values
@@ -383,11 +383,11 @@ def analyze_movement_trajectory_3d_universal(
         trajectory_diff_z / shoulder_width if shoulder_width > 0 else 0
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Evaluar lateral
+    # EXACT LOGIC FROM CURRENT CODE - Evaluate lateral
     if lateral_deviation_ratio > (2.0 / sensitivity_factor):
         feedback["trajectory_lateral"] = (
-            "Tu movimiento se desvía excesivamente en dirección lateral. "
-            "Concéntrate urgentemente en mantener las muñecas en línea vertical."
+            "Your movement deviates excessively in lateral direction. "
+            "Focus urgently on keeping wrists in vertical line."
         )
     elif normalized_trajectory_diff_x > lateral_threshold_adj:
         if (
@@ -395,22 +395,22 @@ def analyze_movement_trajectory_3d_universal(
             and normalized_trajectory_diff_x > lateral_threshold_adj * 1.5
         ):
             feedback["trajectory_lateral"] = (
-                "Se detecta desviación lateral significativa en tu trayectoria. "
-                "Es importante corregir para mantener un movimiento más vertical."
+                "Significant lateral deviation detected in your trajectory. "
+                "It's important to correct to maintain a more vertical movement."
             )
         else:
             feedback["trajectory_lateral"] = (
-                "Se detecta cierta desviación lateral en tu trayectoria. "
-                "Intenta mantener un movimiento más vertical."
+                "Some lateral deviation detected in your trajectory. "
+                "Try to maintain a more vertical movement."
             )
     else:
-        feedback["trajectory_lateral"] = "Excelente control lateral del movimiento."
+        feedback["trajectory_lateral"] = "Excellent lateral movement control."
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Evaluar frontal
+    # EXACT LOGIC FROM CURRENT CODE - Evaluate frontal
     if frontal_deviation_ratio > (2.0 / sensitivity_factor):
         feedback["trajectory_frontal"] = (
-            "Tu movimiento se desvía hacia adelante/atrás significativamente. "
-            "Mantén las muñecas en un plano vertical consistente."
+            "Your movement deviates forward/backward significantly. "
+            "Keep wrists in a consistent vertical plane."
         )
     elif normalized_trajectory_diff_z > frontal_threshold_adj:
         if (
@@ -418,34 +418,34 @@ def analyze_movement_trajectory_3d_universal(
             and normalized_trajectory_diff_z > frontal_threshold_adj * 1.5
         ):
             feedback["trajectory_frontal"] = (
-                "Se detecta desviación frontal significativa en tu movimiento. "
-                "Es importante mantener un plano vertical más consistente."
+                "Significant frontal deviation detected in your movement. "
+                "It's important to maintain a more consistent vertical plane."
             )
         else:
             feedback["trajectory_frontal"] = (
-                "Se detecta cierta desviación frontal en tu movimiento."
+                "Some frontal deviation detected in your movement."
             )
     else:
-        feedback["trajectory_frontal"] = "Buen control frontal del movimiento."
+        feedback["trajectory_frontal"] = "Good frontal movement control."
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback general
+    # EXACT LOGIC FROM CURRENT CODE - General feedback
     if max(lateral_deviation_ratio, frontal_deviation_ratio) < (
         1.5 / sensitivity_factor
     ):
-        feedback["trajectory"] = "Excelente trayectoria 3D del movimiento."
+        feedback["trajectory"] = "Excellent 3D movement trajectory."
     else:
-        feedback["trajectory"] = "La trayectoria del movimiento puede mejorarse."
+        feedback["trajectory"] = "Movement trajectory can be improved."
 
-    # MÉTRICAS EXACTAS DEL CÓDIGO ACTUAL
+    # EXACT METRICS FROM CURRENT CODE
     metrics = {
-        "desviacion_lateral_usuario": lateral_deviation_user,
-        "desviacion_lateral_experto": lateral_deviation_expert,
-        "ratio_desviacion_lateral": lateral_deviation_ratio,
-        "desviacion_frontal_usuario": frontal_deviation_user,
-        "desviacion_frontal_experto": frontal_deviation_expert,
-        "ratio_desviacion_frontal": frontal_deviation_ratio,
-        "diferencia_trayectoria_x": normalized_trajectory_diff_x,
-        "diferencia_trayectoria_z": normalized_trajectory_diff_z,
+        "user_lateral_deviation": lateral_deviation_user,
+        "expert_lateral_deviation": lateral_deviation_expert,
+        "lateral_deviation_ratio": lateral_deviation_ratio,
+        "user_frontal_deviation": frontal_deviation_user,
+        "expert_frontal_deviation": frontal_deviation_expert,
+        "frontal_deviation_ratio": frontal_deviation_ratio,
+        "trajectory_difference_x": normalized_trajectory_diff_x,
+        "trajectory_difference_z": normalized_trajectory_diff_z,
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}
@@ -455,24 +455,24 @@ def analyze_speed_universal(
     user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
 ):
     """
-    UNIVERSAL: Análisis de velocidad extraído del código actual del press militar.
-    Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
+    UNIVERSAL: Speed analysis extracted from current military press code.
+    Only landmarks change, logic is EXACTLY the same.
     """
-    # Obtener exercise_name del config_path (extraer de exercise_config si es posible)
+    # Get exercise_name from config_path (extract from exercise_config if possible)
     exercise_name = exercise_config.get("_exercise_name", "unknown")
 
-    # Obtener factor de sensibilidad usando config_manager
+    # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
-        "velocidad", exercise_name, config_path
+        "speed", exercise_name, config_path
     )
 
-    # Extraer landmarks de la configuración
+    # Extract landmarks from configuration
     landmark_left = landmarks_config.get("left_landmark", "landmark_left_elbow")
     landmark_right = landmarks_config.get("right_landmark", "landmark_right_elbow")
     axis = landmarks_config.get("axis", "y")
     movement_direction = landmarks_config.get("movement_direction", "up")
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Usar promedio de codos/landmarks para velocidad
+    # EXACT LOGIC FROM CURRENT CODE - Use average of elbows/landmarks for speed
     user_signal = (
         user_data[f"{landmark_right}_{axis}"].values
         + user_data[f"{landmark_left}_{axis}"].values
@@ -482,27 +482,23 @@ def analyze_speed_universal(
         + expert_data[f"{landmark_left}_{axis}"].values
     ) / 2
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Calcular velocidades
+    # EXACT LOGIC FROM CURRENT CODE - Calculate velocities
     user_velocity = np.gradient(user_signal)
     expert_velocity = np.gradient(expert_signal)
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Separar fases
-    if movement_direction == "down":  # Sentadilla
-        user_concentric = user_velocity[
-            user_velocity > 0
-        ]  # Subida = velocidad positiva
-        user_eccentric = user_velocity[user_velocity < 0]  # Bajada = velocidad negativa
+    # EXACT LOGIC FROM CURRENT CODE - Separate phases
+    if movement_direction == "down":  # Squat
+        user_concentric = user_velocity[user_velocity > 0]  # Up = positive velocity
+        user_eccentric = user_velocity[user_velocity < 0]  # Down = negative velocity
         expert_concentric = expert_velocity[expert_velocity > 0]
         expert_eccentric = expert_velocity[expert_velocity < 0]
-    else:  # Press, dominada (movement_direction == "up")
-        user_concentric = user_velocity[
-            user_velocity < 0
-        ]  # Subida = velocidad negativa
-        user_eccentric = user_velocity[user_velocity > 0]  # Bajada = velocidad positiva
+    else:  # Press, pull-up (movement_direction == "up")
+        user_concentric = user_velocity[user_velocity < 0]  # Up = negative velocity
+        user_eccentric = user_velocity[user_velocity > 0]  # Down = positive velocity
         expert_concentric = expert_velocity[expert_velocity < 0]
         expert_eccentric = expert_velocity[expert_velocity > 0]
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Calcular velocidades promedio
+    # EXACT LOGIC FROM CURRENT CODE - Calculate average velocities
     user_concentric_avg = (
         np.mean(np.abs(user_concentric)) if len(user_concentric) > 0 else 0
     )
@@ -516,7 +512,7 @@ def analyze_speed_universal(
         np.mean(np.abs(expert_eccentric)) if len(expert_eccentric) > 0 else 0
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Calcular ratios
+    # EXACT LOGIC FROM CURRENT CODE - Calculate ratios
     concentric_ratio = (
         user_concentric_avg / expert_concentric_avg if expert_concentric_avg > 0 else 1
     )
@@ -524,12 +520,12 @@ def analyze_speed_universal(
         user_eccentric_avg / expert_eccentric_avg if expert_eccentric_avg > 0 else 1
     )
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Score
+    # EXACT LOGIC FROM CURRENT CODE - Score
     concentric_deviation = abs(concentric_ratio - 1.0)
     eccentric_deviation = abs(eccentric_ratio - 1.0)
     worst_velocity_deviation = max(concentric_deviation, eccentric_deviation)
 
-    # Obtener penalty de configuración
+    # Get penalty from configuration
     max_penalty = config_manager.get_penalty_config(
         exercise_name="",
         metric_type="universal",
@@ -539,9 +535,9 @@ def analyze_speed_universal(
     base_score = calculate_deviation_score(
         worst_velocity_deviation, 0, max_penalty=max_penalty, metric_type="linear"
     )
-    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "velocidad")
+    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "speed")
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEYS EN INGLÉS
+    # EXACT LOGIC FROM CURRENT CODE - Feedback
     velocity_threshold = config_manager.get_analysis_threshold(
         "velocity_ratio_threshold", exercise_name, config_path
     )
@@ -551,113 +547,113 @@ def analyze_speed_universal(
 
     feedback = {}
 
-    # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback unificado basado en score final
+    # EXACT LOGIC FROM CURRENT CODE - Unified feedback based on final score
     if final_score >= 85:
-        feedback["speed_concentric"] = "Excelente velocidad en la fase de subida."
-        feedback["speed_eccentric"] = "Excelente control en la fase de bajada."
+        feedback["speed_concentric"] = "Excellent speed in the upward phase."
+        feedback["speed_eccentric"] = "Excellent control in the downward phase."
     elif final_score >= 70:
-        # Determinar cuál fase es problemática para feedback específico
+        # Determine which phase is problematic for specific feedback
         if concentric_deviation > eccentric_deviation:
-            # Problema principal en fase concéntrica
+            # Main problem in concentric phase
             if concentric_ratio < (1 - velocity_threshold_adj):
                 feedback["speed_concentric"] = (
-                    "La fase de subida es moderadamente lenta. "
-                    "Intenta ser más explosivo en la fase concéntrica."
+                    "The upward phase is moderately slow. "
+                    "Try to be more explosive in the concentric phase."
                 )
             else:
                 feedback["speed_concentric"] = (
-                    "La fase de subida es moderadamente rápida. "
-                    "Controla un poco más el movimiento."
+                    "The upward phase is moderately fast. "
+                    "Control the movement a bit more."
                 )
-            feedback["speed_eccentric"] = "Buen control en la fase de bajada."
+            feedback["speed_eccentric"] = "Good control in the downward phase."
         else:
-            # Problema principal en fase excéntrica
-            feedback["speed_concentric"] = "Buena velocidad en la fase de subida."
+            # Main problem in eccentric phase
+            feedback["speed_concentric"] = "Good speed in the upward phase."
             if eccentric_ratio > (1 + velocity_threshold_adj):
                 feedback["speed_eccentric"] = (
-                    "La fase de bajada es moderadamente rápida. "
-                    "Intenta controlar más el descenso."
+                    "The downward phase is moderately fast. "
+                    "Try to control the descent more."
                 )
             else:
                 feedback["speed_eccentric"] = (
-                    "La fase de bajada es moderadamente lenta. "
-                    "Controla el descenso pero no lo ralentices en exceso."
+                    "The downward phase is moderately slow. "
+                    "Control the descent but don't slow it excessively."
                 )
     elif final_score >= 50:
-        # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Casos moderados-críticos
+        # EXACT LOGIC FROM CURRENT CODE - Moderate-critical cases
         if concentric_ratio < (1 - velocity_threshold_adj):
             feedback["speed_concentric"] = (
-                "La fase de subida es demasiado lenta comparada con el experto. "
-                "Intenta ser más explosivo en la fase concéntrica."
+                "The upward phase is too slow compared to the expert. "
+                "Try to be more explosive in the concentric phase."
             )
         elif concentric_ratio > (1 + velocity_threshold_adj):
             feedback["speed_concentric"] = (
-                "La fase de subida es demasiado rápida. "
-                "Controla más el movimiento para mejor técnica."
+                "The upward phase is too fast. "
+                "Control the movement more for better technique."
             )
         else:
-            feedback["speed_concentric"] = "Velocidad de subida aceptable."
+            feedback["speed_concentric"] = "Acceptable upward speed."
 
         if eccentric_ratio < (1 - velocity_threshold_adj):
             feedback["speed_eccentric"] = (
-                "La fase de bajada es demasiado lenta. "
-                "Controla el descenso pero no lo ralentices en exceso."
+                "The downward phase is too slow. "
+                "Control the descent but don't slow it excessively."
             )
         elif eccentric_ratio > (1 + velocity_threshold_adj):
             feedback["speed_eccentric"] = (
-                "La fase de bajada es demasiado rápida. "
-                "Intenta controlar más el descenso para mejor técnica."
+                "The downward phase is too fast. "
+                "Try to control the descent more for better technique."
             )
         else:
-            feedback["speed_eccentric"] = "Control de bajada aceptable."
+            feedback["speed_eccentric"] = "Acceptable downward control."
     else:
-        # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Casos críticos
+        # EXACT LOGIC FROM CURRENT CODE - Critical cases
         if concentric_ratio < (1 - velocity_threshold_adj):
             if sensitivity_factor > 1.5:
                 feedback["speed_concentric"] = (
-                    "La fase de subida es significativamente muy lenta comparada con el experto. "
-                    "Es importante ser más explosivo en la fase concéntrica."
+                    "The upward phase is significantly very slow compared to the expert. "
+                    "It's important to be more explosive in the concentric phase."
                 )
             else:
                 feedback["speed_concentric"] = (
-                    "La fase de subida es demasiado lenta comparada con el experto. "
-                    "Intenta ser más explosivo en la fase concéntrica."
+                    "The upward phase is too slow compared to the expert. "
+                    "Try to be more explosive in the concentric phase."
                 )
         elif concentric_ratio > (1 + velocity_threshold_adj):
             feedback["speed_concentric"] = (
-                "La fase de subida es excesivamente rápida. "
-                "Es crítico controlar más el movimiento para técnica segura."
+                "The upward phase is excessively fast. "
+                "It's critical to control the movement more for safe technique."
             )
         else:
-            feedback["speed_concentric"] = "Velocidad de subida problemática."
+            feedback["speed_concentric"] = "Problematic upward speed."
 
         if eccentric_ratio > (1 + velocity_threshold_adj):
             if sensitivity_factor > 1.5:
                 feedback["speed_eccentric"] = (
-                    "La fase de bajada es significativamente muy rápida. "
-                    "Es crítico controlar más el descenso para técnica segura."
+                    "The downward phase is significantly very fast. "
+                    "It's critical to control the descent more for safe technique."
                 )
             else:
                 feedback["speed_eccentric"] = (
-                    "La fase de bajada es demasiado rápida. "
-                    "Intenta controlar más el descenso."
+                    "The downward phase is too fast. "
+                    "Try to control the descent more."
                 )
         elif eccentric_ratio < (1 - velocity_threshold_adj):
             feedback["speed_eccentric"] = (
-                "La fase de bajada es excesivamente lenta. "
-                "Encuentra un mejor equilibrio en el control del descenso."
+                "The downward phase is excessively slow. "
+                "Find a better balance in descent control."
             )
         else:
-            feedback["speed_eccentric"] = "Control de bajada problemático."
+            feedback["speed_eccentric"] = "Problematic downward control."
 
-    # MÉTRICAS EXACTAS DEL CÓDIGO ACTUAL
+    # EXACT METRICS FROM CURRENT CODE
     metrics = {
-        "velocidad_subida_usuario": user_concentric_avg,
-        "velocidad_subida_experto": expert_concentric_avg,
-        "ratio_subida": concentric_ratio,
-        "velocidad_bajada_usuario": user_eccentric_avg,
-        "velocidad_bajada_experto": expert_eccentric_avg,
-        "ratio_bajada": eccentric_ratio,
+        "user_upward_speed": user_concentric_avg,
+        "expert_upward_speed": expert_concentric_avg,
+        "upward_ratio": concentric_ratio,
+        "user_downward_speed": user_eccentric_avg,
+        "expert_downward_speed": expert_eccentric_avg,
+        "downward_ratio": eccentric_ratio,
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}

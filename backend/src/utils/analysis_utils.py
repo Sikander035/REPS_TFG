@@ -1,4 +1,4 @@
-# backend/src/utils/analysis_utils.py - VERSIÓN SIN DEFAULTS
+# backend/src/utils/analysis_utils.py - UNIFIED VERSION
 import numpy as np
 import logging
 import sys
@@ -13,50 +13,48 @@ logger = logging.getLogger(__name__)
 
 def apply_unified_sensitivity(base_score, sensitivity_factor, metric_name="unknown"):
     """
-    Aplica sensibilidad de manera unificada y bidireccional a todas las métricas.
+    Applies sensitivity in a unified and bidirectional way to all metrics.
 
     Args:
-        base_score: Score base calculado sin sensibilidad
-        sensitivity_factor: Factor de sensibilidad (0.5=permisivo, 1.0=normal, 2.0=estricto)
-        metric_name: Nombre de la métrica para logging
+        base_score: Base score calculated without sensitivity
+        sensitivity_factor: Sensitivity factor (0.5=permissive, 1.0=normal, 2.0=strict)
+        metric_name: Metric name for logging
 
     Returns:
-        Score ajustado con sensibilidad aplicada
-
-    Raises:
-        ValueError: Si sensitivity_factor es inválido
+        Score adjusted with applied sensitivity
     """
     if sensitivity_factor <= 0:
-        raise ValueError(
-            f"Invalid sensitivity factor for {metric_name}: {sensitivity_factor}. Must be positive"
+        logger.warning(
+            f"Invalid sensitivity factor for {metric_name}: {sensitivity_factor}. Using 1.0"
         )
+        sensitivity_factor = 1.0
 
-    # Calcular ajuste basado en desviación del factor normal (1.0)
+    # Calculate adjustment based on deviation from normal factor (1.0)
     if sensitivity_factor < 1.0:
-        # Factor bajo = Más permisivo = PREMIO (score sube)
+        # Low factor = More permissive = BONUS (score goes up)
         bonus_factor = 1.0 - sensitivity_factor  # 0.5 → 0.5, 0.8 → 0.2
-        bonus = min(20, bonus_factor * 40)  # Máximo bonus de 20 puntos
+        bonus = min(20, bonus_factor * 40)  # Maximum bonus of 20 points
         adjusted_score = min(100, base_score + bonus)
         logger.debug(
             f"{metric_name}: Factor {sensitivity_factor:.2f} → Bonus +{bonus:.1f} → {base_score:.1f}→{adjusted_score:.1f}"
         )
 
     elif sensitivity_factor > 1.0:
-        # Factor alto = Más estricto = CASTIGO (score baja)
+        # High factor = More strict = PENALTY (score goes down)
         penalty_factor = sensitivity_factor - 1.0  # 2.0 → 1.0, 1.5 → 0.5
-        # Limitar penalty máximo para evitar colapsos
+        # Limit maximum penalty to avoid collapses
         max_penalty = 30 if sensitivity_factor > 2.0 else 25
         penalty = min(max_penalty, penalty_factor * 30)
-        adjusted_score = max(10, base_score - penalty)  # Score mínimo de 10
+        adjusted_score = max(10, base_score - penalty)  # Minimum score of 10
         logger.debug(
             f"{metric_name}: Factor {sensitivity_factor:.2f} → Penalty -{penalty:.1f} → {base_score:.1f}→{adjusted_score:.1f}"
         )
 
     else:
-        # Factor normal = Sin cambios
+        # Normal factor = No changes
         adjusted_score = base_score
         logger.debug(
-            f"{metric_name}: Factor {sensitivity_factor:.2f} → Sin cambios → {adjusted_score:.1f}"
+            f"{metric_name}: Factor {sensitivity_factor:.2f} → No changes → {adjusted_score:.1f}"
         )
 
     return adjusted_score
@@ -66,53 +64,148 @@ def calculate_deviation_score(
     actual_value, ideal_value, max_penalty=30, metric_type="linear"
 ):
     """
-    Calcula score base basado en desviación del valor ideal.
+    Calculates base score based on deviation from ideal value.
 
     Args:
-        actual_value: Valor real medido
-        ideal_value: Valor ideal/objetivo
-        max_penalty: Penalización máxima por desviación completa
-        metric_type: "linear", "ratio", o "logarithmic"
+        actual_value: Actual measured value
+        ideal_value: Ideal/target value
+        max_penalty: Maximum penalty for complete deviation
+        metric_type: "linear", "ratio", or "logarithmic"
 
     Returns:
-        Score base (antes de aplicar sensibilidad)
-
-    Raises:
-        ValueError: Si max_penalty es inválido
+        Base score (before applying sensitivity)
     """
-    if max_penalty <= 0:
-        raise ValueError(f"Invalid max_penalty: {max_penalty}. Must be positive")
-
     if metric_type == "ratio" and ideal_value != 0:
-        # Para ratios (ej: usuario/experto), ideal normalmente es 1.0
+        # For ratios (e.g.: user/expert), ideal is normally 1.0
         deviation = abs(actual_value - ideal_value) / abs(ideal_value)
     elif metric_type == "logarithmic":
-        # Para métricas que necesitan cambios suaves en rangos amplios
+        # For metrics that need smooth changes in wide ranges
         deviation = abs(
             np.log(max(0.01, actual_value)) - np.log(max(0.01, ideal_value))
         )
     else:
-        # Linear - para diferencias absolutas
+        # Linear - for absolute differences
         deviation = abs(actual_value - ideal_value)
 
-    # Convertir desviación a penalty (normalizado)
-    # Asumimos que 100% de desviación = penalty máximo
+    # Convert deviation to penalty (normalized)
+    # We assume 100% deviation = maximum penalty
     penalty = min(max_penalty, deviation * max_penalty)
-    base_score = max(20, 100 - penalty)  # Score base mínimo de 20
+    base_score = max(20, 100 - penalty)  # Minimum base score of 20
 
     return base_score
 
 
+def get_exercise_config(exercise_name="military_press", config_path="config.json"):
+    """
+    Gets specific configuration for the exercise from config.json.
+    USES SINGLETON + READS CONFIGURATION FROM JSON FILE.
+    """
+    try:
+        # Use config_manager singleton
+        exercise_config = config_manager.get_exercise_config(exercise_name, config_path)
+
+        # Load global configurations if not loaded
+        if config_path not in config_manager._loaded_files:
+            config_manager.load_config_file(config_path)
+        config_data = config_manager._loaded_files[config_path]
+
+        # Get exercise-specific analysis configuration
+        analysis_config = exercise_config.get("analysis_config", {})
+
+        # Get global analysis configuration
+        global_analysis = config_data.get("global_analysis_config", {})
+
+        # Combine: global first, then exercise-specific (priority)
+        final_config = {}
+        final_config.update(global_analysis)
+        final_config.update(analysis_config)
+
+        # Add additional configurations from global level
+        final_config.update(
+            {
+                "scoring_weights": config_data.get("scoring_weights", {}),
+                "analysis_ratios": config_data.get("analysis_ratios", {}),
+                "feedback_multipliers": config_data.get("feedback_multipliers", {}),
+                "skill_levels": config_data.get("skill_levels", {}),
+                "signal_processing": config_data.get("signal_processing", {}),
+            }
+        )
+
+        # If there's not enough configuration, complete with default values
+        default_config = {
+            "min_elbow_angle": 45,
+            "max_elbow_angle": 175,
+            "rom_threshold": 0.85,
+            "bottom_diff_threshold": 0.2,
+            "abduction_angle_threshold": 15,
+            "symmetry_threshold": 0.15,
+            "lateral_dev_threshold": 0.2,
+            "frontal_dev_threshold": 0.15,
+            "velocity_ratio_threshold": 0.3,
+            "scapular_stability_threshold": 1.5,
+            "sensitivity_factors": {
+                "amplitude": 3.0,
+                "elbow_abduction": 3.0,
+                "symmetry": 1.0,
+                "trajectory": 1.0,
+                "speed": 1.0,
+                "scapular_stability": 1.0,
+            },
+            "scoring_weights": {
+                "rom_score": 0.20,
+                "abduction_score": 0.20,
+                "sym_score": 0.15,
+                "path_score": 0.20,
+                "speed_score": 0.15,
+                "scapular_score": 0.10,
+            },
+        }
+
+        # Complete missing values with defaults
+        for key, value in default_config.items():
+            if key not in final_config:
+                final_config[key] = value
+
+        logger.info(f"Analysis configuration loaded for {exercise_name}")
+        return final_config
+
+    except Exception as e:
+        logger.error(f"Error loading configuration: {e}")
+        logger.warning("Using complete default configuration")
+        # Complete default values
+        return {
+            "min_elbow_angle": 45,
+            "max_elbow_angle": 175,
+            "rom_threshold": 0.85,
+            "bottom_diff_threshold": 0.2,
+            "abduction_angle_threshold": 15,
+            "symmetry_threshold": 0.15,
+            "lateral_dev_threshold": 0.2,
+            "frontal_dev_threshold": 0.15,
+            "velocity_ratio_threshold": 0.3,
+            "scapular_stability_threshold": 1.5,
+            "sensitivity_factors": {
+                "amplitude": 3.0,
+                "elbow_abduction": 3.0,
+                "symmetry": 1.0,
+                "trajectory": 1.0,
+                "speed": 1.0,
+                "scapular_stability": 1.0,
+            },
+            "scoring_weights": {
+                "rom_score": 0.20,
+                "abduction_score": 0.20,
+                "sym_score": 0.15,
+                "path_score": 0.20,
+                "speed_score": 0.15,
+                "scapular_score": 0.10,
+            },
+        }
+
+
 def calculate_elbow_abduction_angle(shoulder_point, elbow_point):
     """
-    Calcula el ángulo de abducción lateral del codo.
-
-    Args:
-        shoulder_point: Punto del hombro [x, y, z]
-        elbow_point: Punto del codo [x, y, z]
-
-    Returns:
-        float: Ángulo de abducción en grados
+    Calculates lateral abduction angle of elbow.
     """
     shoulder = np.array(shoulder_point)
     elbow = np.array(elbow_point)
@@ -141,125 +234,68 @@ def calculate_elbow_abduction_angle(shoulder_point, elbow_point):
 
 
 def apply_sensitivity_to_threshold(threshold, sensitivity_factor):
-    """
-    Aplica factor de sensibilidad a un umbral.
-
-    Args:
-        threshold: Umbral original
-        sensitivity_factor: Factor de sensibilidad
-
-    Returns:
-        float: Umbral ajustado
-
-    Raises:
-        ValueError: Si sensitivity_factor es inválido
-    """
+    """Applies sensitivity factor to a threshold (LEGACY METHOD - maintain compatibility)."""
     if sensitivity_factor <= 0:
-        raise ValueError(
-            f"Invalid sensitivity factor: {sensitivity_factor}. Must be positive"
-        )
+        logger.warning(f"Invalid sensitivity factor: {sensitivity_factor}. Using 1.0")
+        sensitivity_factor = 1.0
 
     adjusted_threshold = threshold / sensitivity_factor
     logger.debug(
-        f"Threshold adjusted: {threshold} / {sensitivity_factor} = {adjusted_threshold}"
+        f"Adjusted threshold: {threshold} / {sensitivity_factor} = {adjusted_threshold}"
     )
     return adjusted_threshold
 
 
-def determine_skill_level(overall_score, skill_levels_config=None):
-    """
-    Determina nivel de habilidad basado en puntuación.
-
-    Args:
-        overall_score: Puntuación general
-        skill_levels_config: Configuración de niveles (opcional)
-
-    Returns:
-        str: Nivel de habilidad
-
-    Raises:
-        ValueError: Si overall_score es inválido
-    """
-    if (
-        not isinstance(overall_score, (int, float))
-        or overall_score < 0
-        or overall_score > 100
-    ):
-        raise ValueError(
-            f"Invalid overall_score: {overall_score}. Must be between 0 and 100"
-        )
-
-    # Usar configuración si está disponible
-    if skill_levels_config and isinstance(skill_levels_config, dict):
-        if overall_score >= skill_levels_config.get("excelente", 90):
-            return "Excelente"
-        elif overall_score >= skill_levels_config.get("muy_bueno", 80):
-            return "Muy bueno"
-        elif overall_score >= skill_levels_config.get("bueno", 70):
-            return "Bueno"
-        elif overall_score >= skill_levels_config.get("aceptable", 60):
-            return "Aceptable"
-        elif overall_score >= skill_levels_config.get("necesita_mejorar", 50):
-            return "Necesita mejorar"
+def determine_skill_level(overall_score, exercise_config=None):
+    """Determines skill level based on score."""
+    # Use configuration if available, otherwise original values
+    if exercise_config and "skill_levels" in exercise_config:
+        skill_levels = exercise_config["skill_levels"]
+        if overall_score >= skill_levels.get("excellent", 90):
+            return "Excellent"
+        elif overall_score >= skill_levels.get("very_good", 80):
+            return "Very Good"
+        elif overall_score >= skill_levels.get("good", 70):
+            return "Good"
+        elif overall_score >= skill_levels.get("acceptable", 60):
+            return "Acceptable"
+        elif overall_score >= skill_levels.get("needs_improvement", 50):
+            return "Needs Improvement"
         else:
-            return "Principiante"
+            return "Beginner"
     else:
-        # Valores hardcodeados como fallback (mantenidos para compatibilidad)
+        # Original hardcoded values to maintain compatibility
         if overall_score >= 90:
-            return "Excelente"
+            return "Excellent"
         elif overall_score >= 80:
-            return "Muy bueno"
+            return "Very Good"
         elif overall_score >= 70:
-            return "Bueno"
+            return "Good"
         elif overall_score >= 60:
-            return "Aceptable"
+            return "Acceptable"
         elif overall_score >= 50:
-            return "Necesita mejorar"
+            return "Needs Improvement"
         else:
-            return "Principiante"
+            return "Beginner"
 
 
 def generate_recommendations(all_feedback, overall_score):
-    """
-    Genera recomendaciones específicas basadas en feedback.
-
-    Args:
-        all_feedback: Diccionario con feedback por categorías
-        overall_score: Puntuación general
-
-    Returns:
-        list: Lista de recomendaciones
-
-    Raises:
-        ValueError: Si los parámetros son inválidos
-    """
-    if not isinstance(all_feedback, dict):
-        raise ValueError("all_feedback must be a dictionary")
-
-    if (
-        not isinstance(overall_score, (int, float))
-        or overall_score < 0
-        or overall_score > 100
-    ):
-        raise ValueError(
-            f"Invalid overall_score: {overall_score}. Must be between 0 and 100"
-        )
-
+    """Generates specific recommendations based on feedback."""
     recommendations = []
 
     recommendation_map = {
-        "insuficiente": "Practica el movimiento completo con menos peso para mejorar la amplitud.",
-        "posicion_baja": "Trabaja en llevar los codos hasta la altura de los hombros al bajar.",
-        "abiertos": "Realiza ejercicios de conciencia corporal frente al espejo para corregir la abducción de codos.",
-        "cerrados": "Intenta mantener los codos en una posición intermedia, ni muy abiertos ni muy cerrados.",
-        "asimetría": "Realiza ejercicios unilaterales (con un brazo a la vez) para equilibrar la fuerza entre ambos lados.",
-        "desvía": "Practica frente a un espejo con una barra ligera o sin peso para corregir la trayectoria.",
-        "lateral": "Concéntrate en mantener un movimiento vertical, evitando desviaciones hacia los lados.",
-        "frontal": "Evita empujar las pesas hacia adelante o atrás, mantén un plano vertical.",
-        "lenta": "Incorpora alguna serie con menor peso pero mayor velocidad controlada en la fase de subida.",
-        "rápida": "Cuenta mentalmente durante la bajada para asegurar un descenso controlado (aprox. 2-3 segundos).",
-        "inestabilidad": "Fortalece los músculos de la cintura escapular con ejercicios específicos como retracciones escapulares.",
-        "mueven": "Practica mantener los hombros fijos durante todo el movimiento del press.",
+        "insufficient": "Practice the complete movement with less weight to improve amplitude.",
+        "low_position": "Work on bringing elbows to shoulder height when lowering.",
+        "open": "Perform body awareness exercises in front of a mirror to correct elbow abduction.",
+        "closed": "Try to keep elbows in an intermediate position, neither too open nor too closed.",
+        "asymmetry": "Perform unilateral exercises (one arm at a time) to balance strength between both sides.",
+        "deviates": "Practice in front of a mirror with a light bar or no weight to correct trajectory.",
+        "lateral": "Focus on maintaining a vertical movement, avoiding lateral deviations.",
+        "frontal": "Avoid pushing weights forward or backward, maintain a vertical plane.",
+        "slow": "Incorporate some sets with less weight but greater controlled speed in the upward phase.",
+        "fast": "Count mentally during the descent to ensure controlled lowering (approx. 2-3 seconds).",
+        "instability": "Strengthen scapular belt muscles with specific exercises like scapular retractions.",
+        "move": "Practice keeping shoulders fixed throughout the entire press movement.",
     }
 
     for category, message in all_feedback.items():
@@ -271,19 +307,19 @@ def generate_recommendations(all_feedback, overall_score):
     if not recommendations and overall_score < 80:
         recommendations.extend(
             [
-                "Grábate realizando el ejercicio regularmente para revisar tu técnica.",
-                "Considera realizar el ejercicio con menos peso para enfocarte en la técnica.",
+                "Record yourself performing the exercise regularly to review your technique.",
+                "Consider performing the exercise with less weight to focus on technique.",
             ]
         )
 
     if len(recommendations) < 2:
         if overall_score < 70:
             recommendations.append(
-                "Considera algunas sesiones con un entrenador personal para perfeccionar tu técnica."
+                "Consider some sessions with a personal trainer to perfect your technique."
             )
         if overall_score < 60:
             recommendations.append(
-                "Comienza con variantes más sencillas del press militar, como el press sentado con respaldo."
+                "Start with simpler variants of the military press, like seated press with back support."
             )
 
     return recommendations

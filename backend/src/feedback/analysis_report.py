@@ -1,4 +1,4 @@
-# backend/src/feedback/analysis_report.py - VERSIÓN SIN DEFAULTS CON CONFIG_MANAGER
+# backend/src/feedback/analysis_report.py - UNIFIED VERSION
 import sys
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ import logging
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-# IMPORTAR FUNCIONES UNIVERSALES Y ESPECÍFICAS
+# IMPORT UNIVERSAL AND SPECIFIC FUNCTIONS
 from src.feedback.universal_metrics import (
     analyze_movement_amplitude_universal,
     analyze_symmetry_universal,
@@ -20,7 +20,7 @@ from src.feedback.specific_metrics import (
     get_specific_metric_names_for_exercise,
 )
 
-# MANTENER IMPORTACIONES ORIGINALES
+# KEEP ORIGINAL IMPORTS
 from src.utils.analysis_utils import (
     determine_skill_level,
     generate_recommendations,
@@ -36,17 +36,17 @@ logger = logging.getLogger(__name__)
 
 
 def run_exercise_analysis(
-    user_data, expert_data, exercise_name="press_militar", config_path="config.json"
+    user_data, expert_data, exercise_name="military_press", config_path="config.json"
 ):
     """
-    FUNCIÓN PRINCIPAL: Análisis completo usando config_manager estrictamente.
+    MAIN FUNCTION: Complete analysis using config_manager strictly.
     """
     logger.info(f"Starting strict analysis for: {exercise_name}")
 
-    # Cargar configuración usando config_manager - OBLIGATORIO
+    # Load configuration using config_manager - MANDATORY
     try:
         exercise_config = config_manager.get_exercise_config(exercise_name, config_path)
-        # Añadir exercise_name al config para las métricas universales
+        # Add exercise_name to config for universal metrics
         exercise_config["_exercise_name"] = exercise_name
     except Exception as e:
         logger.error(
@@ -56,10 +56,20 @@ def run_exercise_analysis(
             f"Configuration loading failed for exercise '{exercise_name}': {e}"
         )
 
-    # Obtener configuración de landmarks por ejercicio
-    landmarks_config = _get_landmarks_config_for_exercise(exercise_name)
+    # Get landmarks configuration from config_manager
+    try:
+        landmarks_config = config_manager.get_exercise_landmarks_config(
+            exercise_name, config_path
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to load landmarks configuration for exercise '{exercise_name}': {e}"
+        )
+        raise ValueError(
+            f"Landmarks configuration loading failed for exercise '{exercise_name}': {e}"
+        )
 
-    # Obtener funciones específicas para este ejercicio
+    # Get specific functions for this exercise
     try:
         specific_functions = get_specific_metrics_for_exercise(exercise_name)
         specific_names = get_specific_metric_names_for_exercise(exercise_name)
@@ -68,11 +78,11 @@ def run_exercise_analysis(
         raise
 
     # =================================================================
-    # EJECUTAR LAS 4 MÉTRICAS UNIVERSALES (PASANDO config_path)
+    # EXECUTE THE 4 UNIVERSAL METRICS (PASSING config_path)
     # =================================================================
 
     try:
-        # 1. AMPLITUD (universal)
+        # 1. AMPLITUDE (universal)
         amplitude_result = analyze_movement_amplitude_universal(
             user_data,
             expert_data,
@@ -81,7 +91,7 @@ def run_exercise_analysis(
             config_path,
         )
 
-        # 2. SIMETRÍA (universal)
+        # 2. SYMMETRY (universal)
         symmetry_result = analyze_symmetry_universal(
             user_data,
             expert_data,
@@ -90,7 +100,7 @@ def run_exercise_analysis(
             config_path,
         )
 
-        # 3. TRAYECTORIA (universal)
+        # 3. TRAJECTORY (universal)
         trajectory_result = analyze_movement_trajectory_3d_universal(
             user_data,
             expert_data,
@@ -99,7 +109,7 @@ def run_exercise_analysis(
             config_path,
         )
 
-        # 4. VELOCIDAD (universal)
+        # 4. SPEED (universal)
         speed_result = analyze_speed_universal(
             user_data,
             expert_data,
@@ -113,17 +123,17 @@ def run_exercise_analysis(
         raise ValueError(f"Universal metrics analysis failed: {e}")
 
     # =================================================================
-    # EJECUTAR LAS 2 MÉTRICAS ESPECÍFICAS (PASANDO config_path)
+    # EXECUTE THE 2 SPECIFIC METRICS (PASSING config_path)
     # =================================================================
 
     try:
-        # 5. MÉTRICA ESPECÍFICA A (abducción/profundidad/swing)
-        specific_a_result = specific_functions["metrica_especifica_a"](
+        # 5. SPECIFIC METRIC A (abduction/depth/swing)
+        specific_a_result = specific_functions["specific_metric_a"](
             user_data, expert_data, exercise_config, config_path
         )
 
-        # 6. MÉTRICA ESPECÍFICA B (estabilidad/tracking/retracción)
-        specific_b_result = specific_functions["metrica_especifica_b"](
+        # 6. SPECIFIC METRIC B (stability/tracking/retraction)
+        specific_b_result = specific_functions["specific_metric_b"](
             user_data, expert_data, exercise_config, config_path
         )
 
@@ -132,20 +142,20 @@ def run_exercise_analysis(
         raise ValueError(f"Specific metrics analysis failed: {e}")
 
     # =================================================================
-    # COMBINAR RESULTADOS
+    # COMBINE RESULTS
     # =================================================================
 
-    # Combinar métricas
+    # Combine metrics
     all_metrics = {
-        "amplitud": amplitude_result["metrics"],
-        specific_names["metrica_especifica_a"]: specific_a_result["metrics"],
-        "simetria": symmetry_result["metrics"],
-        "trayectoria": trajectory_result["metrics"],
-        "velocidad": speed_result["metrics"],
-        specific_names["metrica_especifica_b"]: specific_b_result["metrics"],
+        "amplitude": amplitude_result["metrics"],
+        specific_names["specific_metric_a"]: specific_a_result["metrics"],
+        "symmetry": symmetry_result["metrics"],
+        "trajectory": trajectory_result["metrics"],
+        "speed": speed_result["metrics"],
+        specific_names["specific_metric_b"]: specific_b_result["metrics"],
     }
 
-    # Combinar feedback
+    # Combine feedback
     all_feedback = {
         **amplitude_result["feedback"],
         **specific_a_result["feedback"],
@@ -155,10 +165,10 @@ def run_exercise_analysis(
         **specific_b_result["feedback"],
     }
 
-    # Usar los nombres originales de scores para compatibilidad
+    # Use original score names for compatibility
     individual_scores = {}
 
-    if exercise_name.lower() == "press_militar":
+    if exercise_name.lower() == "military_press":
         individual_scores = {
             "rom_score": amplitude_result["score"],
             "abduction_score": specific_a_result["score"],
@@ -167,7 +177,7 @@ def run_exercise_analysis(
             "speed_score": speed_result["score"],
             "scapular_score": specific_b_result["score"],
         }
-    elif exercise_name.lower() == "sentadilla":
+    elif exercise_name.lower() == "squat":
         individual_scores = {
             "rom_score": amplitude_result["score"],
             "depth_score": specific_a_result["score"],
@@ -176,7 +186,7 @@ def run_exercise_analysis(
             "speed_score": speed_result["score"],
             "knee_score": specific_b_result["score"],
         }
-    elif exercise_name.lower() == "dominada":
+    elif exercise_name.lower() == "pull_up":
         individual_scores = {
             "rom_score": amplitude_result["score"],
             "swing_score": specific_a_result["score"],
@@ -186,7 +196,7 @@ def run_exercise_analysis(
             "retraction_score": specific_b_result["score"],
         }
     else:
-        # Fallback para ejercicios no reconocidos
+        # Fallback for unrecognized exercises
         individual_scores = {
             "rom_score": amplitude_result["score"],
             "specific_a_score": specific_a_result["score"],
@@ -196,7 +206,7 @@ def run_exercise_analysis(
             "specific_b_score": specific_b_result["score"],
         }
 
-    # VALIDAR SCORES
+    # VALIDATE SCORES
     for key, score in individual_scores.items():
         if not isinstance(score, (int, float)) or score < 0 or score > 100:
             logger.error(f"Invalid score detected: {key}={score}")
@@ -205,14 +215,14 @@ def run_exercise_analysis(
             )
 
     # =================================================================
-    # CALCULAR SCORE GLOBAL USANDO CONFIG_MANAGER
+    # CALCULATE GLOBAL SCORE USING CONFIG_MANAGER
     # =================================================================
 
     try:
-        # Obtener pesos usando config_manager
+        # Get weights using config_manager
         weights = config_manager.get_scoring_weights(exercise_name, config_path)
 
-        # Verificar que todas las claves de weights existen en individual_scores
+        # Verify that all weight keys exist in individual_scores
         valid_weights = {}
         total_weight = 0
 
@@ -228,10 +238,10 @@ def run_exercise_analysis(
         if total_weight <= 0:
             raise ValueError("No valid scoring weights found or total weight is zero")
 
-        # Normalizar weights para que sumen 1
+        # Normalize weights to sum 1
         valid_weights = {k: v / total_weight for k, v in valid_weights.items()}
 
-        # Calcular score global
+        # Calculate global score
         overall_score = sum(
             individual_scores[key] * valid_weights[key] for key in valid_weights.keys()
         )
@@ -241,9 +251,9 @@ def run_exercise_analysis(
         logger.error(f"Error calculating overall score: {e}")
         raise ValueError(f"Failed to calculate overall score: {e}")
 
-    # Determinar skill level usando configuración si está disponible
+    # Determine skill level using configuration if available
     try:
-        # Intentar obtener skill levels de la configuración global
+        # Try to get skill levels from global configuration
         if config_path not in config_manager._loaded_files:
             config_manager.load_config_file(config_path)
 
@@ -262,7 +272,7 @@ def run_exercise_analysis(
         f"Individual scores: {[f'{k}={v:.1f}' for k,v in individual_scores.items()]}"
     )
 
-    # RETORNAR MISMO FORMATO QUE ANTES
+    # RETURN SAME FORMAT AS BEFORE
     return {
         "metrics": all_metrics,
         "feedback": all_feedback,
@@ -278,7 +288,7 @@ def run_exercise_analysis(
 
 def generate_analysis_report(analysis_results, exercise_name, output_path=None):
     """
-    MANTENER FUNCIÓN ORIGINAL EXACTA - sin cambios.
+    KEEP ORIGINAL FUNCTION EXACT - no changes.
     """
     if not isinstance(analysis_results, dict):
         raise ValueError("analysis_results must be a dictionary")
@@ -286,44 +296,44 @@ def generate_analysis_report(analysis_results, exercise_name, output_path=None):
     if not isinstance(exercise_name, str) or not exercise_name.strip():
         raise ValueError("exercise_name must be a non-empty string")
 
-    # Validar campos requeridos en analysis_results
+    # Validate required fields in analysis_results
     required_fields = ["score", "level", "individual_scores", "feedback"]
     for field in required_fields:
         if field not in analysis_results:
             raise ValueError(f"Missing required field '{field}' in analysis_results")
 
     report = {
-        "ejercicio": exercise_name,
-        "puntuacion_global": round(analysis_results["score"], 1),
-        "puntuaciones_individuales": {
+        "exercise": exercise_name,
+        "overall_score": round(analysis_results["score"], 1),
+        "individual_scores": {
             k: round(v, 1) for k, v in analysis_results["individual_scores"].items()
         },
-        "nivel": analysis_results["level"],
-        "areas_mejora": [],
-        "puntos_fuertes": [],
-        "feedback_detallado": analysis_results["feedback"],
-        "metricas": analysis_results["metrics"],
-        "recomendaciones": generate_recommendations(
+        "level": analysis_results["level"],
+        "improvement_areas": [],
+        "strengths": [],
+        "detailed_feedback": analysis_results["feedback"],
+        "metrics": analysis_results["metrics"],
+        "recommendations": generate_recommendations(
             analysis_results["feedback"], analysis_results["score"]
         ),
         "sensitivity_factors": analysis_results.get("sensitivity_factors", {}),
-        "version_analisis": "strict_config_manager_v1.0",
+        "analysis_version": "unified_config_manager_v1.0",
     }
 
-    # Identificar áreas de mejora y puntos fuertes
+    # Identify improvement areas and strengths
     for category, message in analysis_results["feedback"].items():
-        if "Excelente" in message or "Buen" in message or "Buena" in message:
-            report["puntos_fuertes"].append(message)
+        if "Excellent" in message or "Good" in message or "Great" in message:
+            report["strengths"].append(message)
         else:
-            report["areas_mejora"].append(message)
+            report["improvement_areas"].append(message)
 
-    # Guardar informe si se especificó una ruta
+    # Save report if path specified
     if output_path:
         try:
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=4, ensure_ascii=False)
-            logger.info(f"Strict analysis report saved to: {output_path}")
+            logger.info(f"Unified analysis report saved to: {output_path}")
         except Exception as e:
             logger.error(f"Error saving report: {e}")
             raise ValueError(f"Failed to save report to {output_path}: {e}")
@@ -332,125 +342,18 @@ def generate_analysis_report(analysis_results, exercise_name, output_path=None):
 
 
 # =============================================================================
-# FUNCIONES AUXILIARES PARA CONFIGURACIÓN POR EJERCICIO
-# =============================================================================
-
-
-def _get_landmarks_config_for_exercise(exercise_name):
-    """
-    Configura landmarks para las 4 métricas universales según el ejercicio.
-
-    Args:
-        exercise_name: Nombre del ejercicio
-
-    Returns:
-        dict: Configuración de landmarks por métrica
-
-    Raises:
-        ValueError: Si el ejercicio no está soportado
-    """
-    exercise_name = exercise_name.lower().replace(" ", "_")
-
-    if exercise_name == "press_militar":
-        return {
-            "amplitude": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "axis": "y",
-                "movement_direction": "up",
-                "feedback_context": "codos",
-            },
-            "symmetry": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "axis": "y",
-                "feedback_context": "movimiento de codos",
-            },
-            "trajectory": {
-                "left_landmark": "landmark_left_wrist",
-                "right_landmark": "landmark_right_wrist",
-            },
-            "speed": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "axis": "y",
-                "movement_direction": "up",
-            },
-        }
-
-    elif exercise_name == "sentadilla":
-        return {
-            "amplitude": {
-                "left_landmark": "landmark_left_hip",
-                "right_landmark": "landmark_right_hip",
-                "axis": "y",
-                "movement_direction": "down",
-                "feedback_context": "caderas",
-            },
-            "symmetry": {
-                "left_landmark": "landmark_left_knee",
-                "right_landmark": "landmark_right_knee",
-                "axis": "y",
-                "feedback_context": "movimiento de rodillas",
-            },
-            "trajectory": {
-                "left_landmark": "landmark_left_hip",
-                "right_landmark": "landmark_right_hip",
-            },
-            "speed": {
-                "left_landmark": "landmark_left_hip",
-                "right_landmark": "landmark_right_hip",
-                "axis": "y",
-                "movement_direction": "down",
-            },
-        }
-
-    elif exercise_name == "dominada":
-        return {
-            "amplitude": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "axis": "y",
-                "movement_direction": "up",
-                "feedback_context": "codos",
-            },
-            "symmetry": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "axis": "y",
-                "feedback_context": "movimiento de codos",
-            },
-            "trajectory": {
-                "left_landmark": "landmark_left_wrist",
-                "right_landmark": "landmark_right_wrist",
-            },
-            "speed": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "axis": "y",
-                "movement_direction": "up",
-            },
-        }
-
-    else:
-        raise ValueError(
-            f"Unsupported exercise for landmarks configuration: {exercise_name}"
-        )
-
-
-# =============================================================================
-# FUNCIONES ORIGINALES ESPECÍFICAS PARA PRESS MILITAR (mantener compatibilidad)
+# ORIGINAL SPECIFIC FUNCTIONS FOR MILITARY PRESS (maintain compatibility)
 # =============================================================================
 
 
 def analyze_movement_amplitude(user_data, expert_data, exercise_config):
-    """WRAPPER: Mantiene compatibilidad con código original del press militar."""
+    """WRAPPER: Maintains compatibility with original military press code."""
     landmarks_config = {
         "left_landmark": "landmark_left_elbow",
         "right_landmark": "landmark_right_elbow",
         "axis": "y",
         "movement_direction": "up",
-        "feedback_context": "codos",
+        "feedback_context": "elbows",
     }
     return analyze_movement_amplitude_universal(
         user_data, expert_data, exercise_config, landmarks_config
@@ -458,19 +361,19 @@ def analyze_movement_amplitude(user_data, expert_data, exercise_config):
 
 
 def analyze_elbow_abduction_angle(user_data, expert_data, exercise_config):
-    """WRAPPER: Mantiene compatibilidad con código original del press militar."""
+    """WRAPPER: Maintains compatibility with original military press code."""
     from src.feedback.specific_metrics import analyze_elbow_abduction_angle_press
 
     return analyze_elbow_abduction_angle_press(user_data, expert_data, exercise_config)
 
 
 def analyze_symmetry(user_data, expert_data, exercise_config):
-    """WRAPPER: Mantiene compatibilidad con código original del press militar."""
+    """WRAPPER: Maintains compatibility with original military press code."""
     landmarks_config = {
         "left_landmark": "landmark_left_elbow",
         "right_landmark": "landmark_right_elbow",
         "axis": "y",
-        "feedback_context": "movimiento de codos",
+        "feedback_context": "elbow movement",
     }
     return analyze_symmetry_universal(
         user_data, expert_data, exercise_config, landmarks_config
@@ -478,7 +381,7 @@ def analyze_symmetry(user_data, expert_data, exercise_config):
 
 
 def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
-    """WRAPPER: Mantiene compatibilidad con código original del press militar."""
+    """WRAPPER: Maintains compatibility with original military press code."""
     landmarks_config = {
         "left_landmark": "landmark_left_wrist",
         "right_landmark": "landmark_right_wrist",
@@ -489,7 +392,7 @@ def analyze_movement_trajectory_3d(user_data, expert_data, exercise_config):
 
 
 def analyze_speed(user_data, expert_data, exercise_config):
-    """WRAPPER: Mantiene compatibilidad con código original del press militar."""
+    """WRAPPER: Maintains compatibility with original military press code."""
     landmarks_config = {
         "left_landmark": "landmark_left_elbow",
         "right_landmark": "landmark_right_elbow",
@@ -502,7 +405,7 @@ def analyze_speed(user_data, expert_data, exercise_config):
 
 
 def analyze_scapular_stability(user_data, expert_data, exercise_config):
-    """WRAPPER: Mantiene compatibilidad con código original del press militar."""
+    """WRAPPER: Maintains compatibility with original military press code."""
     from src.feedback.specific_metrics import analyze_scapular_stability_press
 
     return analyze_scapular_stability_press(user_data, expert_data, exercise_config)
