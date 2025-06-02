@@ -425,6 +425,7 @@ def process_exercise(
                 expert_data=aligned_expert_data,
                 exercise_name=exercise_name,
                 output_dir=analysis_dir,
+                config_path=config_path,
             )
 
             # Store results

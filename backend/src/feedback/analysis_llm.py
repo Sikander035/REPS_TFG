@@ -65,8 +65,6 @@ def load_prompt_template(prompt_file_path=None):
             )
         )
         logger.error(error_msg)
-        logger.error("Traceback completo:")
-        logger.error(traceback.format_exc())
         raise FileNotFoundError(error_msg)
 
     # Cargar el contenido del archivo
@@ -77,24 +75,17 @@ def load_prompt_template(prompt_file_path=None):
         if not prompt_content.strip():
             raise ValueError(f"❌ El archivo de prompt está vacío: {prompt_path}")
 
-        logger.info(f"✅ Prompt cargado exitosamente desde: {prompt_path}")
-        logger.debug(f"Prompt length: {len(prompt_content)} caracteres")
-        logger.debug(f"Ubicación detectada: {prompt_path.absolute()}")
-
+        logger.info(f"✅ Prompt cargado desde: {prompt_path.name}")
         return prompt_content
 
     except UnicodeDecodeError as e:
         error_msg = f"❌ Error de codificación al leer {prompt_path}: {e}"
         logger.error(error_msg)
-        logger.error("Traceback completo:")
-        logger.error(traceback.format_exc())
         raise Exception(error_msg)
 
     except Exception as e:
-        error_msg = f"❌ Error inesperado al cargar prompt desde {prompt_path}: {e}"
+        error_msg = f"❌ Error al cargar prompt desde {prompt_path}: {e}"
         logger.error(error_msg)
-        logger.error("Traceback completo:")
-        logger.error(traceback.format_exc())
         raise Exception(error_msg)
 
 
@@ -128,21 +119,17 @@ def generate_trainer_feedback(
         ValueError: Si faltan parámetros obligatorios
         Exception: Para otros errores
     """
+    exercise_name = "ejercicio"  # Default value
+
     try:
         # Validar API key
         if not api_key:
-            error_msg = (
-                "❌ API key es obligatoria para generate_trainer_feedback. "
-                "Pasa el parámetro api_key o carga DEEPSEEK_API_KEY desde variables de entorno."
-            )
+            error_msg = "❌ API key es obligatoria para generate_trainer_feedback."
             logger.error(error_msg)
             raise ValueError(error_msg)
 
         if api_key in ["your_deepseek_api_key", "CLAVE", "tu_clave_real"]:
-            error_msg = (
-                "❌ Debes configurar tu API key real de DeepSeek. "
-                "El valor actual parece ser un placeholder."
-            )
+            error_msg = "❌ Debes configurar tu API key real de DeepSeek."
             logger.error(error_msg)
             raise ValueError(error_msg)
 
@@ -175,10 +162,6 @@ def generate_trainer_feedback(
         prompt = prompt_template.replace("{INFORME_JSON}", informe_json)
 
         logger.info(f"🚀 Generando feedback para '{exercise_name}' usando DeepSeek V3")
-        logger.debug(f"Prompt length: {len(prompt)} caracteres")
-        logger.debug(
-            f"Model: {model}, Temperature: {temperature}, Max tokens: {max_tokens}"
-        )
 
         # Inicializar cliente OpenAI con configuración de DeepSeek
         client = OpenAI(api_key=api_key, base_url=base_url)
@@ -201,35 +184,28 @@ def generate_trainer_feedback(
 
         # Guardar si se especifica ruta
         if output_path:
-            save_feedback_to_file(feedback, output_path)
+            save_success = save_feedback_to_file(feedback, output_path)
+            if not save_success:
+                logger.warning("⚠️ No se pudo guardar el feedback en archivo")
 
         return feedback
 
     except FileNotFoundError as e:
         logger.error(f"❌ Error de archivo: {e}")
-        logger.error("Traceback completo:")
-        logger.error(traceback.format_exc())
         return generate_error_feedback(f"Archivo no encontrado: {e}", exercise_name)
 
     except json.JSONDecodeError as e:
         logger.error(f"❌ Error de formato JSON en informe: {e}")
-        logger.error("Traceback completo:")
-        logger.error(traceback.format_exc())
         return generate_error_feedback(f"Error de formato JSON: {e}", exercise_name)
 
     except Exception as e:
         logger.error(f"❌ Error generando feedback con DeepSeek V3: {e}")
-        logger.error("Traceback completo:")
-        logger.error(traceback.format_exc())
 
         # Intentar generar feedback de respaldo
         try:
-            exercise_name = informe_data.get(
-                "exercise", informe_data.get("ejercicio", "ejercicio")
-            )
             return generate_fallback_feedback(informe_data, exercise_name, str(e))
         except:
-            return generate_error_feedback(f"Error crítico: {e}", "ejercicio")
+            return generate_error_feedback(f"Error crítico: {e}", exercise_name)
 
 
 def generate_fallback_feedback(informe_data, exercise_name, error_msg=""):
@@ -269,11 +245,8 @@ Con una puntuación de {puntuacion}/100, estás en el nivel "{nivel}".
 Sigue trabajando en los aspectos mencionados y verás mejoras pronto.
 
 **⚠️  Nota Técnica:**
-Este es un análisis básico generado localmente porque ocurrió un error 
-con DeepSeek V3. Para feedback más detallado, verifica:
-• Conexión a internet
-• Configuración de la API key
-• Que el archivo trainer_prompt.txt existe
+Este es un análisis básico porque ocurrió un error con DeepSeek V3.
+Para feedback detallado, verifica tu configuración.
 
 Error técnico: {error_msg}"""
 
@@ -282,8 +255,6 @@ Error técnico: {error_msg}"""
 
     except Exception as fallback_error:
         logger.error(f"❌ Error crítico en sistema de respaldo: {fallback_error}")
-        logger.error("Traceback completo:")
-        logger.error(traceback.format_exc())
         return generate_error_feedback(
             f"Error crítico: {fallback_error}", exercise_name
         )
@@ -339,17 +310,15 @@ def save_feedback_to_file(feedback, output_path):
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(feedback)
 
-        logger.info(f"✅ Feedback guardado exitosamente en: {output_path}")
+        logger.info(f"💾 Feedback guardado en: {os.path.basename(output_path)}")
         return True
 
     except Exception as e:
-        logger.error(f"❌ Error guardando feedback en {output_path}: {e}")
-        logger.error("Traceback completo:")
-        logger.error(traceback.format_exc())
+        logger.error(f"❌ Error guardando feedback: {e}")
         return False
 
 
-# Funciones de utilidad para compatibilidad (si se necesitan)
+# Funciones de utilidad para compatibilidad
 def validate_api_key(api_key):
     """
     Valida que la API key sea válida.
