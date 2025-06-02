@@ -23,7 +23,7 @@ class ConfigManager:
     def __new__(cls, config_path=None):
         """Crea o devuelve la instancia singleton."""
         if cls._instance is None:
-            logger.debug("Creando nueva instancia de ConfigManager")
+            logger.debug("Creating new ConfigManager instance")
             cls._instance = super(ConfigManager, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
@@ -34,7 +34,7 @@ class ConfigManager:
         if self._initialized:
             return
 
-        logger.info(f"Inicializando ConfigManager con configuración: {config_path}")
+        logger.info(f"Initializing ConfigManager with configuration: {config_path}")
         self._initialized = True
 
         # Atributos de estado interno
@@ -92,14 +92,15 @@ class ConfigManager:
             config_path: Ruta al archivo de configuración
 
         Returns:
-            bool: True si se cargó correctamente, False en caso contrario
+            bool: True si se cargó correctamente
 
         Raises:
             FileNotFoundError: Si el archivo no existe
+            ValueError: Si el archivo tiene formato inválido
         """
         # Verificar si ya se cargó este archivo
         if config_path in self._loaded_files:
-            logger.debug(f"Archivo ya cargado: {config_path}")
+            logger.debug(f"File already loaded: {config_path}")
             return True
 
         # Verificar existencia del archivo
@@ -107,13 +108,13 @@ class ConfigManager:
             alt_path = os.path.join(os.path.dirname(__file__), config_path)
             if not os.path.exists(alt_path):
                 raise FileNotFoundError(
-                    f"Archivo de configuración no encontrado en '{config_path}' ni en '{alt_path}'"
+                    f"Configuration file not found at '{config_path}' or '{alt_path}'"
                 )
             config_path = alt_path
 
         # Cargar el archivo
         try:
-            logger.info(f"Cargando archivo de configuración: {config_path}")
+            logger.info(f"Loading configuration file: {config_path}")
             with open(config_path, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
 
@@ -122,16 +123,13 @@ class ConfigManager:
             return True
 
         except json.JSONDecodeError as e:
-            logger.error(f"Error al decodificar JSON desde {config_path}: {e}")
-            raise
+            raise ValueError(f"Invalid JSON in configuration file {config_path}: {e}")
         except Exception as e:
-            logger.error(f"Error al cargar configuración desde {config_path}: {e}")
-            raise
+            raise ValueError(f"Error loading configuration from {config_path}: {e}")
 
     def get_exercise_config(self, exercise_name, config_path):
         """
         Obtiene la configuración de un ejercicio específico.
-        CORREGIDO: Incluye TODOS los campos del ejercicio, no solo landmarks y sync_config.
 
         Args:
             exercise_name: Nombre del ejercicio
@@ -141,7 +139,7 @@ class ConfigManager:
             dict: Configuración completa del ejercicio
 
         Raises:
-            ValueError: Si el ejercicio no existe en la configuración
+            ValueError: Si el ejercicio no existe o la configuración está incompleta
         """
         # Normalizar nombre de ejercicio
         exercise_name = exercise_name.strip().lower().replace(" ", "_")
@@ -162,67 +160,336 @@ class ConfigManager:
 
         # Verificar si el ejercicio existe
         if exercise_name not in config_data:
-            available = ", ".join(config_data.keys())
+            available = ", ".join(
+                [
+                    k
+                    for k in config_data.keys()
+                    if not k.startswith("global_")
+                    and k != "penalty_config"
+                    and k != "skill_levels"
+                    and k != "scoring_weights"
+                    and k != "exercise_landmarks_config"
+                ]
+            )
             raise ValueError(
-                f"Ejercicio '{exercise_name}' no encontrado. Ejercicios disponibles: {available}"
+                f"Exercise '{exercise_name}' not found in configuration. Available exercises: {available}"
             )
 
         # Obtener la configuración completa del ejercicio
         exercise_config = config_data[exercise_name]
 
-        # CORREGIDO: Validar campos obligatorios básicos
-        self._validate_basic_exercise_config(exercise_config, exercise_name)
-
-        # CORREGIDO: Validar analysis_config si existe
-        if "analysis_config" in exercise_config:
-            self._validate_analysis_config(
-                exercise_config["analysis_config"], exercise_name
-            )
-
-        # CORREGIDO: Retornar TODA la configuración del ejercicio, no solo campos específicos
-        result = exercise_config.copy()  # Copia completa de todos los campos
+        # Validar configuración completa
+        self._validate_complete_exercise_config(exercise_config, exercise_name)
 
         # Guardar en atributos internos y retornar
-        self._exercise_configs[config_key] = result
-        return result
+        self._exercise_configs[config_key] = exercise_config
+        return exercise_config
 
-    def _validate_basic_exercise_config(self, exercise_config, exercise_name):
+    def get_exercise_landmarks_config(self, exercise_name, config_path):
         """
-        Valida que la configuración básica del ejercicio sea correcta.
+        Obtiene la configuración de landmarks para un ejercicio específico.
+
+        Args:
+            exercise_name: Nombre del ejercicio
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            dict: Configuración de landmarks por métrica
+
+        Raises:
+            ValueError: Si el ejercicio no existe o la configuración está incompleta
+        """
+        # Normalizar nombre de ejercicio
+        exercise_name = exercise_name.strip().lower().replace(" ", "_")
+
+        # Cargar archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        config_data = self._loaded_files[config_path]
+
+        # Verificar que existe exercise_landmarks_config
+        if "exercise_landmarks_config" not in config_data:
+            raise ValueError(
+                "'exercise_landmarks_config' section not found in configuration file"
+            )
+
+        landmarks_config = config_data["exercise_landmarks_config"]
+
+        # Verificar que existe el ejercicio
+        if exercise_name not in landmarks_config:
+            available = ", ".join(landmarks_config.keys())
+            raise ValueError(
+                f"Landmarks configuration for exercise '{exercise_name}' not found. Available: {available}"
+            )
+
+        return landmarks_config[exercise_name]
+
+    def get_penalty_config(self, exercise_name, metric_type, metric_name, config_path):
+        """
+        Obtiene la configuración de penalty para una métrica específica.
+
+        Args:
+            exercise_name: Nombre del ejercicio ("military_press", "squat", etc.)
+            metric_type: Tipo de métrica ("universal" o "specific")
+            metric_name: Nombre específico de la métrica
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            int: Valor de penalty configurado
+
+        Raises:
+            ValueError: Si no se encuentra la configuración de penalty
+        """
+        # Cargar archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        config_data = self._loaded_files[config_path]
+
+        # Verificar que existe penalty_config
+        if "penalty_config" not in config_data:
+            raise ValueError("'penalty_config' section not found in configuration file")
+
+        penalty_config = config_data["penalty_config"]
+
+        if metric_type == "universal":
+            if "universal_metrics" not in penalty_config:
+                raise ValueError(
+                    "'penalty_config.universal_metrics' not found in configuration"
+                )
+
+            universal_penalties = penalty_config["universal_metrics"]
+            if metric_name not in universal_penalties:
+                available = ", ".join(universal_penalties.keys())
+                raise ValueError(
+                    f"Penalty for universal metric '{metric_name}' not found. Available: {available}"
+                )
+
+            penalty = universal_penalties[metric_name]
+            logger.debug(f"Penalty for {metric_name} (universal): {penalty}")
+            return penalty
+
+        elif metric_type == "specific":
+            if "specific_metrics" not in penalty_config:
+                raise ValueError(
+                    "'penalty_config.specific_metrics' not found in configuration"
+                )
+
+            specific_penalties = penalty_config["specific_metrics"]
+
+            if exercise_name not in specific_penalties:
+                available = ", ".join(specific_penalties.keys())
+                raise ValueError(
+                    f"Penalty configuration for exercise '{exercise_name}' not found. Available: {available}"
+                )
+
+            exercise_penalties = specific_penalties[exercise_name]
+            if metric_name not in exercise_penalties:
+                available = ", ".join(exercise_penalties.keys())
+                raise ValueError(
+                    f"Penalty for specific metric '{metric_name}' in exercise '{exercise_name}' not found. Available: {available}"
+                )
+
+            penalty = exercise_penalties[metric_name]
+            logger.debug(f"Penalty for {metric_name} ({exercise_name}): {penalty}")
+            return penalty
+
+        else:
+            raise ValueError(
+                f"Invalid metric_type: {metric_type}. Must be 'universal' or 'specific'"
+            )
+
+    def get_sensitivity_factor(self, metric_name, exercise_name, config_path):
+        """
+        Obtiene el factor de sensibilidad para una métrica específica.
+
+        Args:
+            metric_name: Nombre de la métrica
+            exercise_name: Nombre del ejercicio
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            float: Factor de sensibilidad
+
+        Raises:
+            ValueError: Si no se encuentra el factor de sensibilidad
+        """
+        exercise_config = self.get_exercise_config(exercise_name, config_path)
+
+        if "analysis_config" not in exercise_config:
+            raise ValueError(
+                f"'analysis_config' not found for exercise '{exercise_name}'"
+            )
+
+        analysis_config = exercise_config["analysis_config"]
+
+        if "sensitivity_factors" not in analysis_config:
+            raise ValueError(
+                f"'sensitivity_factors' not found in analysis_config for exercise '{exercise_name}'"
+            )
+
+        sensitivity_factors = analysis_config["sensitivity_factors"]
+
+        if metric_name not in sensitivity_factors:
+            available = ", ".join(sensitivity_factors.keys())
+            raise ValueError(
+                f"Sensitivity factor for metric '{metric_name}' not found in exercise '{exercise_name}'. Available: {available}"
+            )
+
+        factor = sensitivity_factors[metric_name]
+        if not isinstance(factor, (int, float)) or factor <= 0:
+            raise ValueError(
+                f"Invalid sensitivity factor for '{metric_name}': {factor}. Must be a positive number"
+            )
+
+        return factor
+
+    def get_scoring_weights(self, exercise_name, config_path):
+        """
+        Obtiene los pesos de scoring para un ejercicio.
+
+        Args:
+            exercise_name: Nombre del ejercicio
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            dict: Diccionario con pesos de scoring
+
+        Raises:
+            ValueError: Si no se encuentran los pesos de scoring
+        """
+        exercise_config = self.get_exercise_config(exercise_name, config_path)
+
+        # Prioridad: pesos específicos del ejercicio
+        if "scoring_weights" in exercise_config:
+            weights = exercise_config["scoring_weights"]
+            if not isinstance(weights, dict) or not weights:
+                raise ValueError(
+                    f"Invalid 'scoring_weights' for exercise '{exercise_name}': must be a non-empty dict"
+                )
+            return weights
+
+        # Fallback: pesos globales
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        config_data = self._loaded_files[config_path]
+
+        if "scoring_weights" in config_data:
+            weights = config_data["scoring_weights"]
+            if not isinstance(weights, dict) or not weights:
+                raise ValueError(
+                    "Invalid global 'scoring_weights': must be a non-empty dict"
+                )
+            return weights
+
+        raise ValueError(
+            f"No scoring weights found for exercise '{exercise_name}' or globally"
+        )
+
+    def get_analysis_threshold(self, threshold_name, exercise_name, config_path):
+        """
+        Obtiene un umbral específico de análisis.
+
+        Args:
+            threshold_name: Nombre del umbral (ej: "rom_threshold", "symmetry_threshold")
+            exercise_name: Nombre del ejercicio
+            config_path: Ruta al archivo de configuración
+
+        Returns:
+            float: Valor del umbral
+
+        Raises:
+            ValueError: Si no se encuentra el umbral
+        """
+        exercise_config = self.get_exercise_config(exercise_name, config_path)
+
+        # Buscar en analysis_config del ejercicio
+        if (
+            "analysis_config" in exercise_config
+            and threshold_name in exercise_config["analysis_config"]
+        ):
+            threshold = exercise_config["analysis_config"][threshold_name]
+            if not isinstance(threshold, (int, float)):
+                raise ValueError(
+                    f"Invalid threshold '{threshold_name}' for exercise '{exercise_name}': {threshold}"
+                )
+            return threshold
+
+        # Buscar en configuración global
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        config_data = self._loaded_files[config_path]
+
+        if (
+            "global_analysis_config" in config_data
+            and threshold_name in config_data["global_analysis_config"]
+        ):
+            threshold = config_data["global_analysis_config"][threshold_name]
+            if not isinstance(threshold, (int, float)):
+                raise ValueError(
+                    f"Invalid global threshold '{threshold_name}': {threshold}"
+                )
+            return threshold
+
+        raise ValueError(
+            f"Threshold '{threshold_name}' not found for exercise '{exercise_name}' or globally"
+        )
+
+    def _validate_complete_exercise_config(self, exercise_config, exercise_name):
+        """
+        Valida que la configuración del ejercicio esté completa y sea válida.
 
         Args:
             exercise_config: Configuración del ejercicio
             exercise_name: Nombre del ejercicio para mensajes de error
 
         Raises:
-            ValueError: Si faltan campos obligatorios
+            ValueError: Si faltan campos obligatorios o son inválidos
         """
-        # Verificar campos obligatorios básicos
-        if "landmarks" not in exercise_config:
-            raise ValueError(
-                f"Configuración de '{exercise_name}' no contiene landmarks"
-            )
+        # Campos obligatorios de primer nivel
+        required_fields = [
+            "landmarks",
+            "sync_config",
+            "analysis_config",
+            "scoring_weights",
+        ]
 
-        if "sync_config" not in exercise_config:
-            raise ValueError(
-                f"Configuración de '{exercise_name}' no contiene sync_config"
-            )
+        for field in required_fields:
+            if field not in exercise_config:
+                raise ValueError(
+                    f"Missing required field '{field}' in exercise '{exercise_name}'"
+                )
 
-        # Verificar que landmarks es una lista no vacía
+        # Validar landmarks
         landmarks = exercise_config["landmarks"]
         if not isinstance(landmarks, list) or len(landmarks) == 0:
             raise ValueError(
-                f"Configuración de '{exercise_name}': landmarks debe ser una lista no vacía"
+                f"'landmarks' for exercise '{exercise_name}' must be a non-empty list"
             )
 
-        # Verificar que sync_config es un diccionario
-        sync_config = exercise_config["sync_config"]
+        # Validar sync_config
+        self._validate_sync_config(exercise_config["sync_config"], exercise_name)
+
+        # Validar analysis_config
+        self._validate_analysis_config(
+            exercise_config["analysis_config"], exercise_name
+        )
+
+        # Validar scoring_weights
+        self._validate_scoring_weights(
+            exercise_config["scoring_weights"], exercise_name
+        )
+
+    def _validate_sync_config(self, sync_config, exercise_name):
+        """Valida que sync_config esté completo."""
         if not isinstance(sync_config, dict):
             raise ValueError(
-                f"Configuración de '{exercise_name}': sync_config debe ser un diccionario"
+                f"'sync_config' for exercise '{exercise_name}' must be a dict"
             )
 
-        # Verificar campos obligatorios en sync_config
         required_sync_fields = [
             "landmarks",
             "num_divisions",
@@ -236,86 +503,51 @@ class ConfigManager:
             "adapt_direction",
         ]
 
-        missing_fields = [f for f in required_sync_fields if f not in sync_config]
-        if missing_fields:
-            raise ValueError(
-                f"Configuración de '{exercise_name}' incompleta. "
-                f"Faltan campos en sync_config: {', '.join(missing_fields)}"
-            )
-
-        logger.debug(
-            f"Configuración básica de '{exercise_name}' validada correctamente"
-        )
-
-    def _validate_analysis_config(self, analysis_config, exercise_name):
-        """
-        Valida que analysis_config tenga la estructura correcta.
-
-        Args:
-            analysis_config: Configuración de análisis
-            exercise_name: Nombre del ejercicio para mensajes de error
-
-        Raises:
-            ValueError: Si analysis_config tiene estructura incorrecta
-        """
-        if not isinstance(analysis_config, dict):
-            raise ValueError(
-                f"Configuración de '{exercise_name}': analysis_config debe ser un diccionario"
-            )
-
-        # Verificar sensitivity_factors si existe
-        if "sensitivity_factors" in analysis_config:
-            sensitivity_factors = analysis_config["sensitivity_factors"]
-
-            if not isinstance(sensitivity_factors, dict):
+        for field in required_sync_fields:
+            if field not in sync_config:
                 raise ValueError(
-                    f"Configuración de '{exercise_name}': sensitivity_factors debe ser un diccionario"
+                    f"Missing required field 'sync_config.{field}' in exercise '{exercise_name}'"
                 )
 
-            # Verificar que los valores sean numéricos
-            for factor_name, factor_value in sensitivity_factors.items():
-                if not isinstance(factor_value, (int, float)):
-                    raise ValueError(
-                        f"Configuración de '{exercise_name}': sensitivity_factors['{factor_name}'] "
-                        f"debe ser numérico, recibido: {type(factor_value)}"
-                    )
-
-                if factor_value <= 0:
-                    raise ValueError(
-                        f"Configuración de '{exercise_name}': sensitivity_factors['{factor_name}'] "
-                        f"debe ser positivo, recibido: {factor_value}"
-                    )
-
-            logger.debug(
-                f"sensitivity_factors de '{exercise_name}' validado: {len(sensitivity_factors)} factores"
+    def _validate_analysis_config(self, analysis_config, exercise_name):
+        """Valida que analysis_config esté completo."""
+        if not isinstance(analysis_config, dict):
+            raise ValueError(
+                f"'analysis_config' for exercise '{exercise_name}' must be a dict"
             )
 
-        # Verificar otros campos de análisis si existen
-        valid_analysis_fields = [
-            "sensitivity_factors",
-            "min_elbow_angle",
-            "max_elbow_angle",
-            "rom_threshold",
-            "bottom_diff_threshold",
-            "abduction_angle_threshold",
-            "symmetry_threshold",
-            "lateral_dev_threshold",
-            "frontal_dev_threshold",
-            "velocity_ratio_threshold",
-            "scapular_stability_threshold",
-            "scoring_weights",
-        ]
-
-        # Advertir sobre campos desconocidos (no es error, solo advertencia)
-        unknown_fields = [
-            f for f in analysis_config.keys() if f not in valid_analysis_fields
-        ]
-        if unknown_fields:
-            logger.warning(
-                f"Configuración de '{exercise_name}': campos desconocidos en analysis_config: {unknown_fields}"
+        # sensitivity_factors es obligatorio
+        if "sensitivity_factors" not in analysis_config:
+            raise ValueError(
+                f"Missing required field 'analysis_config.sensitivity_factors' in exercise '{exercise_name}'"
             )
 
-        logger.debug(f"analysis_config de '{exercise_name}' validado correctamente")
+        sensitivity_factors = analysis_config["sensitivity_factors"]
+        if not isinstance(sensitivity_factors, dict) or not sensitivity_factors:
+            raise ValueError(
+                f"'sensitivity_factors' for exercise '{exercise_name}' must be a non-empty dict"
+            )
+
+        # Validar que todos los valores sean numéricos positivos
+        for factor_name, factor_value in sensitivity_factors.items():
+            if not isinstance(factor_value, (int, float)) or factor_value <= 0:
+                raise ValueError(
+                    f"Invalid sensitivity factor '{factor_name}' for exercise '{exercise_name}': {factor_value}. Must be a positive number"
+                )
+
+    def _validate_scoring_weights(self, scoring_weights, exercise_name):
+        """Valida que scoring_weights esté completo."""
+        if not isinstance(scoring_weights, dict) or not scoring_weights:
+            raise ValueError(
+                f"'scoring_weights' for exercise '{exercise_name}' must be a non-empty dict"
+            )
+
+        # Verificar que todos los valores sean numéricos
+        for weight_name, weight_value in scoring_weights.items():
+            if not isinstance(weight_value, (int, float)) or weight_value < 0:
+                raise ValueError(
+                    f"Invalid scoring weight '{weight_name}' for exercise '{exercise_name}': {weight_value}. Must be a non-negative number"
+                )
 
     def get_landmark_mapping(self):
         """Devuelve el mapeo de landmarks."""
@@ -343,8 +575,19 @@ class ConfigManager:
         if config_path not in self._loaded_files:
             self.load_config_file(config_path)
 
-        # Devolver las claves (nombres de ejercicios)
-        return list(self._loaded_files[config_path].keys())
+        # Filtrar solo ejercicios (excluir configuraciones globales)
+        config_data = self._loaded_files[config_path]
+        excluded_keys = {
+            "global_visualization",
+            "global_connections",
+            "global_analysis_config",
+            "penalty_config",
+            "scoring_weights",
+            "skill_levels",
+            "exercise_landmarks_config",
+        }
+
+        return [k for k in config_data.keys() if k not in excluded_keys]
 
     def get_global_visualization_config(self, config_path):
         """
@@ -367,9 +610,7 @@ class ConfigManager:
 
         # Verificar que existe la configuración global de visualización
         if "global_visualization" not in config_data:
-            raise ValueError(
-                "Configuración 'global_visualization' no encontrada en el archivo"
-            )
+            raise ValueError("'global_visualization' not found in configuration file")
 
         viz_config = config_data["global_visualization"]
 
@@ -390,7 +631,7 @@ class ConfigManager:
         missing_fields = [field for field in required_fields if field not in viz_config]
         if missing_fields:
             raise ValueError(
-                f"Campos obligatorios faltantes en 'global_visualization': {', '.join(missing_fields)}"
+                f"Missing required fields in 'global_visualization': {', '.join(missing_fields)}"
             )
 
         return viz_config
@@ -416,24 +657,20 @@ class ConfigManager:
 
         # Verificar que existe la configuración de conexiones globales
         if "global_connections" not in config_data:
-            raise ValueError(
-                "Configuración 'global_connections' no encontrada en el archivo"
-            )
+            raise ValueError("'global_connections' not found in configuration file")
 
         connections_data = config_data["global_connections"]
 
         # Verificar que es una lista y no está vacía
         if not isinstance(connections_data, list) or len(connections_data) == 0:
-            raise ValueError("'global_connections' debe ser una lista no vacía")
+            raise ValueError("'global_connections' must be a non-empty list")
 
         # Verificar que cada conexión tiene exactamente 2 elementos
         for i, conn in enumerate(connections_data):
             if not isinstance(conn, list) or len(conn) != 2:
-                raise ValueError(
-                    f"Conexión {i} debe ser una lista de exactamente 2 elementos"
-                )
+                raise ValueError(f"Connection {i} must be a list of exactly 2 elements")
             if not all(isinstance(item, str) for item in conn):
-                raise ValueError(f"Conexión {i} debe contener solo strings")
+                raise ValueError(f"Connection {i} must contain only strings")
 
         # Convertir listas a tuplas
         return [tuple(conn) for conn in connections_data]
@@ -442,7 +679,7 @@ class ConfigManager:
         """Limpia todas las configuraciones cargadas (útil para pruebas)."""
         self._loaded_files.clear()
         self._exercise_configs.clear()
-        logger.info("Caché de configuraciones limpiada")
+        logger.info("Configuration cache cleared")
 
 
 # Instancia global para facilitar el uso

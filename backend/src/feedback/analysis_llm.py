@@ -128,10 +128,10 @@ Proporciona feedback profesional, motivacional y útil basándote en el informe 
     def _generate_fallback_feedback(self, informe_data, exercise_name):
         """Genera feedback básico si falla la llamada a la API."""
         try:
-            puntuacion = informe_data.get("puntuacion_global", 0)
-            nivel = informe_data.get("nivel", "No determinado")
-            puntos_fuertes = informe_data.get("puntos_fuertes", [])
-            areas_mejora = informe_data.get("areas_mejora", [])
+            puntuacion = informe_data.get("overall_score", 0)
+            nivel = informe_data.get("level", "No determinado")
+            puntos_fuertes = informe_data.get("strengths", [])
+            areas_mejora = informe_data.get("improvement_areas", [])
 
             feedback = f"""🤖 **ANÁLISIS AUTOMÁTICO DE TU {exercise_name.upper()}**
 
@@ -201,25 +201,3 @@ def generate_trainer_feedback(informe_path, output_path=None, api_key=None):
     except Exception as e:
         logger.error(f"Error en generate_trainer_feedback: {e}")
         return f"❌ Error generando feedback: {e}"
-
-
-# Ejemplo de uso standalone
-if __name__ == "__main__":
-    # Configurar logging para pruebas
-    logging.basicConfig(level=logging.INFO)
-
-    # Ejemplo de uso - cambiar rutas según tu estructura
-    informe_path = "../media/output/resultados_press_militar/press_militar_analysis/press_militar_informe.json"
-    output_path = "../media/output/resultados_press_militar/press_militar_analysis/feedback_test.txt"
-
-    print("🧪 Probando generador de feedback...")
-
-    if os.path.exists(informe_path):
-        feedback = generate_trainer_feedback(informe_path, output_path)
-        print("✅ Feedback generado:")
-        print("-" * 50)
-        print(feedback)
-        print("-" * 50)
-    else:
-        print(f"❌ No se encontró el archivo de informe en: {informe_path}")
-        print("💡 Ejecuta primero main.py para generar el informe")

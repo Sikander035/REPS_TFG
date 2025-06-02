@@ -679,3 +679,52 @@ def calculate_phase_metrics(phases, signal, fps=30.0):
         )
 
     return phase_metrics
+
+
+def calculate_exercise_total_duration(user_repetitions, expert_repetitions):
+    """
+    Calcula duración total del ejercicio basada en repeticiones reales.
+
+    Args:
+        user_repetitions: Lista de repeticiones del usuario
+        expert_repetitions: Lista de repeticiones del experto
+
+    Returns:
+        dict: {
+            'user_frames': frames totales de ejercicio del usuario,
+            'expert_frames_scaled': frames esperados del experto para N reps usuario,
+            'speed_ratio': expert_frames / user_frames,
+            'user_reps': número de repeticiones del usuario,
+            'expert_reps': número de repeticiones del experto
+        }
+    """
+    if not user_repetitions or not expert_repetitions:
+        return {
+            "user_frames": 0,
+            "expert_frames_scaled": 0,
+            "speed_ratio": 1.0,
+            "user_reps": 0,
+            "expert_reps": 0,
+        }
+
+    # Usuario: desde primera hasta última repetición
+    user_start = min(rep["start_frame"] for rep in user_repetitions)
+    user_end = max(rep["end_frame"] for rep in user_repetitions)
+    user_frames = user_end - user_start
+
+    # Experto: promedio de duración por repetición × número de reps usuario
+    expert_durations = [
+        rep["end_frame"] - rep["start_frame"] for rep in expert_repetitions
+    ]
+    expert_avg_duration = np.mean(expert_durations)
+    expert_frames_scaled = expert_avg_duration * len(user_repetitions)
+
+    speed_ratio = expert_frames_scaled / user_frames if user_frames > 0 else 1.0
+
+    return {
+        "user_frames": int(user_frames),
+        "expert_frames_scaled": int(expert_frames_scaled),
+        "speed_ratio": speed_ratio,
+        "user_reps": len(user_repetitions),
+        "expert_reps": len(expert_repetitions),
+    }
