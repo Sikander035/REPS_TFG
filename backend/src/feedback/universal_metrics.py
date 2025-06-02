@@ -452,80 +452,40 @@ def analyze_movement_trajectory_3d_universal(
 
 
 def analyze_speed_universal(
-    user_data, expert_data, exercise_config, landmarks_config, config_path="config.json"
+    user_data,
+    expert_data,
+    exercise_config,
+    landmarks_config,
+    config_path="config.json",
+    user_repetitions=None,
+    expert_repetitions=None,
 ):
     """
-    UNIVERSAL: Speed analysis extracted from current military press code.
-    Only landmarks change, logic is EXACTLY the same.
+    UNIVERSAL: Análisis de velocidad usando duración real de repeticiones.
     """
-    # Get exercise_name from config_path (extract from exercise_config if possible)
+    # Verificar que tenemos repeticiones
+    if not user_repetitions or not expert_repetitions:
+        raise ValueError(
+            "Se requieren user_repetitions y expert_repetitions para análisis de velocidad"
+        )
+
+    # Obtener exercise_name del config_path
     exercise_name = exercise_config.get("_exercise_name", "unknown")
 
-    # Get sensitivity factor using config_manager
+    # Obtener factor de sensibilidad usando config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
         "speed", exercise_name, config_path
     )
 
-    # Extract landmarks from configuration
-    landmark_left = landmarks_config.get("left_landmark", "landmark_left_elbow")
-    landmark_right = landmarks_config.get("right_landmark", "landmark_right_elbow")
-    axis = landmarks_config.get("axis", "y")
-    movement_direction = landmarks_config.get("movement_direction", "up")
+    # Calcular duración real usando repeticiones
+    from src.utils.repetition_utils import calculate_exercise_total_duration
 
-    # EXACT LOGIC FROM CURRENT CODE - Use average of elbows/landmarks for speed
-    user_signal = (
-        user_data[f"{landmark_right}_{axis}"].values
-        + user_data[f"{landmark_left}_{axis}"].values
-    ) / 2
-    expert_signal = (
-        expert_data[f"{landmark_right}_{axis}"].values
-        + expert_data[f"{landmark_left}_{axis}"].values
-    ) / 2
-
-    # EXACT LOGIC FROM CURRENT CODE - Calculate velocities
-    user_velocity = np.gradient(user_signal)
-    expert_velocity = np.gradient(expert_signal)
-
-    # EXACT LOGIC FROM CURRENT CODE - Separate phases
-    if movement_direction == "down":  # Squat
-        user_concentric = user_velocity[user_velocity > 0]  # Up = positive velocity
-        user_eccentric = user_velocity[user_velocity < 0]  # Down = negative velocity
-        expert_concentric = expert_velocity[expert_velocity > 0]
-        expert_eccentric = expert_velocity[expert_velocity < 0]
-    else:  # Press, pull-up (movement_direction == "up")
-        user_concentric = user_velocity[user_velocity < 0]  # Up = negative velocity
-        user_eccentric = user_velocity[user_velocity > 0]  # Down = positive velocity
-        expert_concentric = expert_velocity[expert_velocity < 0]
-        expert_eccentric = expert_velocity[expert_velocity > 0]
-
-    # EXACT LOGIC FROM CURRENT CODE - Calculate average velocities
-    user_concentric_avg = (
-        np.mean(np.abs(user_concentric)) if len(user_concentric) > 0 else 0
+    duration_metrics = calculate_exercise_total_duration(
+        user_repetitions, expert_repetitions
     )
-    user_eccentric_avg = (
-        np.mean(np.abs(user_eccentric)) if len(user_eccentric) > 0 else 0
-    )
-    expert_concentric_avg = (
-        np.mean(np.abs(expert_concentric)) if len(expert_concentric) > 0 else 0
-    )
-    expert_eccentric_avg = (
-        np.mean(np.abs(expert_eccentric)) if len(expert_eccentric) > 0 else 0
-    )
+    speed_ratio = duration_metrics["speed_ratio"]
 
-    # EXACT LOGIC FROM CURRENT CODE - Calculate ratios
-    concentric_ratio = (
-        user_concentric_avg / expert_concentric_avg if expert_concentric_avg > 0 else 1
-    )
-    eccentric_ratio = (
-        user_eccentric_avg / expert_eccentric_avg if expert_eccentric_avg > 0 else 1
-    )
-
-    # EXACT LOGIC FROM CURRENT CODE - Score
-    concentric_deviation = abs(concentric_ratio - 1.0)
-    eccentric_deviation = abs(eccentric_ratio - 1.0)
-    worst_velocity_deviation = max(concentric_deviation, eccentric_deviation)
-
-    # Get penalty from configuration
+    # Obtener penalty de configuración y calcular score
     max_penalty = config_manager.get_penalty_config(
         exercise_name="",
         metric_type="universal",
@@ -533,127 +493,36 @@ def analyze_speed_universal(
         config_path=config_path,
     )
     base_score = calculate_deviation_score(
-        worst_velocity_deviation, 0, max_penalty=max_penalty, metric_type="linear"
+        speed_ratio, 1.0, max_penalty=max_penalty, metric_type="ratio"
     )
-    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "speed")
+    final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "velocidad")
 
-    # EXACT LOGIC FROM CURRENT CODE - Feedback
-    velocity_threshold = config_manager.get_analysis_threshold(
-        "velocity_ratio_threshold", exercise_name, config_path
-    )
-    velocity_threshold_adj = apply_sensitivity_to_threshold(
-        velocity_threshold, sensitivity_factor
-    )
-
+    # Feedback basado en duración real
     feedback = {}
-
-    # EXACT LOGIC FROM CURRENT CODE - Unified feedback based on final score
-    if final_score >= 85:
-        feedback["speed_concentric"] = "Excellent speed in the upward phase."
-        feedback["speed_eccentric"] = "Excellent control in the downward phase."
-    elif final_score >= 70:
-        # Determine which phase is problematic for specific feedback
-        if concentric_deviation > eccentric_deviation:
-            # Main problem in concentric phase
-            if concentric_ratio < (1 - velocity_threshold_adj):
-                feedback["speed_concentric"] = (
-                    "The upward phase is moderately slow. "
-                    "Try to be more explosive in the concentric phase."
-                )
-            else:
-                feedback["speed_concentric"] = (
-                    "The upward phase is moderately fast. "
-                    "Control the movement a bit more."
-                )
-            feedback["speed_eccentric"] = "Good control in the downward phase."
-        else:
-            # Main problem in eccentric phase
-            feedback["speed_concentric"] = "Good speed in the upward phase."
-            if eccentric_ratio > (1 + velocity_threshold_adj):
-                feedback["speed_eccentric"] = (
-                    "The downward phase is moderately fast. "
-                    "Try to control the descent more."
-                )
-            else:
-                feedback["speed_eccentric"] = (
-                    "The downward phase is moderately slow. "
-                    "Control the descent but don't slow it excessively."
-                )
-    elif final_score >= 50:
-        # EXACT LOGIC FROM CURRENT CODE - Moderate-critical cases
-        if concentric_ratio < (1 - velocity_threshold_adj):
-            feedback["speed_concentric"] = (
-                "The upward phase is too slow compared to the expert. "
-                "Try to be more explosive in the concentric phase."
-            )
-        elif concentric_ratio > (1 + velocity_threshold_adj):
-            feedback["speed_concentric"] = (
-                "The upward phase is too fast. "
-                "Control the movement more for better technique."
-            )
-        else:
-            feedback["speed_concentric"] = "Acceptable upward speed."
-
-        if eccentric_ratio < (1 - velocity_threshold_adj):
-            feedback["speed_eccentric"] = (
-                "The downward phase is too slow. "
-                "Control the descent but don't slow it excessively."
-            )
-        elif eccentric_ratio > (1 + velocity_threshold_adj):
-            feedback["speed_eccentric"] = (
-                "The downward phase is too fast. "
-                "Try to control the descent more for better technique."
-            )
-        else:
-            feedback["speed_eccentric"] = "Acceptable downward control."
+    if speed_ratio > 1.4:
+        feedback["speed"] = (
+            "You are doing the exercise too fast. Take more time to control the movement."
+        )
+    elif speed_ratio > 1.15:
+        feedback["speed"] = (
+            "The pace is a bit fast. Try to slow down slightly for better control."
+        )
+    elif speed_ratio < 0.6:
+        feedback["speed"] = (
+            "You are doing the exercise very slowly. You can increase the pace a bit."
+        )
+    elif speed_ratio < 0.85:
+        feedback["speed"] = (
+            "The pace is a bit slow. You can speed up slightly while maintaining control."
+        )
     else:
-        # EXACT LOGIC FROM CURRENT CODE - Critical cases
-        if concentric_ratio < (1 - velocity_threshold_adj):
-            if sensitivity_factor > 1.5:
-                feedback["speed_concentric"] = (
-                    "The upward phase is significantly very slow compared to the expert. "
-                    "It's important to be more explosive in the concentric phase."
-                )
-            else:
-                feedback["speed_concentric"] = (
-                    "The upward phase is too slow compared to the expert. "
-                    "Try to be more explosive in the concentric phase."
-                )
-        elif concentric_ratio > (1 + velocity_threshold_adj):
-            feedback["speed_concentric"] = (
-                "The upward phase is excessively fast. "
-                "It's critical to control the movement more for safe technique."
-            )
-        else:
-            feedback["speed_concentric"] = "Problematic upward speed."
+        feedback["speed"] = "Excellent execution pace."
 
-        if eccentric_ratio > (1 + velocity_threshold_adj):
-            if sensitivity_factor > 1.5:
-                feedback["speed_eccentric"] = (
-                    "The downward phase is significantly very fast. "
-                    "It's critical to control the descent more for safe technique."
-                )
-            else:
-                feedback["speed_eccentric"] = (
-                    "The downward phase is too fast. "
-                    "Try to control the descent more."
-                )
-        elif eccentric_ratio < (1 - velocity_threshold_adj):
-            feedback["speed_eccentric"] = (
-                "The downward phase is excessively slow. "
-                "Find a better balance in descent control."
-            )
-        else:
-            feedback["speed_eccentric"] = "Problematic downward control."
-
-    # EXACT METRICS FROM CURRENT CODE
     metrics = {
-        "user_upward_speed": user_concentric_avg,
-        "expert_upward_speed": expert_concentric_avg,
-        "upward_ratio": concentric_ratio,
-        "user_downward_speed": user_eccentric_avg,
-        "expert_downward_speed": expert_eccentric_avg,
-        "downward_ratio": eccentric_ratio,
+        "analysis_method": "real_repetition_duration",
+        **duration_metrics,
+        "user_duration_seconds": duration_metrics["user_frames"] / 30,
+        "expert_duration_seconds": duration_metrics["expert_frames_scaled"] / 30,
     }
 
     return {"metrics": metrics, "feedback": feedback, "score": final_score}

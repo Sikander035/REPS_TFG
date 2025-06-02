@@ -36,7 +36,12 @@ logger = logging.getLogger(__name__)
 
 
 def run_exercise_analysis(
-    user_data, expert_data, exercise_name="military_press", config_path="config.json"
+    user_data,
+    expert_data,
+    exercise_name="press_militar",
+    config_path="config.json",
+    user_repetitions=None,
+    expert_repetitions=None,
 ):
     """
     MAIN FUNCTION: Complete analysis using config_manager strictly.
@@ -116,6 +121,8 @@ def run_exercise_analysis(
             exercise_config,
             landmarks_config["speed"],
             config_path,
+            user_repetitions=user_repetitions,
+            expert_repetitions=expert_repetitions,
         )
 
     except Exception as e:

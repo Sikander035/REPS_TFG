@@ -410,7 +410,9 @@ def process_exercise(
                 user_data=user_processed_data,
                 expert_data=aligned_expert_data,
                 exercise_name=exercise_name,
-                config_path=config_path,  # Ensure it uses singleton
+                config_path=config_path,
+                user_repetitions=user_repetitions,
+                expert_repetitions=expert_repetitions,
             )
 
             # Generate report
