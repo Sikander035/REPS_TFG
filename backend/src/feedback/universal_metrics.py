@@ -24,8 +24,12 @@ def analyze_movement_amplitude_universal(
     UNIVERSAL: Análisis de amplitud extraído del código actual del press militar.
     Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
     """
-    sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
-        "amplitud", 1.0
+    # Obtener exercise_name del config_path (extraer de exercise_config si es posible)
+    exercise_name = exercise_config.get("_exercise_name", "unknown")
+
+    # Obtener factor de sensibilidad usando config_manager
+    sensitivity_factor = config_manager.get_sensitivity_factor(
+        "amplitud", exercise_name, config_path
     )
 
     # Extraer landmarks de la configuración
@@ -76,6 +80,14 @@ def analyze_movement_amplitude_universal(
     )
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "amplitud")
 
+    # Obtener umbrales usando config_manager
+    rom_threshold = config_manager.get_analysis_threshold(
+        "rom_threshold", exercise_name, config_path
+    )
+    bottom_diff_threshold = config_manager.get_analysis_threshold(
+        "bottom_diff_threshold", exercise_name, config_path
+    )
+
     # FEEDBACK ADAPTADO - mantener lógica pero cambiar contexto y KEY EN INGLÉS
     feedback = {}
     if final_score >= 85:
@@ -106,11 +118,11 @@ def analyze_movement_amplitude_universal(
                 )
     elif final_score >= 50:
         # LÓGICA EXACTA DEL CÓDIGO ACTUAL
-        rom_threshold = apply_sensitivity_to_threshold(
-            exercise_config["rom_threshold"], sensitivity_factor
+        rom_threshold_adj = apply_sensitivity_to_threshold(
+            rom_threshold, sensitivity_factor
         )
-        bottom_diff_threshold = apply_sensitivity_to_threshold(
-            exercise_config["bottom_diff_threshold"], sensitivity_factor
+        bottom_diff_threshold_adj = apply_sensitivity_to_threshold(
+            bottom_diff_threshold, sensitivity_factor
         )
 
         if rom_ratio > 1.25:
@@ -118,7 +130,7 @@ def analyze_movement_amplitude_universal(
                 f"Tu rango de movimiento es excesivamente amplio. Es crítico "
                 f"controlar la bajada para evitar hiperextensión de los {feedback_context}."
             )
-        elif bottom_diff > bottom_diff_threshold * 1.5:
+        elif bottom_diff > bottom_diff_threshold_adj * 1.5:
             feedback["amplitude"] = (
                 f"Tu rango de movimiento es insuficiente. Es importante bajar hasta que "
                 f"los {feedback_context} lleguen a la posición correcta para técnica adecuada."
@@ -163,8 +175,12 @@ def analyze_symmetry_universal(
     UNIVERSAL: Análisis de simetría extraído del código actual del press militar.
     Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
     """
-    sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
-        "simetria", 1.0
+    # Obtener exercise_name del config_path (extraer de exercise_config si es posible)
+    exercise_name = exercise_config.get("_exercise_name", "unknown")
+
+    # Obtener factor de sensibilidad usando config_manager
+    sensitivity_factor = config_manager.get_sensitivity_factor(
+        "simetria", exercise_name, config_path
     )
 
     # Extraer landmarks de la configuración
@@ -212,8 +228,11 @@ def analyze_symmetry_universal(
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "simetria")
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEY EN INGLÉS
-    symmetry_threshold = apply_sensitivity_to_threshold(
-        exercise_config["symmetry_threshold"], sensitivity_factor
+    symmetry_threshold = config_manager.get_analysis_threshold(
+        "symmetry_threshold", exercise_name, config_path
+    )
+    symmetry_threshold_adj = apply_sensitivity_to_threshold(
+        symmetry_threshold, sensitivity_factor
     )
 
     feedback = {}
@@ -228,8 +247,8 @@ def analyze_symmetry_universal(
                 f"Hay una asimetría notable entre tu lado derecho e izquierdo en el {feedback_context}. "
                 f"Enfócate en levantar ambos brazos por igual."
             )
-    elif normalized_diff > symmetry_threshold:
-        if sensitivity_factor > 1.5 and normalized_diff > symmetry_threshold * 1.5:
+    elif normalized_diff > symmetry_threshold_adj:
+        if sensitivity_factor > 1.5 and normalized_diff > symmetry_threshold_adj * 1.5:
             feedback["symmetry"] = (
                 f"Se detecta asimetría significativa en el {feedback_context}. "
                 f"Es importante trabajar en mantener ambos lados a la misma altura."
@@ -261,8 +280,12 @@ def analyze_movement_trajectory_3d_universal(
     UNIVERSAL: Análisis de trayectoria extraído del código actual del press militar.
     Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
     """
-    sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
-        "trayectoria", 1.0
+    # Obtener exercise_name del config_path (extraer de exercise_config si es posible)
+    exercise_name = exercise_config.get("_exercise_name", "unknown")
+
+    # Obtener factor de sensibilidad usando config_manager
+    sensitivity_factor = config_manager.get_sensitivity_factor(
+        "trayectoria", exercise_name, config_path
     )
 
     # Extraer landmarks de la configuración
@@ -327,11 +350,18 @@ def analyze_movement_trajectory_3d_universal(
     )
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEYS EN INGLÉS
-    lateral_threshold = apply_sensitivity_to_threshold(
-        exercise_config["lateral_dev_threshold"], sensitivity_factor
+    lateral_threshold = config_manager.get_analysis_threshold(
+        "lateral_dev_threshold", exercise_name, config_path
     )
-    frontal_threshold = apply_sensitivity_to_threshold(
-        exercise_config.get("frontal_dev_threshold", 0.15), sensitivity_factor
+    frontal_threshold = config_manager.get_analysis_threshold(
+        "frontal_dev_threshold", exercise_name, config_path
+    )
+
+    lateral_threshold_adj = apply_sensitivity_to_threshold(
+        lateral_threshold, sensitivity_factor
+    )
+    frontal_threshold_adj = apply_sensitivity_to_threshold(
+        frontal_threshold, sensitivity_factor
     )
 
     feedback = {}
@@ -359,10 +389,10 @@ def analyze_movement_trajectory_3d_universal(
             "Tu movimiento se desvía excesivamente en dirección lateral. "
             "Concéntrate urgentemente en mantener las muñecas en línea vertical."
         )
-    elif normalized_trajectory_diff_x > lateral_threshold:
+    elif normalized_trajectory_diff_x > lateral_threshold_adj:
         if (
             sensitivity_factor > 1.5
-            and normalized_trajectory_diff_x > lateral_threshold * 1.5
+            and normalized_trajectory_diff_x > lateral_threshold_adj * 1.5
         ):
             feedback["trajectory_lateral"] = (
                 "Se detecta desviación lateral significativa en tu trayectoria. "
@@ -382,10 +412,10 @@ def analyze_movement_trajectory_3d_universal(
             "Tu movimiento se desvía hacia adelante/atrás significativamente. "
             "Mantén las muñecas en un plano vertical consistente."
         )
-    elif normalized_trajectory_diff_z > frontal_threshold:
+    elif normalized_trajectory_diff_z > frontal_threshold_adj:
         if (
             sensitivity_factor > 1.5
-            and normalized_trajectory_diff_z > frontal_threshold * 1.5
+            and normalized_trajectory_diff_z > frontal_threshold_adj * 1.5
         ):
             feedback["trajectory_frontal"] = (
                 "Se detecta desviación frontal significativa en tu movimiento. "
@@ -428,8 +458,12 @@ def analyze_speed_universal(
     UNIVERSAL: Análisis de velocidad extraído del código actual del press militar.
     Solo cambian los landmarks, la lógica es EXACTAMENTE la misma.
     """
-    sensitivity_factor = exercise_config.get("sensitivity_factors", {}).get(
-        "velocidad", 1.0
+    # Obtener exercise_name del config_path (extraer de exercise_config si es posible)
+    exercise_name = exercise_config.get("_exercise_name", "unknown")
+
+    # Obtener factor de sensibilidad usando config_manager
+    sensitivity_factor = config_manager.get_sensitivity_factor(
+        "velocidad", exercise_name, config_path
     )
 
     # Extraer landmarks de la configuración
@@ -508,10 +542,14 @@ def analyze_speed_universal(
     final_score = apply_unified_sensitivity(base_score, sensitivity_factor, "velocidad")
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback con KEYS EN INGLÉS
-    feedback = {}
-    velocity_threshold = apply_sensitivity_to_threshold(
-        exercise_config["velocity_ratio_threshold"], sensitivity_factor
+    velocity_threshold = config_manager.get_analysis_threshold(
+        "velocity_ratio_threshold", exercise_name, config_path
     )
+    velocity_threshold_adj = apply_sensitivity_to_threshold(
+        velocity_threshold, sensitivity_factor
+    )
+
+    feedback = {}
 
     # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Feedback unificado basado en score final
     if final_score >= 85:
@@ -521,7 +559,7 @@ def analyze_speed_universal(
         # Determinar cuál fase es problemática para feedback específico
         if concentric_deviation > eccentric_deviation:
             # Problema principal en fase concéntrica
-            if concentric_ratio < (1 - velocity_threshold):
+            if concentric_ratio < (1 - velocity_threshold_adj):
                 feedback["speed_concentric"] = (
                     "La fase de subida es moderadamente lenta. "
                     "Intenta ser más explosivo en la fase concéntrica."
@@ -535,7 +573,7 @@ def analyze_speed_universal(
         else:
             # Problema principal en fase excéntrica
             feedback["speed_concentric"] = "Buena velocidad en la fase de subida."
-            if eccentric_ratio > (1 + velocity_threshold):
+            if eccentric_ratio > (1 + velocity_threshold_adj):
                 feedback["speed_eccentric"] = (
                     "La fase de bajada es moderadamente rápida. "
                     "Intenta controlar más el descenso."
@@ -547,12 +585,12 @@ def analyze_speed_universal(
                 )
     elif final_score >= 50:
         # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Casos moderados-críticos
-        if concentric_ratio < (1 - velocity_threshold):
+        if concentric_ratio < (1 - velocity_threshold_adj):
             feedback["speed_concentric"] = (
                 "La fase de subida es demasiado lenta comparada con el experto. "
                 "Intenta ser más explosivo en la fase concéntrica."
             )
-        elif concentric_ratio > (1 + velocity_threshold):
+        elif concentric_ratio > (1 + velocity_threshold_adj):
             feedback["speed_concentric"] = (
                 "La fase de subida es demasiado rápida. "
                 "Controla más el movimiento para mejor técnica."
@@ -560,12 +598,12 @@ def analyze_speed_universal(
         else:
             feedback["speed_concentric"] = "Velocidad de subida aceptable."
 
-        if eccentric_ratio < (1 - velocity_threshold):
+        if eccentric_ratio < (1 - velocity_threshold_adj):
             feedback["speed_eccentric"] = (
                 "La fase de bajada es demasiado lenta. "
                 "Controla el descenso pero no lo ralentices en exceso."
             )
-        elif eccentric_ratio > (1 + velocity_threshold):
+        elif eccentric_ratio > (1 + velocity_threshold_adj):
             feedback["speed_eccentric"] = (
                 "La fase de bajada es demasiado rápida. "
                 "Intenta controlar más el descenso para mejor técnica."
@@ -574,7 +612,7 @@ def analyze_speed_universal(
             feedback["speed_eccentric"] = "Control de bajada aceptable."
     else:
         # LÓGICA EXACTA DEL CÓDIGO ACTUAL - Casos críticos
-        if concentric_ratio < (1 - velocity_threshold):
+        if concentric_ratio < (1 - velocity_threshold_adj):
             if sensitivity_factor > 1.5:
                 feedback["speed_concentric"] = (
                     "La fase de subida es significativamente muy lenta comparada con el experto. "
@@ -585,7 +623,7 @@ def analyze_speed_universal(
                     "La fase de subida es demasiado lenta comparada con el experto. "
                     "Intenta ser más explosivo en la fase concéntrica."
                 )
-        elif concentric_ratio > (1 + velocity_threshold):
+        elif concentric_ratio > (1 + velocity_threshold_adj):
             feedback["speed_concentric"] = (
                 "La fase de subida es excesivamente rápida. "
                 "Es crítico controlar más el movimiento para técnica segura."
@@ -593,7 +631,7 @@ def analyze_speed_universal(
         else:
             feedback["speed_concentric"] = "Velocidad de subida problemática."
 
-        if eccentric_ratio > (1 + velocity_threshold):
+        if eccentric_ratio > (1 + velocity_threshold_adj):
             if sensitivity_factor > 1.5:
                 feedback["speed_eccentric"] = (
                     "La fase de bajada es significativamente muy rápida. "
@@ -604,7 +642,7 @@ def analyze_speed_universal(
                     "La fase de bajada es demasiado rápida. "
                     "Intenta controlar más el descenso."
                 )
-        elif eccentric_ratio < (1 - velocity_threshold):
+        elif eccentric_ratio < (1 - velocity_threshold_adj):
             feedback["speed_eccentric"] = (
                 "La fase de bajada es excesivamente lenta. "
                 "Encuentra un mejor equilibrio en el control del descenso."

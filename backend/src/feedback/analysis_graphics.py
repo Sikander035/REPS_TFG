@@ -1,4 +1,4 @@
-# src/feedback/analysis_graphics.py - ACTUALIZADO para usar sistema unificado
+# src/feedback/analysis_graphics.py - SIN DEFAULTS, USANDO CONFIG_MANAGER
 import sys
 import numpy as np
 import pandas as pd
@@ -8,120 +8,216 @@ import logging
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-# ACTUALIZADO: Solo importar funciones necesarias
+# IMPORTAR SOLO LO NECESARIO
 from src.utils.analysis_utils import (
     calculate_elbow_abduction_angle,
     generate_recommendations,
 )
 
+from src.config.config_manager import config_manager
+
 logger = logging.getLogger(__name__)
 
 
 def visualize_analysis_results(
-    analysis_results, user_data, expert_data, exercise_name, output_dir=None
+    analysis_results,
+    user_data,
+    expert_data,
+    exercise_name,
+    output_dir=None,
+    config_path="config.json",
 ):
     """
-    Crea visualizaciones de los resultados del análisis UNIFICADO.
-    Ahora usa los scores que vienen directamente del análisis.
+    Crea visualizaciones de los resultados del análisis usando scores unificados.
+    SIN DEFAULTS - todos los valores vienen de configuración o fallan.
     """
+    if not isinstance(analysis_results, dict):
+        raise ValueError("analysis_results must be a dictionary")
+
+    if not isinstance(exercise_name, str) or not exercise_name.strip():
+        raise ValueError("exercise_name must be a non-empty string")
+
+    if user_data is None or user_data.empty:
+        raise ValueError("user_data cannot be None or empty")
+
+    if expert_data is None or expert_data.empty:
+        raise ValueError("expert_data cannot be None or empty")
+
+    # Validar campos requeridos
+    required_fields = ["metrics", "individual_scores"]
+    for field in required_fields:
+        if field not in analysis_results:
+            raise ValueError(f"Missing required field '{field}' in analysis_results")
+
     metrics = analysis_results["metrics"]
-    individual_scores = analysis_results.get(
-        "individual_scores", {}
-    )  # NUEVO: usar scores unificados
+    individual_scores = analysis_results["individual_scores"]
 
     visualizations = []
 
     if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+        except Exception as e:
+            logger.error(f"Failed to create output directory {output_dir}: {e}")
+            raise ValueError(f"Cannot create output directory: {e}")
 
     # 1. Gráfico de amplitud de movimiento
-    visualizations.append(
-        _create_amplitude_chart(
+    try:
+        viz_path = _create_amplitude_chart(
             metrics, user_data, expert_data, exercise_name, output_dir
         )
-    )
+        if viz_path:
+            visualizations.append(viz_path)
+    except Exception as e:
+        logger.error(f"Error creating amplitude chart: {e}")
 
-    # 2. Gráfico de abducción de codos
-    visualizations.append(
-        _create_abduction_chart(user_data, expert_data, exercise_name, output_dir)
-    )
+    # 2. Gráfico de abducción de codos (solo para press militar y compatibles)
+    try:
+        viz_path = _create_abduction_chart(
+            user_data, expert_data, exercise_name, output_dir
+        )
+        if viz_path:
+            visualizations.append(viz_path)
+    except Exception as e:
+        logger.error(f"Error creating abduction chart: {e}")
 
     # 3. Gráfico de trayectorias
-    visualizations.append(
-        _create_trajectory_chart(user_data, expert_data, exercise_name, output_dir)
-    )
+    try:
+        viz_path = _create_trajectory_chart(
+            user_data, expert_data, exercise_name, output_dir
+        )
+        if viz_path:
+            visualizations.append(viz_path)
+    except Exception as e:
+        logger.error(f"Error creating trajectory chart: {e}")
 
     # 4. Gráfico de simetría
-    visualizations.append(
-        _create_symmetry_chart(user_data, analysis_results, exercise_name, output_dir)
-    )
+    try:
+        viz_path = _create_symmetry_chart(
+            user_data, analysis_results, exercise_name, output_dir, config_path
+        )
+        if viz_path:
+            visualizations.append(viz_path)
+    except Exception as e:
+        logger.error(f"Error creating symmetry chart: {e}")
 
     # 5. Gráfico de velocidad
-    visualizations.append(
-        _create_velocity_chart(user_data, expert_data, exercise_name, output_dir)
-    )
+    try:
+        viz_path = _create_velocity_chart(
+            user_data, expert_data, exercise_name, output_dir
+        )
+        if viz_path:
+            visualizations.append(viz_path)
+    except Exception as e:
+        logger.error(f"Error creating velocity chart: {e}")
 
-    # 6. Gráfico de puntuaciones por categoría - ACTUALIZADO
-    visualizations.append(
-        _create_scores_chart(analysis_results, exercise_name, output_dir)
-    )
+    # 6. Gráfico de puntuaciones por categoría
+    try:
+        viz_path = _create_scores_chart(analysis_results, exercise_name, output_dir)
+        if viz_path:
+            visualizations.append(viz_path)
+    except Exception as e:
+        logger.error(f"Error creating scores chart: {e}")
 
-    # 7. Gráfico de radar - ACTUALIZADO
-    visualizations.append(
-        _create_radar_chart(analysis_results, exercise_name, output_dir)
-    )
+    # 7. Gráfico de radar
+    try:
+        viz_path = _create_radar_chart(analysis_results, exercise_name, output_dir)
+        if viz_path:
+            visualizations.append(viz_path)
+    except Exception as e:
+        logger.error(f"Error creating radar chart: {e}")
 
     # 8. Resumen visual
-    visualizations.append(
-        _create_summary_chart(analysis_results, exercise_name, output_dir)
-    )
+    try:
+        viz_path = _create_summary_chart(analysis_results, exercise_name, output_dir)
+        if viz_path:
+            visualizations.append(viz_path)
+    except Exception as e:
+        logger.error(f"Error creating summary chart: {e}")
 
-    # Filtrar None values
-    return [viz for viz in visualizations if viz is not None]
+    return visualizations
 
 
 def _create_amplitude_chart(metrics, user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de amplitud de movimiento usando CODOS."""
+    """Crea gráfico de amplitud de movimiento usando landmarks según ejercicio."""
     plt.figure(figsize=(10, 6))
 
-    # Usar codos en lugar de muñecas
-    user_elbow_y = (
-        user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
-    ) / 2
-    expert_elbow_y = (
-        expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
-    ) / 2
+    # Determinar landmarks según ejercicio
+    exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-    plt.plot(user_elbow_y, label="Usuario", color="blue")
-    plt.plot(expert_elbow_y, label="Experto", color="red")
+    if exercise_name_clean == "press_militar":
+        # Usar codos
+        user_signal = (
+            user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
+        ) / 2
+        expert_signal = (
+            expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
+        ) / 2
+        landmark_name = "Codos"
+    elif exercise_name_clean == "sentadilla":
+        # Usar caderas
+        user_signal = (
+            user_data["landmark_right_hip_y"] + user_data["landmark_left_hip_y"]
+        ) / 2
+        expert_signal = (
+            expert_data["landmark_right_hip_y"] + expert_data["landmark_left_hip_y"]
+        ) / 2
+        landmark_name = "Caderas"
+    elif exercise_name_clean == "dominada":
+        # Usar codos
+        user_signal = (
+            user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
+        ) / 2
+        expert_signal = (
+            expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
+        ) / 2
+        landmark_name = "Codos"
+    else:
+        logger.warning(
+            f"Unknown exercise {exercise_name_clean}, using default landmarks"
+        )
+        # Fallback a codos
+        user_signal = (
+            user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
+        ) / 2
+        expert_signal = (
+            expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
+        ) / 2
+        landmark_name = "Codos"
 
-    # Líneas de referencia
-    plt.axhline(
-        metrics["amplitud"]["punto_mas_alto_usuario"],
-        linestyle="--",
-        color="blue",
-        alpha=0.7,
-    )
-    plt.axhline(
-        metrics["amplitud"]["punto_mas_bajo_usuario"],
-        linestyle="--",
-        color="blue",
-        alpha=0.7,
-    )
-    plt.axhline(
-        metrics["amplitud"]["punto_mas_alto_experto"],
-        linestyle="--",
-        color="red",
-        alpha=0.7,
-    )
-    plt.axhline(
-        metrics["amplitud"]["punto_mas_bajo_experto"],
-        linestyle="--",
-        color="red",
-        alpha=0.7,
-    )
+    plt.plot(user_signal, label="Usuario", color="blue")
+    plt.plot(expert_signal, label="Experto", color="red")
 
-    plt.title(f"Amplitud de Movimiento (Codos) - {exercise_name}")
+    # Obtener métricas de amplitud
+    amplitude_metrics = metrics.get("amplitud", {})
+    if amplitude_metrics:
+        # Líneas de referencia
+        plt.axhline(
+            amplitude_metrics.get("punto_mas_alto_usuario", 0),
+            linestyle="--",
+            color="blue",
+            alpha=0.7,
+        )
+        plt.axhline(
+            amplitude_metrics.get("punto_mas_bajo_usuario", 0),
+            linestyle="--",
+            color="blue",
+            alpha=0.7,
+        )
+        plt.axhline(
+            amplitude_metrics.get("punto_mas_alto_experto", 0),
+            linestyle="--",
+            color="red",
+            alpha=0.7,
+        )
+        plt.axhline(
+            amplitude_metrics.get("punto_mas_bajo_experto", 0),
+            linestyle="--",
+            color="red",
+            alpha=0.7,
+        )
+
+    plt.title(f"Amplitud de Movimiento ({landmark_name}) - {exercise_name}")
     plt.xlabel("Frame")
     plt.ylabel("Coordenada Y (MediaPipe)")
     plt.legend()
@@ -138,7 +234,14 @@ def _create_amplitude_chart(metrics, user_data, expert_data, exercise_name, outp
 
 
 def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de abducción lateral de codos."""
+    """Crea gráfico de abducción lateral de codos (solo para ejercicios relevantes)."""
+
+    # Solo crear para ejercicios que usan codos
+    exercise_name_clean = exercise_name.lower().replace(" ", "_")
+    if exercise_name_clean not in ["press_militar", "dominada"]:
+        logger.info(f"Skipping abduction chart for exercise {exercise_name_clean}")
+        return None
+
     plt.figure(figsize=(10, 6))
 
     user_abduction_angles = []
@@ -282,30 +385,41 @@ def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
 
 
 def _create_trajectory_chart(user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de trayectorias."""
+    """Crea gráfico de trayectorias usando landmarks apropiados."""
     plt.figure(figsize=(10, 8))
 
-    user_r_wrist_x = user_data["landmark_right_wrist_x"].values
-    user_r_wrist_y = user_data["landmark_right_wrist_y"].values
-    expert_r_wrist_x = expert_data["landmark_right_wrist_x"].values
-    expert_r_wrist_y = expert_data["landmark_right_wrist_y"].values
+    # Determinar landmarks según ejercicio
+    exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-    plt.scatter(
-        user_r_wrist_x, user_r_wrist_y, s=10, alpha=0.7, color="blue", label="Usuario"
-    )
-    plt.plot(user_r_wrist_x, user_r_wrist_y, color="blue", alpha=0.4)
+    if exercise_name_clean in ["press_militar", "dominada"]:
+        # Usar muñecas para press y dominadas
+        user_x = user_data["landmark_right_wrist_x"].values
+        user_y = user_data["landmark_right_wrist_y"].values
+        expert_x = expert_data["landmark_right_wrist_x"].values
+        expert_y = expert_data["landmark_right_wrist_y"].values
+        landmark_name = "Muñeca Derecha"
+    elif exercise_name_clean == "sentadilla":
+        # Usar caderas para sentadilla
+        user_x = user_data["landmark_right_hip_x"].values
+        user_y = user_data["landmark_right_hip_y"].values
+        expert_x = expert_data["landmark_right_hip_x"].values
+        expert_y = expert_data["landmark_right_hip_y"].values
+        landmark_name = "Cadera Derecha"
+    else:
+        # Fallback a muñecas
+        user_x = user_data["landmark_right_wrist_x"].values
+        user_y = user_data["landmark_right_wrist_y"].values
+        expert_x = expert_data["landmark_right_wrist_x"].values
+        expert_y = expert_data["landmark_right_wrist_y"].values
+        landmark_name = "Muñeca Derecha"
 
-    plt.scatter(
-        expert_r_wrist_x,
-        expert_r_wrist_y,
-        s=10,
-        alpha=0.7,
-        color="red",
-        label="Experto",
-    )
-    plt.plot(expert_r_wrist_x, expert_r_wrist_y, color="red", alpha=0.4)
+    plt.scatter(user_x, user_y, s=10, alpha=0.7, color="blue", label="Usuario")
+    plt.plot(user_x, user_y, color="blue", alpha=0.4)
 
-    plt.title(f"Trayectoria de la Muñeca Derecha - {exercise_name}")
+    plt.scatter(expert_x, expert_y, s=10, alpha=0.7, color="red", label="Experto")
+    plt.plot(expert_x, expert_y, color="red", alpha=0.4)
+
+    plt.title(f"Trayectoria de {landmark_name} - {exercise_name}")
     plt.xlabel("X (lateral)")
     plt.ylabel("Y (vertical)")
     plt.legend()
@@ -321,25 +435,64 @@ def _create_trajectory_chart(user_data, expert_data, exercise_name, output_dir):
     return None
 
 
-def _create_symmetry_chart(user_data, analysis_results, exercise_name, output_dir):
-    """Crea gráfico de simetría bilateral usando CODOS."""
+def _create_symmetry_chart(
+    user_data, analysis_results, exercise_name, output_dir, config_path
+):
+    """Crea gráfico de simetría bilateral usando landmarks apropiados."""
     plt.figure(figsize=(10, 6))
 
-    # Usar codos en lugar de muñecas
-    diff_y = abs(
-        user_data["landmark_right_elbow_y"].values
-        - user_data["landmark_left_elbow_y"].values
-    )
+    # Determinar landmarks según ejercicio
+    exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-    plt.plot(diff_y, label="Diferencia entre codos", color="purple")
-    plt.axhline(
-        y=analysis_results["exercise_config"]["symmetry_threshold"],
-        linestyle="--",
-        color="red",
-        label=f'Umbral de asimetría ({analysis_results["exercise_config"]["symmetry_threshold"]})',
-    )
+    if exercise_name_clean == "press_militar":
+        # Usar codos
+        diff_y = abs(
+            user_data["landmark_right_elbow_y"].values
+            - user_data["landmark_left_elbow_y"].values
+        )
+        landmark_name = "codos"
+    elif exercise_name_clean == "sentadilla":
+        # Usar rodillas
+        diff_y = abs(
+            user_data["landmark_right_knee_y"].values
+            - user_data["landmark_left_knee_y"].values
+        )
+        landmark_name = "rodillas"
+    elif exercise_name_clean == "dominada":
+        # Usar codos
+        diff_y = abs(
+            user_data["landmark_right_elbow_y"].values
+            - user_data["landmark_left_elbow_y"].values
+        )
+        landmark_name = "codos"
+    else:
+        # Fallback a codos
+        diff_y = abs(
+            user_data["landmark_right_elbow_y"].values
+            - user_data["landmark_left_elbow_y"].values
+        )
+        landmark_name = "codos"
 
-    plt.title(f"Simetría Bilateral (Codos) - {exercise_name}")
+    plt.plot(diff_y, label=f"Diferencia entre {landmark_name}", color="purple")
+
+    # Obtener umbral usando config_manager con fallback seguro
+    try:
+        symmetry_threshold = config_manager.get_analysis_threshold(
+            "symmetry_threshold", exercise_name_clean, config_path
+        )
+
+        plt.axhline(
+            y=symmetry_threshold,
+            linestyle="--",
+            color="red",
+            label=f"Umbral de asimetría ({symmetry_threshold})",
+        )
+        logger.debug(f"Successfully got symmetry threshold: {symmetry_threshold}")
+    except Exception as e:
+        logger.warning(f"Could not get symmetry threshold from config: {e}")
+        # No agregar línea de umbral si no se puede obtener
+
+    plt.title(f"Simetría Bilateral ({landmark_name.title()}) - {exercise_name}")
     plt.xlabel("Frame")
     plt.ylabel("Diferencia de altura (valor absoluto)")
     plt.legend()
@@ -356,24 +509,56 @@ def _create_symmetry_chart(user_data, analysis_results, exercise_name, output_di
 
 
 def _create_velocity_chart(user_data, expert_data, exercise_name, output_dir):
-    """Crea gráfico de velocidad usando CODOS."""
+    """Crea gráfico de velocidad usando landmarks apropiados."""
     plt.figure(figsize=(10, 6))
 
-    # Usar codos en lugar de muñecas
-    user_elbow_y = (
-        user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
-    ) / 2
-    expert_elbow_y = (
-        expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
-    ) / 2
+    # Determinar landmarks según ejercicio
+    exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-    user_velocity = np.gradient(user_elbow_y.values)
-    expert_velocity = np.gradient(expert_elbow_y.values)
+    if exercise_name_clean == "press_militar":
+        # Usar codos
+        user_signal = (
+            user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
+        ) / 2
+        expert_signal = (
+            expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
+        ) / 2
+        landmark_name = "Codos"
+    elif exercise_name_clean == "sentadilla":
+        # Usar caderas
+        user_signal = (
+            user_data["landmark_right_hip_y"] + user_data["landmark_left_hip_y"]
+        ) / 2
+        expert_signal = (
+            expert_data["landmark_right_hip_y"] + expert_data["landmark_left_hip_y"]
+        ) / 2
+        landmark_name = "Caderas"
+    elif exercise_name_clean == "dominada":
+        # Usar codos
+        user_signal = (
+            user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
+        ) / 2
+        expert_signal = (
+            expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
+        ) / 2
+        landmark_name = "Codos"
+    else:
+        # Fallback a codos
+        user_signal = (
+            user_data["landmark_right_elbow_y"] + user_data["landmark_left_elbow_y"]
+        ) / 2
+        expert_signal = (
+            expert_data["landmark_right_elbow_y"] + expert_data["landmark_left_elbow_y"]
+        ) / 2
+        landmark_name = "Codos"
+
+    user_velocity = np.gradient(user_signal.values)
+    expert_velocity = np.gradient(expert_signal.values)
 
     plt.plot(user_velocity, label="Usuario", color="blue")
     plt.plot(expert_velocity, label="Experto", color="red")
 
-    plt.title(f"Velocidad Vertical (Codos) - {exercise_name}")
+    plt.title(f"Velocidad Vertical ({landmark_name}) - {exercise_name}")
     plt.xlabel("Frame")
     plt.ylabel("Velocidad (unidades/frame)")
     plt.legend()
@@ -392,19 +577,17 @@ def _create_velocity_chart(user_data, expert_data, exercise_name, output_dir):
 def _create_radar_chart(analysis_results, exercise_name, output_dir):
     """
     Crea gráfico de radar USANDO SCORES DINÁMICOS según el ejercicio.
-    CORREGIDO: Adapta categorías y scores según el ejercicio actual.
     """
     try:
         plt.figure(figsize=(10, 8))
 
-        # ACTUALIZADO: Usar scores dinámicamente
         individual_scores = analysis_results.get("individual_scores", {})
 
         if not individual_scores:
-            logger.error("No se encontraron scores individuales en analysis_results")
+            logger.error("No individual scores found in analysis_results")
             return None
 
-        # CORREGIDO: Categorías y scores dinámicos según ejercicio
+        # Categorías y scores dinámicos según ejercicio
         exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
         if exercise_name_clean == "press_militar":
@@ -466,19 +649,21 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
                 for key in score_keys
             ]
 
-        # ACTUALIZADO: Extraer scores dinámicamente
+        # Extraer scores dinámicamente
         scores_normalized = []
         scores_raw = []
 
         for score_key in score_keys:
-            score_value = individual_scores.get(
-                score_key, 50
-            )  # Default 50 si no existe
+            if score_key not in individual_scores:
+                logger.error(f"Score key '{score_key}' not found in individual_scores")
+                return None
+
+            score_value = individual_scores[score_key]
             scores_normalized.append(score_value / 100)
             scores_raw.append(score_value)
 
         # DEBUG: Imprimir valores para verificación
-        logger.info("=== DEBUG RADAR CHART DINÁMICO ===")
+        logger.info("=== DEBUG RADAR CHART STRICT ===")
         for i, (cat, score_norm, score_raw) in enumerate(
             zip(categories_radar, scores_normalized, scores_raw)
         ):
@@ -490,9 +675,6 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
         angles = np.linspace(
             0, 2 * np.pi, len(categories_radar), endpoint=False
         ).tolist()
-
-        # DEBUG: Verificar ángulos
-        logger.info(f"Ángulos (grados): {[f'{np.degrees(a):.1f}°' for a in angles]}")
 
         # Cerrar el polígono duplicando el primer elemento
         scores_normalized = np.concatenate((scores_normalized, [scores_normalized[0]]))
@@ -527,25 +709,23 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
         return None
 
     except Exception as e:
-        logger.warning(f"Error al crear gráfico de radar: {e}")
+        logger.error(f"Error creating radar chart: {e}")
         return None
 
 
 def _create_scores_chart(analysis_results, exercise_name, output_dir):
     """
     Crea gráfico de puntuaciones por categoría USANDO SCORES DINÁMICOS.
-    CORREGIDO: Adapta categorías según el ejercicio actual.
     """
     plt.figure(figsize=(10, 6))
 
-    # ACTUALIZADO: Usar scores dinámicamente
     individual_scores = analysis_results.get("individual_scores", {})
 
     if not individual_scores:
-        logger.error("No se encontraron scores individuales en analysis_results")
+        logger.error("No individual scores found in analysis_results")
         return None
 
-    # CORREGIDO: Categorías dinámicas según ejercicio
+    # Categorías dinámicas según ejercicio
     exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
     if exercise_name_clean == "press_militar":
@@ -610,16 +790,19 @@ def _create_scores_chart(analysis_results, exercise_name, output_dir):
         ]
         categories.append("Global")
 
-    # ACTUALIZADO: Extraer scores dinámicamente
+    # Extraer scores dinámicamente
     scores_list = []
     for score_key in score_keys:
-        scores_list.append(individual_scores.get(score_key, 50))
+        if score_key not in individual_scores:
+            logger.error(f"Score key '{score_key}' not found in individual_scores")
+            return None
+        scores_list.append(individual_scores[score_key])
 
     # Añadir score global al final
     scores_list.append(analysis_results["score"])
 
     # DEBUG: Imprimir valores para verificación
-    logger.info("=== DEBUG SCORES CHART DINÁMICO ===")
+    logger.info("=== DEBUG SCORES CHART STRICT ===")
     for cat, score in zip(categories, scores_list):
         logger.info(f"{cat.replace(chr(10), ' ')}: {score:.1f}")
 
@@ -736,5 +919,5 @@ def _create_summary_chart(analysis_results, exercise_name, output_dir):
         return None
 
     except Exception as e:
-        logger.warning(f"Error al crear resumen visual: {e}")
+        logger.error(f"Error creating summary chart: {e}")
         return None
