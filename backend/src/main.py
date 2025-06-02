@@ -8,6 +8,10 @@ import time
 import json
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 # Logging configuration
 logging.basicConfig(
@@ -20,6 +24,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 VIDEOS_DIR = os.path.join(BASE_DIR, "media", "videos")
 CONFIG_PATH = os.path.join(BASE_DIR, "src", "config", "config.json")
 MODEL_PATH = os.path.join(BASE_DIR, "models", "pose_landmarker_lite.task")
+PROMPT_PATH = os.path.join(BASE_DIR, "src", "config", "trainer_prompt.txt")
 
 # Read exercise name from config.json
 exercise_name = "military_press"
@@ -54,10 +59,7 @@ try:
     from src.feedback.analysis_graphics import visualize_analysis_results
 
     # NEW: Import custom feedback module
-    from src.feedback.analysis_llm import (
-        generate_trainer_feedback,
-        TrainerFeedbackGenerator,
-    )
+    from src.feedback.analysis_llm import generate_trainer_feedback
 
     TRAINER_FEEDBACK_AVAILABLE = True
     logger.info("Feedback module with DeepSeek V3 loaded correctly")
@@ -78,6 +80,40 @@ def ensure_dir_exists(path):
         os.makedirs(directory)
 
 
+def get_deepseek_api_key():
+    """
+    Obtiene la API key de DeepSeek desde variables de entorno.
+
+    Returns:
+        str: API key de DeepSeek
+
+    Raises:
+        ValueError: Si no se encuentra la API key
+    """
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+
+    if not api_key:
+        logger.error("❌ DEEPSEEK_API_KEY no encontrada en variables de entorno")
+        logger.error(
+            "📝 Asegúrate de que el archivo .env contenga: DEEPSEEK_API_KEY=tu_clave_real"
+        )
+        raise ValueError(
+            "DEEPSEEK_API_KEY no configurada. "
+            "Crea un archivo .env en la carpeta backend con: DEEPSEEK_API_KEY=tu_clave_real"
+        )
+
+    if api_key == "your_deepseek_api_key":
+        logger.error(
+            "❌ Debes cambiar 'your_deepseek_api_key' por tu clave real en el archivo .env"
+        )
+        raise ValueError(
+            "Debes cambiar el valor por defecto en .env por tu API key real de DeepSeek"
+        )
+
+    logger.info("✅ DEEPSEEK_API_KEY cargada correctamente desde variables de entorno")
+    return api_key
+
+
 def process_exercise(
     exercise_name,
     videos_dir,
@@ -89,10 +125,9 @@ def process_exercise(
     skip_normalization=False,
     skip_visualization=False,
     skip_analysis=False,
-    skip_trainer_feedback=False,  # NEW PARAMETER
+    skip_trainer_feedback=False,
     diagnostics=False,
     model_path=None,
-    deepseek_api_key=None,  # NEW PARAMETER
 ):
     start_time = time.time()
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -358,46 +393,6 @@ def process_exercise(
         aligned_expert_data = normalized_expert_data
         logger.warning("Using normalized data without final alignment")
 
-    # # 6. VISUALIZATION GENERATION (WITH EXERCISE RANGE)
-    # if not skip_visualization:
-    #     logger.info("6. VISUALIZATION GENERATION PHASE")
-    #     try:
-    #         output_video_path = os.path.join(
-    #             output_dir, f"{exercise_name}_comparison_video.mp4"
-    #         )
-    #         ensure_dir_exists(output_video_path)
-    #         generate_dual_skeleton_video(
-    #             original_video_path=video_user,
-    #             user_data=user_processed_data,
-    #             expert_data=aligned_expert_data,
-    #             output_video_path=output_video_path,
-    #             config_path=CONFIG_PATH,
-    #             original_user_data=user_data_original,
-    #             exercise_frame_range=exercise_frame_range,  # PASS EXERCISE RANGE
-    #         )
-    #         results["output"]["visualizations"]["video"] = output_video_path
-    #         logger.info(f"Comparison video generated: {output_video_path}")
-
-    #         try:
-    #             mid_frame = len(user_processed_data) // 2
-    #             frame_image_path = os.path.join(
-    #                 output_dir, f"{exercise_name}_frame_comparison.png"
-    #             )
-    #             visualize_frame_dual_skeletons(
-    #                 original_image=np.zeros((480, 640, 3), dtype=np.uint8),
-    #                 user_frame_data=user_processed_data.iloc[mid_frame],
-    #                 expert_frame_data=aligned_expert_data.iloc[mid_frame],
-    #                 config_path=CONFIG_PATH,
-    #                 save_path=frame_image_path,
-    #                 show_image=False,
-    #             )
-    #             results["output"]["visualizations"]["frame"] = frame_image_path
-    #             logger.info(f"Comparison image generated: {frame_image_path}")
-    #         except Exception as frame_error:
-    #             logger.error(f"Error generating comparison image: {frame_error}")
-    #     except Exception as e:
-    #         logger.error(f"Error generating visualizations: {e}")
-
     # 7. DETAILED EXERCISE ANALYSIS
     if not skip_analysis:
         logger.info("7. DETAILED EXERCISE ANALYSIS PHASE")
@@ -471,6 +466,9 @@ def process_exercise(
     if not skip_trainer_feedback and TRAINER_FEEDBACK_AVAILABLE:
         logger.info("8. PERSONALIZED FEEDBACK GENERATION PHASE")
         try:
+            # Obtener API key desde variables de entorno
+            deepseek_api_key = get_deepseek_api_key()
+
             # CORRECTED: Paths based on real project structure
             analysis_dir = os.path.join(output_dir, f"{exercise_name}_analysis")
             report_path = os.path.join(analysis_dir, f"{exercise_name}_report.json")
@@ -485,11 +483,22 @@ def process_exercise(
 
                 logger.info("Generating personalized feedback with DeepSeek V3...")
 
-                # Use hardcoded API key
+                # Use API key from environment variables
+                if os.path.exists(PROMPT_PATH):
+                    logger.info(f"Using prompt file: {PROMPT_PATH}")
+                    prompt_file_arg = PROMPT_PATH
+                else:
+                    logger.info(
+                        "Prompt file not found at expected location, using auto-discovery"
+                    )
+                    prompt_file_arg = None
+
+                # Use API key from environment variables and pass prompt path
                 feedback = generate_trainer_feedback(
                     informe_path=report_path,
                     output_path=feedback_path,
                     api_key=deepseek_api_key,
+                    prompt_file_path=prompt_file_arg,  # ← AÑADIR esta línea
                 )
 
                 # Add result to results dictionary
@@ -592,8 +601,13 @@ def main():
     except Exception as e:
         print(f"DEBUG: Error verifying singleton: {e}")
 
-    # HARDCODED DEEPSEEK API KEY CONFIGURATION
-    deepseek_api_key = "CLAVE"  # CHANGE TO YOUR REAL API KEY
+    # VERIFICAR VARIABLES DE ENTORNO
+    try:
+        deepseek_api_key = get_deepseek_api_key()
+        print("DEBUG: ✅ DEEPSEEK_API_KEY loaded successfully")
+    except Exception as e:
+        print(f"DEBUG: ❌ Error loading DEEPSEEK_API_KEY: {e}")
+        return
 
     results = process_exercise(
         exercise_name=exercise_name,
@@ -609,7 +623,6 @@ def main():
         skip_analysis=False,
         skip_trainer_feedback=False,  # NEW: Change to True to disable feedback
         model_path=MODEL_PATH,
-        deepseek_api_key=deepseek_api_key,  # NEW PARAMETER
     )
 
     if results:
