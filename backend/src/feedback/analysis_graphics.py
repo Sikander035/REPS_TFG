@@ -1,12 +1,19 @@
-# src/feedback/analysis_graphics.py - UNIFIED VERSION
+# src/feedback/analysis_graphics.py - THREAD-SAFE VERSION
 import sys
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import os
 import logging
 
+# CRÍTICO: Configurar matplotlib ANTES que cualquier otro import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.config.matplotlib_config import (
+    ThreadSafeMatplotlib,
+    ensure_matplotlib_thread_safety,
+)
+
+# Ahora importar matplotlib
+import matplotlib.pyplot as plt
 
 # IMPORT ONLY WHAT'S NECESSARY
 from src.utils.analysis_utils import (
@@ -29,8 +36,11 @@ def visualize_analysis_results(
 ):
     """
     Creates visualizations of analysis results using unified scores.
-    NO DEFAULTS - all values come from configuration or fail.
+    THREAD-SAFE VERSION with proper matplotlib cleanup.
     """
+    # Asegurar thread safety al inicio
+    ensure_matplotlib_thread_safety()
+
     if not isinstance(analysis_results, dict):
         raise ValueError("analysis_results must be a dictionary")
 
@@ -61,11 +71,9 @@ def visualize_analysis_results(
             logger.error(f"Failed to create output directory {output_dir}: {e}")
             raise ValueError(f"Cannot create output directory: {e}")
 
-    # CORREGIDO: Get landmarks configuration for this exercise with proper error handling
+    # Get landmarks configuration
     try:
-        # Verificar si config_path es una ruta absoluta o relativa
         if not os.path.isabs(config_path):
-            # Si es relativa, construir ruta absoluta
             base_dir = os.path.abspath(
                 os.path.join(os.path.dirname(__file__), "..", "..")
             )
@@ -73,7 +81,6 @@ def visualize_analysis_results(
         else:
             full_config_path = config_path
 
-        # Verificar que el archivo existe
         if not os.path.exists(full_config_path):
             logger.warning(
                 f"Config file not found at {full_config_path}, using fallback"
@@ -85,176 +92,77 @@ def visualize_analysis_results(
             )
     except Exception as e:
         logger.error(f"Failed to get landmarks configuration for {exercise_name}: {e}")
-        # Fallback to hardcoded for compatibility
         landmarks_config = _get_fallback_landmarks_config(exercise_name)
 
-    # 1. Amplitude chart
-    try:
-        viz_path = _create_amplitude_chart(
-            metrics, user_data, expert_data, exercise_name, output_dir, landmarks_config
-        )
-        if viz_path:
-            visualizations.append(viz_path)
-    except Exception as e:
-        logger.error(f"Error creating amplitude chart: {e}")
+    # Create all visualizations with proper cleanup
+    visualization_functions = [
+        (
+            "amplitude_chart",
+            _create_amplitude_chart,
+            (
+                metrics,
+                user_data,
+                expert_data,
+                exercise_name,
+                output_dir,
+                landmarks_config,
+            ),
+        ),
+        (
+            "abduction_chart",
+            _create_abduction_chart,
+            (user_data, expert_data, exercise_name, output_dir),
+        ),
+        (
+            "trajectory_chart",
+            _create_trajectory_chart,
+            (user_data, expert_data, exercise_name, output_dir, landmarks_config),
+        ),
+        (
+            "symmetry_chart",
+            _create_symmetry_chart,
+            (
+                user_data,
+                analysis_results,
+                exercise_name,
+                output_dir,
+                full_config_path,
+                landmarks_config,
+            ),
+        ),
+        (
+            "velocity_chart",
+            _create_velocity_chart,
+            (user_data, expert_data, exercise_name, output_dir, landmarks_config),
+        ),
+        (
+            "scores_chart",
+            _create_scores_chart,
+            (analysis_results, exercise_name, output_dir),
+        ),
+        (
+            "radar_chart",
+            _create_radar_chart,
+            (analysis_results, exercise_name, output_dir),
+        ),
+        (
+            "summary_chart",
+            _create_summary_chart,
+            (analysis_results, exercise_name, output_dir),
+        ),
+    ]
 
-    # 2. Abduction chart (only for relevant exercises)
-    try:
-        viz_path = _create_abduction_chart(
-            user_data, expert_data, exercise_name, output_dir
-        )
-        if viz_path:
-            visualizations.append(viz_path)
-    except Exception as e:
-        logger.error(f"Error creating abduction chart: {e}")
-
-    # 3. Trajectory chart
-    try:
-        viz_path = _create_trajectory_chart(
-            user_data, expert_data, exercise_name, output_dir, landmarks_config
-        )
-        if viz_path:
-            visualizations.append(viz_path)
-    except Exception as e:
-        logger.error(f"Error creating trajectory chart: {e}")
-
-    # 4. Symmetry chart - CORREGIDO: pasar config_path completo
-    try:
-        viz_path = _create_symmetry_chart(
-            user_data,
-            analysis_results,
-            exercise_name,
-            output_dir,
-            full_config_path,  # CORREGIDO: usar ruta completa
-            landmarks_config,
-        )
-        if viz_path:
-            visualizations.append(viz_path)
-    except Exception as e:
-        logger.error(f"Error creating symmetry chart: {e}")
-
-    # 5. Velocity chart
-    try:
-        viz_path = _create_velocity_chart(
-            user_data, expert_data, exercise_name, output_dir, landmarks_config
-        )
-        if viz_path:
-            visualizations.append(viz_path)
-    except Exception as e:
-        logger.error(f"Error creating velocity chart: {e}")
-
-    # 6. Scores chart
-    try:
-        viz_path = _create_scores_chart(analysis_results, exercise_name, output_dir)
-        if viz_path:
-            visualizations.append(viz_path)
-    except Exception as e:
-        logger.error(f"Error creating scores chart: {e}")
-
-    # 7. Radar chart
-    try:
-        viz_path = _create_radar_chart(analysis_results, exercise_name, output_dir)
-        if viz_path:
-            visualizations.append(viz_path)
-    except Exception as e:
-        logger.error(f"Error creating radar chart: {e}")
-
-    # 8. Summary chart
-    try:
-        viz_path = _create_summary_chart(analysis_results, exercise_name, output_dir)
-        if viz_path:
-            visualizations.append(viz_path)
-    except Exception as e:
-        logger.error(f"Error creating summary chart: {e}")
+    for viz_name, viz_func, viz_args in visualization_functions:
+        try:
+            with ThreadSafeMatplotlib():  # Context manager para thread safety
+                viz_path = viz_func(*viz_args)
+                if viz_path:
+                    visualizations.append(viz_path)
+                    logger.debug(f"✅ {viz_name} created successfully")
+        except Exception as e:
+            logger.error(f"❌ Error creating {viz_name}: {e}")
 
     return visualizations
-
-
-def _get_fallback_landmarks_config(exercise_name):
-    """Fallback landmarks configuration if config_manager fails."""
-    exercise_name_clean = exercise_name.lower().replace(" ", "_")
-
-    if exercise_name_clean == "military_press":
-        return {
-            "amplitude": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "feedback_context": "Elbows",
-            },
-            "symmetry": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-            },
-            "trajectory": {
-                "left_landmark": "landmark_left_wrist",
-                "right_landmark": "landmark_right_wrist",
-            },
-            "speed": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-            },
-        }
-    elif exercise_name_clean == "squat":
-        return {
-            "amplitude": {
-                "left_landmark": "landmark_left_hip",
-                "right_landmark": "landmark_right_hip",
-                "feedback_context": "Hips",
-            },
-            "symmetry": {
-                "left_landmark": "landmark_left_knee",
-                "right_landmark": "landmark_right_knee",
-            },
-            "trajectory": {
-                "left_landmark": "landmark_left_hip",
-                "right_landmark": "landmark_right_hip",
-            },
-            "speed": {
-                "left_landmark": "landmark_left_hip",
-                "right_landmark": "landmark_right_hip",
-            },
-        }
-    elif exercise_name_clean == "pull_up":
-        return {
-            "amplitude": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "feedback_context": "Elbows",
-            },
-            "symmetry": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-            },
-            "trajectory": {
-                "left_landmark": "landmark_left_wrist",
-                "right_landmark": "landmark_right_wrist",
-            },
-            "speed": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-            },
-        }
-    else:
-        # Default fallback
-        return {
-            "amplitude": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-                "feedback_context": "Elbows",
-            },
-            "symmetry": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-            },
-            "trajectory": {
-                "left_landmark": "landmark_left_wrist",
-                "right_landmark": "landmark_right_wrist",
-            },
-            "speed": {
-                "left_landmark": "landmark_left_elbow",
-                "right_landmark": "landmark_right_elbow",
-            },
-        }
 
 
 def _create_amplitude_chart(
@@ -556,7 +464,7 @@ def _create_symmetry_chart(
 
     plt.plot(diff_y, label=f"Difference between {landmark_name}", color="purple")
 
-    # CORREGIDO: Get threshold using config_manager with better error handling
+    # Get threshold using config_manager with better error handling
     try:
         symmetry_threshold = config_manager.get_analysis_threshold(
             "symmetry_threshold", exercise_name, config_path
@@ -993,3 +901,90 @@ def _create_summary_chart(analysis_results, exercise_name, output_dir):
     except Exception as e:
         logger.error(f"Error creating summary chart: {e}")
         return None
+
+
+def _get_fallback_landmarks_config(exercise_name):
+    """Fallback landmarks configuration if config_manager fails."""
+    exercise_name_clean = exercise_name.lower().replace(" ", "_")
+
+    if exercise_name_clean == "military_press":
+        return {
+            "amplitude": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "feedback_context": "Elbows",
+            },
+            "symmetry": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+            },
+            "trajectory": {
+                "left_landmark": "landmark_left_wrist",
+                "right_landmark": "landmark_right_wrist",
+            },
+            "speed": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+            },
+        }
+    elif exercise_name_clean == "squat":
+        return {
+            "amplitude": {
+                "left_landmark": "landmark_left_hip",
+                "right_landmark": "landmark_right_hip",
+                "feedback_context": "Hips",
+            },
+            "symmetry": {
+                "left_landmark": "landmark_left_knee",
+                "right_landmark": "landmark_right_knee",
+            },
+            "trajectory": {
+                "left_landmark": "landmark_left_hip",
+                "right_landmark": "landmark_right_hip",
+            },
+            "speed": {
+                "left_landmark": "landmark_left_hip",
+                "right_landmark": "landmark_right_hip",
+            },
+        }
+    elif exercise_name_clean == "pull_up":
+        return {
+            "amplitude": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "feedback_context": "Elbows",
+            },
+            "symmetry": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+            },
+            "trajectory": {
+                "left_landmark": "landmark_left_wrist",
+                "right_landmark": "landmark_right_wrist",
+            },
+            "speed": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+            },
+        }
+    else:
+        # Default fallback
+        return {
+            "amplitude": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+                "feedback_context": "Elbows",
+            },
+            "symmetry": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+            },
+            "trajectory": {
+                "left_landmark": "landmark_left_wrist",
+                "right_landmark": "landmark_right_wrist",
+            },
+            "speed": {
+                "left_landmark": "landmark_left_elbow",
+                "right_landmark": "landmark_right_elbow",
+            },
+        }

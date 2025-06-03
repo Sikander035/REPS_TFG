@@ -1,5 +1,5 @@
 """
-Visualizaciones duales de movimiento corporal.
+Visualizaciones duales de movimiento corporal - THREAD-SAFE VERSION.
 Proporciona funciones para generar videos y capturas con dos esqueletos.
 """
 
@@ -7,11 +7,22 @@ import cv2
 import numpy as np
 import pandas as pd
 from pathlib import Path
-import matplotlib.pyplot as plt
+import sys
+import os
 from typing import List, Dict, Tuple, Optional, Union, Any
 from tqdm import tqdm
 import logging
 import time
+
+# CRÍTICO: Configurar matplotlib ANTES que cualquier import de plotting
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.config.matplotlib_config import (
+    ThreadSafeMatplotlib,
+    ensure_matplotlib_thread_safety,
+)
+
+# Ahora importar matplotlib
+import matplotlib.pyplot as plt
 
 # Importar funciones de utilidad
 from src.utils.visualization_utils import (
@@ -35,32 +46,13 @@ def generate_dual_skeleton_video(
     output_video_path: str,
     config_path: str,
     original_user_data: pd.DataFrame = None,
-    exercise_frame_range: tuple = None,  # NUEVO PARÁMETRO
+    exercise_frame_range: tuple = None,
     frame_range: tuple = None,
     fps_factor: float = 1.0,
 ) -> str:
     """
     Genera video con esqueletos del usuario y experto superpuestos.
-    Automáticamente recorta el video al rango de repeticiones detectadas.
-
-    Args:
-        original_video_path: Ruta al video original - OBLIGATORIO
-        user_data: DataFrame con landmarks del usuario - OBLIGATORIO
-        expert_data: DataFrame con landmarks del experto - OBLIGATORIO
-        output_video_path: Ruta de salida - OBLIGATORIO
-        config_path: Ruta a configuración JSON - OBLIGATORIO
-        original_user_data: DataFrame con datos originales (para mapeo)
-        exercise_frame_range: Tupla (min_frame, max_frame) del ejercicio
-        frame_range: Tupla (inicio, fin) para procesar solo parte del video
-        fps_factor: Factor para ajustar FPS
-
-    Returns:
-        Ruta al video generado
-
-    Raises:
-        ValueError: Si faltan parámetros obligatorios
-        FileNotFoundError: Si no se encuentran archivos
-        RuntimeError: Si hay errores en el procesamiento
+    THREAD-SAFE VERSION con cleanup automático.
     """
     # Verificaciones de entrada obligatorias
     if not original_video_path:
@@ -89,115 +81,102 @@ def generate_dual_skeleton_video(
     except Exception as e:
         raise RuntimeError(f"Error cargando configuración: {e}")
 
-    # Obtener parámetros de configuración (todos obligatorios)
-    user_color = tuple(viz_config["user_color"])
-    expert_color = tuple(viz_config["expert_color"])
-    user_alpha = viz_config["user_alpha"]
-    expert_alpha = viz_config["expert_alpha"]
-    user_thickness = viz_config["user_thickness"]
-    expert_thickness = viz_config["expert_thickness"]
-    show_progress = viz_config["show_progress"]
-    text_info = viz_config["text_info"]
-    show_labels = viz_config["show_labels"]
-    resize_factor = viz_config["resize_factor"]
-    highlight_landmarks = viz_config.get("highlight_landmarks")  # Este puede ser None
+    # Variables de OpenCV para cleanup
+    cap = None
+    out = None
 
-    # Abrir video original
-    cap = cv2.VideoCapture(original_video_path)
-    if not cap.isOpened():
-        raise FileNotFoundError(f"No se pudo abrir el video: {original_video_path}")
-
-    # Obtener propiedades del video
-    original_fps = cap.get(cv2.CAP_PROP_FPS)
-    if original_fps <= 0:
-        cap.release()
-        raise RuntimeError("No se pudo obtener FPS del video")
-
-    fps = original_fps * fps_factor
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_factor)
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_factor)
-
-    if width <= 0 or height <= 0:
-        cap.release()
-        raise RuntimeError("Dimensiones de video inválidas")
-
-    # Crear directorio de salida
-    output_dir = Path(output_video_path).parent
     try:
+        # Obtener parámetros de configuración
+        user_color = tuple(viz_config["user_color"])
+        expert_color = tuple(viz_config["expert_color"])
+        user_alpha = viz_config["user_alpha"]
+        expert_alpha = viz_config["expert_alpha"]
+        user_thickness = viz_config["user_thickness"]
+        expert_thickness = viz_config["expert_thickness"]
+        show_progress = viz_config["show_progress"]
+        text_info = viz_config["text_info"]
+        show_labels = viz_config["show_labels"]
+        resize_factor = viz_config["resize_factor"]
+        highlight_landmarks = viz_config.get("highlight_landmarks")
+
+        # Abrir video original
+        cap = cv2.VideoCapture(original_video_path)
+        if not cap.isOpened():
+            raise FileNotFoundError(f"No se pudo abrir el video: {original_video_path}")
+
+        # Obtener propiedades del video
+        original_fps = cap.get(cv2.CAP_PROP_FPS)
+        if original_fps <= 0:
+            raise RuntimeError("No se pudo obtener FPS del video")
+
+        fps = original_fps * fps_factor
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_factor)
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_factor)
+
+        if width <= 0 or height <= 0:
+            raise RuntimeError("Dimensiones de video inválidas")
+
+        # Crear directorio de salida
+        output_dir = Path(output_video_path).parent
         output_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        cap.release()
-        raise RuntimeError(f"No se pudo crear directorio de salida: {e}")
 
-    # Configurar escritor de video
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height), True)
+        # Configurar escritor de video
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height), True)
 
-    if not out.isOpened():
-        cap.release()
-        raise RuntimeError("No se pudo inicializar el escritor de video")
+        if not out.isOpened():
+            raise RuntimeError("No se pudo inicializar el escritor de video")
 
-    # Mapear frames procesados a frames originales (usando rango de ejercicio para recortar)
-    try:
-        original_frames = extract_frame_ranges(
-            original_user_data if original_user_data is not None else user_data,
-            user_data,
-            exercise_frame_range,  # PASAR RANGO DE EJERCICIO
-        )
-    except Exception as e:
-        cap.release()
-        out.release()
-        raise RuntimeError(f"Error mapeando frames: {e}")
-
-    # Aplicar rango si se especifica
-    if frame_range is not None:
-        if not isinstance(frame_range, (tuple, list)) or len(frame_range) != 2:
-            cap.release()
-            out.release()
-            raise ValueError("frame_range debe ser una tupla de 2 elementos")
-
-        start_idx, end_idx = frame_range
-        if not isinstance(start_idx, int) or not isinstance(end_idx, int):
-            cap.release()
-            out.release()
-            raise ValueError("frame_range debe contener enteros")
-
-        start_idx = max(0, start_idx)
-        end_idx = min(len(original_frames), end_idx)
-
-        if start_idx >= end_idx:
-            cap.release()
-            out.release()
-            raise ValueError(
-                "frame_range inválido: start_idx debe ser menor que end_idx"
+        # Mapear frames procesados a frames originales
+        try:
+            original_frames = extract_frame_ranges(
+                original_user_data if original_user_data is not None else user_data,
+                user_data,
+                exercise_frame_range,
             )
+        except Exception as e:
+            raise RuntimeError(f"Error mapeando frames: {e}")
 
-        original_frames = original_frames[start_idx:end_idx]
+        # Aplicar rango si se especifica
+        if frame_range is not None:
+            if not isinstance(frame_range, (tuple, list)) or len(frame_range) != 2:
+                raise ValueError("frame_range debe ser una tupla de 2 elementos")
 
-    # Número total de frames a procesar
-    total_frames = len(original_frames)
-    if total_frames == 0:
-        cap.release()
-        out.release()
-        raise ValueError("No hay frames para procesar")
+            start_idx, end_idx = frame_range
+            if not isinstance(start_idx, int) or not isinstance(end_idx, int):
+                raise ValueError("frame_range debe contener enteros")
 
-    logger.info(f"Generando video con {total_frames} frames ({fps:.1f} FPS)")
+            start_idx = max(0, start_idx)
+            end_idx = min(len(original_frames), end_idx)
 
-    # Iniciar tiempo para cálculos de ETA
-    start_time = time.time()
-    last_update = start_time
-    update_interval = 2.0  # segundos entre actualizaciones de progreso
+            if start_idx >= end_idx:
+                raise ValueError(
+                    "frame_range inválido: start_idx debe ser menor que end_idx"
+                )
 
-    # Procesar frames
-    frame_iterator = (
-        tqdm(enumerate(original_frames), total=total_frames, desc="Generando video")
-        if show_progress
-        else enumerate(original_frames)
-    )
+            original_frames = original_frames[start_idx:end_idx]
 
-    try:
+        # Número total de frames a procesar
+        total_frames = len(original_frames)
+        if total_frames == 0:
+            raise ValueError("No hay frames para procesar")
+
+        logger.info(f"Generando video con {total_frames} frames ({fps:.1f} FPS)")
+
+        # Iniciar tiempo para cálculos de ETA
+        start_time = time.time()
+        last_update = start_time
+        update_interval = 2.0
+
+        # Procesar frames
+        frame_iterator = (
+            tqdm(enumerate(original_frames), total=total_frames, desc="Generando video")
+            if show_progress
+            else enumerate(original_frames)
+        )
+
         for i, orig_frame_idx in frame_iterator:
-            # Actualizar progreso solo ocasionalmente para reducir overhead
+            # Actualizar progreso ocasionalmente
             current_time = time.time()
             if current_time - last_update >= update_interval and not show_progress:
                 elapsed = current_time - start_time
@@ -251,7 +230,6 @@ def generate_dual_skeleton_video(
 
                 # Añadir información textual
                 if text_info:
-                    # Frame info y leyenda
                     cv2.putText(
                         frame,
                         f"Frame: {orig_frame_idx}/{i}",
@@ -261,7 +239,6 @@ def generate_dual_skeleton_video(
                         (255, 255, 255),
                         2,
                     )
-
                     cv2.putText(
                         frame,
                         "Usuario",
@@ -271,7 +248,6 @@ def generate_dual_skeleton_video(
                         user_color,
                         2,
                     )
-
                     cv2.putText(
                         frame,
                         "Experto",
@@ -295,11 +271,21 @@ def generate_dual_skeleton_video(
         return output_video_path
 
     except Exception as e:
+        logger.error(f"Error generando video: {e}")
         raise RuntimeError(f"Error generando video: {e}")
+
     finally:
-        # Asegurar que los recursos se liberan siempre
-        cap.release()
-        out.release()
+        # CLEANUP CRÍTICO: Liberar recursos OpenCV
+        if cap is not None:
+            cap.release()
+            logger.debug("🧹 VideoCapture liberado")
+
+        if out is not None:
+            out.release()
+            logger.debug("🧹 VideoWriter liberado")
+
+        # Forzar liberación de recursos de OpenCV
+        cv2.destroyAllWindows()
 
 
 def visualize_frame_dual_skeletons(
@@ -313,23 +299,7 @@ def visualize_frame_dual_skeletons(
 ) -> np.ndarray:
     """
     Visualiza un frame con esqueletos superpuestos.
-
-    Args:
-        original_image: Imagen o ruta a imagen - OBLIGATORIO
-        user_frame_data: Serie con datos del usuario - OBLIGATORIO
-        expert_frame_data: Serie con datos del experto - OBLIGATORIO
-        config_path: Ruta a configuración JSON - OBLIGATORIO
-        save_path: Ruta para guardar resultado
-        show_image: Mostrar la imagen
-        title: Título de la visualización
-
-    Returns:
-        Imagen procesada
-
-    Raises:
-        ValueError: Si faltan parámetros obligatorios
-        FileNotFoundError: Si no se encuentra la imagen
-        RuntimeError: Si hay errores en el procesamiento
+    THREAD-SAFE VERSION con cleanup automático.
     """
     # Verificaciones de entrada obligatorias
     if original_image is None:
@@ -348,7 +318,7 @@ def visualize_frame_dual_skeletons(
     except Exception as e:
         raise RuntimeError(f"Error cargando configuración: {e}")
 
-    # Obtener parámetros de configuración (todos obligatorios)
+    # Obtener parámetros de configuración
     user_color = tuple(viz_config["user_color"])
     expert_color = tuple(viz_config["expert_color"])
     user_alpha = viz_config["user_alpha"]
@@ -356,7 +326,7 @@ def visualize_frame_dual_skeletons(
     user_thickness = viz_config["user_thickness"]
     expert_thickness = viz_config["expert_thickness"]
     show_labels = viz_config["show_labels"]
-    highlight_landmarks = viz_config.get("highlight_landmarks")  # Este puede ser None
+    highlight_landmarks = viz_config.get("highlight_landmarks")
 
     # Cargar la imagen si es una ruta
     if isinstance(original_image, str):
@@ -366,8 +336,8 @@ def visualize_frame_dual_skeletons(
     else:
         image = original_image.copy()
 
-    # Dibujar esqueletos (experto primero para que esté detrás)
     try:
+        # Dibujar esqueletos (experto primero para que esté detrás)
         image = draw_skeleton(
             image,
             expert_frame_data,
@@ -389,34 +359,39 @@ def visualize_frame_dual_skeletons(
             highlight_landmarks=highlight_landmarks,
             show_labels=show_labels,
         )
+
+        # Añadir leyenda
+        cv2.putText(
+            image, "Usuario", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, user_color, 2
+        )
+        cv2.putText(
+            image, "Experto", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, expert_color, 2
+        )
+
+        # Mostrar la imagen (thread-safe)
+        if show_image:
+            with ThreadSafeMatplotlib():
+                plt.figure(figsize=(12, 10))
+                plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                plt.axis("off")
+                plt.title(title)
+                plt.tight_layout()
+
+                if save_path:
+                    plt.savefig(save_path, dpi=100, bbox_inches="tight")
+
+                plt.show()
+
+        # Guardar la imagen si se especifica ruta (sin mostrar)
+        elif save_path:
+            try:
+                Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(save_path, image)
+                logger.info(f"Imagen guardada: {save_path}")
+            except Exception as e:
+                raise RuntimeError(f"Error guardando imagen: {e}")
+
+        return image
+
     except Exception as e:
         raise RuntimeError(f"Error dibujando esqueletos: {e}")
-
-    # Añadir leyenda
-    cv2.putText(
-        image, "Usuario", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, user_color, 2
-    )
-
-    cv2.putText(
-        image, "Experto", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, expert_color, 2
-    )
-
-    # Mostrar la imagen
-    if show_image:
-        plt.figure(figsize=(12, 10))
-        plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-        plt.axis("off")
-        plt.title(title)
-        plt.tight_layout()
-        plt.show()
-
-    # Guardar la imagen
-    if save_path:
-        try:
-            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-            cv2.imwrite(save_path, image)
-            logger.info(f"Imagen guardada: {save_path}")
-        except Exception as e:
-            raise RuntimeError(f"Error guardando imagen: {e}")
-
-    return image

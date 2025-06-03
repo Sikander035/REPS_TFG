@@ -43,6 +43,7 @@ MONGO_INITDB_ROOT_PASSWORD=password
 EMAIL_PASSWORD=service-password
 EMAIL_SENDER=email@email.com
 MONGO_DB_NAME=database-name
+DEEPSEEK_API_KEY=your_deepseek_key
 ```
 Posteriormente, levantaremos los contenedores
 ```

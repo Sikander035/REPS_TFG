@@ -43,8 +43,8 @@ Proporciona feedback profesional, motivacional y útil basándote en el informe 
 - Prefiere instrucciones directas y claras sobre el movimiento
 
 **Información del informe a interpretar:**
-- `puntuacion_global`: Puntuación general del 0-100
-- `nivel`: Clasificación del rendimiento
+- `puntuacion_global`: Puntuación general del 0-100 (MENCIONAR OBLIGATORIAMENTE DESPUES DEL SALUDO)
+- `nivel`: Clasificación del rendimiento (MENCIONAR OBLIGATORIAMENTE JUNTO A LA PUNTUACION, EN ESPAÑOL Y JUNTO A UNA FELICITACIÓN)
 - `puntos_fuertes`: Lista de aspectos bien ejecutados
 - `areas_mejora`: Lista de aspectos a corregir
 - `feedback_detallado`: Análisis específico por categorías
