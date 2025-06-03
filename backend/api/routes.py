@@ -200,6 +200,16 @@ async def analyze_exercise(
     """
     job_id = str(uuid.uuid4())
 
+    # MAPEAR EL EJERCICIO PRIMERO (MOVER AQUÍ)
+    exercise_mapping = {
+        "press_militar_con_mancuernas": "military_press",
+        "military_press": "military_press",
+        "bench_press": "bench_press",
+        "squat": "squat",
+        "pull_up": "pull_up",
+    }
+    mapped_exercise_name = exercise_mapping.get(exercise_name, "military_press")
+
     # Thread-safe job creation
     with jobs_lock:
         # Crear directorio para este trabajo
@@ -224,7 +234,7 @@ async def analyze_exercise(
             "created_at": datetime.now(),
             "job_dir": job_dir,
             "user_video": user_video_path,
-            "exercise_name": mapped_exercise_name,
+            "exercise_name": mapped_exercise_name,  # AHORA YA EXISTE
             "error": None,
         }
 
@@ -233,19 +243,7 @@ async def analyze_exercise(
         with open(user_video_path, "wb") as buffer:
             buffer.write(await file.read())
 
-        # Construir ruta al CSV del experto
-        exercise_mapping = {
-            "press_militar_con_mancuernas": "military_press",
-            "military_press": "military_press",
-            "bench_press": "bench_press",
-            "squat": "squat",
-            "pull_up": "pull_up",
-        }
-
-        # Mapear el nombre del ejercicio
-        mapped_exercise_name = exercise_mapping.get(exercise_name, "military_press")
-
-        # Construir ruta al CSV del experto
+        # Construir ruta al CSV del experto (YA NO REPETIR EL MAPEO)
         expert_csv_name = f"{mapped_exercise_name}_Expert.csv"
         expert_csv_path = os.path.join(DATA_DIR, expert_csv_name)
 
