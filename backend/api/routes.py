@@ -1,4 +1,4 @@
-""" Module for API routes"""
+"""Module for API routes - THREAD-SAFE VERSION"""
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse, FileResponse
@@ -7,19 +7,31 @@ from dotenv import load_dotenv
 from email.message import EmailMessage
 import smtplib, ssl
 import uuid
+import asyncio
+import threading
+import time
+import json
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from jinja2 import Template
 import pandas as pd
-from typing import Tuple
+from typing import Tuple, Dict, Any
+import shutil
+import logging
 
+# Configurar logging
+logger = logging.getLogger(__name__)
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
-from data_synchronisation.synchronise_by_interpolation import synchronize_data_by_height
-from data_extraction.mediapipe_data_extractor import extract_landmarks_from_video
-from data_normalisation.normalise_skeleton import normalize_skeleton
-from data_visualisation.dual_body_visualisation import generate_dual_skeleton_video
+# CRÍTICO: Configurar matplotlib ANTES de cualquier import
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, BASE_DIR)
 
-# Importar la función get_all_exercises del módulo db_service
+# Configurar matplotlib para threading
+from src.config.matplotlib_config import configure_matplotlib_for_threading
+
+configure_matplotlib_for_threading()
+
+# Ahora importar el resto
 sys.path.append(
     os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "services", "database")
@@ -43,12 +55,36 @@ from request_schemas import (
     ResetPasswordRequest,
 )
 
+# IMPORTACIONES para análisis de ejercicios
+from src.exercise_processor import ExerciseProcessor
+
 load_dotenv()
 PASSWORD = os.getenv("EMAIL_PASSWORD")
 EMAIL_SENDER = os.getenv("EMAIL_SENDER")
 
-
 router = APIRouter()
+
+# Estado global de trabajos con thread safety
+jobs_state: Dict[str, Dict[str, Any]] = {}
+jobs_lock = threading.Lock()
+
+# ThreadPoolExecutor configurado para thread safety
+executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ExerciseProcessor")
+
+# Configuración de rutas
+TEMP_DIR = os.path.join(BASE_DIR, "temp_jobs")
+VIDEOS_DIR = os.path.join(BASE_DIR, "media", "videos")
+DATA_DIR = os.path.join(BASE_DIR, "media", "data")
+CONFIG_PATH = os.path.join(BASE_DIR, "src", "config", "config.json")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "pose_landmarker_lite.task")
+
+# Asegurar que existen los directorios necesarios
+os.makedirs(TEMP_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# ===============================
+# RUTAS ORIGINALES (MANTENER IGUAL)
+# ===============================
 
 token_dict = {}
 
@@ -56,13 +92,10 @@ token_dict = {}
 @router.post("/forgot-password")
 def forgot_password(request: ForgotPasswordRequest):
     """Forgot password"""
-    # Verificar si el email está registrado
     if not user_exists(email=request.email):
         raise HTTPException(status_code=404, detail="Email not found")
 
-    # Generar token
     token = generate_token(email=request.email)
-
     content = load_recovery_template(token)
 
     em = EmailMessage()
@@ -86,10 +119,8 @@ def reset_password(request: ResetPasswordRequest):
     if is_token_expired(request.token):
         raise HTTPException(status_code=400, detail="Token expired")
     email = token_dict[request.token]["email"]
-    # Cambiar la contraseña
     if not change_password(email=email, password=request.new_password):
         raise HTTPException(status_code=400, detail="Bad request")
-    # Eliminar el token
     del token_dict[request.token]
     return {"success": True}
 
@@ -132,17 +163,9 @@ def get_users():
 @router.get("/video")
 def get_video(video_name: str = Query(...)):
     """Get exercise video"""
-    video_path = os.path.join(
-        os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "media", "videos")
-        ),
-        video_name,
-    )
-    # Check if the file exists
+    video_path = os.path.join(VIDEOS_DIR, video_name)
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Video not found")
-
-    # Check if the file is a .mp4 file
     if not video_path.endswith(".mp4"):
         return
 
@@ -156,184 +179,428 @@ def get_video(video_name: str = Query(...)):
 @router.get("/image")
 async def get_image(image_name: str = Query(...)):
     """Get exercise image"""
-    image_path = os.path.join(
-        os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "media", "images")
-        ),
-        image_name,
-    )
-    # Check if the file exists
+    image_path = os.path.join(BASE_DIR, "media", "images", image_name)
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(image_path)
 
 
-import time
+# ===============================
+# NUEVAS RUTAS DE ANÁLISIS (THREAD-SAFE)
+# ===============================
 
 
-@router.post("/inference")
-async def inference(file: UploadFile = File(...)):
-    print("[INFO] Iniciando procesamiento de solicitud de inferencia.")
-    videos_folder, data_folder = get_directories()
-
-    try:
-        input_video_path = save_uploaded_file(videos_folder, file)
-        file_name = os.path.splitext(os.path.basename(input_video_path))[0]
-
-        output_video_path = process_landmarks_and_generate_video(
-            input_video_path, data_folder, videos_folder, file_name
-        )
-
-        def iterfile():
-            with open(output_video_path, mode="rb") as video:
-                while chunk := video.read(1024 * 1024):
-                    yield chunk
-
-        print("[INFO] Procesamiento completado exitosamente.")
-        response = StreamingResponse(iterfile(), media_type="video/mp4")
-        response.headers["Content-Disposition"] = (
-            f"attachment; filename={os.path.basename(output_video_path)}"
-        )
-
-        return response
-
-    except HTTPException as e:
-        print(f"[ERROR] HTTPException: {e.detail}")
-        raise e
-    except Exception as e:
-        print(f"[ERROR] Error inesperado: {e}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor.")
-
-
-# FUNCIONES AUXILIARES
-
-
-# Constantes de directorios
-def get_directories() -> Tuple[str, str]:
-    base_path = os.path.dirname(__file__)
-    videos_folder = os.path.join(base_path, "..", "media", "videos")
-    data_folder = os.path.join(base_path, "..", "media", "data")
-    return videos_folder, data_folder
-
-
-# Función para guardar archivo subido
-def save_uploaded_file(upload_folder: str, file: UploadFile) -> str:
-    os.makedirs(upload_folder, exist_ok=True)
-
-    file_extension = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join(upload_folder, unique_filename)
-
-    try:
-        print(f"[INFO] Guardando archivo en: {file_path}")
-        file.file.seek(0)
-        with open(file_path, "wb") as buffer:
-            buffer.write(file.file.read())
-
-        file_size = os.path.getsize(file_path)
-        if file_size == 0:
-            raise HTTPException(status_code=500, detail="El archivo subido está vacío.")
-
-        print(
-            f"[INFO] Archivo guardado correctamente: {unique_filename} ({file_size} bytes)"
-        )
-    except Exception as e:
-        print(f"[ERROR] Error al guardar el archivo: {e}")
-        raise HTTPException(
-            status_code=500, detail="Error al procesar el archivo subido."
-        )
-
-    return file_path
-
-
-# Función para procesar landmarks y generar video
-def process_landmarks_and_generate_video(
-    input_video_path: str, data_folder: str, videos_folder: str, file_name: str
+@router.post("/analyze-exercise")
+async def analyze_exercise(
+    file: UploadFile = File(...), exercise_name: str = Query(default="military_press")
 ):
-    landmarks_csv_path = os.path.join(data_folder, f"LANDMARKS_{file_name}.csv")
-    print(f"[INFO] Iniciando extracción de landmarks a: {landmarks_csv_path}")
+    """
+    Inicia análisis completo de ejercicio.
+    VERSION THREAD-SAFE con cleanup automático.
+    """
+    job_id = str(uuid.uuid4())
+
+    # Thread-safe job creation
+    with jobs_lock:
+        # Crear directorio para este trabajo
+        job_dir = os.path.join(TEMP_DIR, job_id)
+        os.makedirs(job_dir, exist_ok=True)
+
+        # Guardar video subido
+        user_video_path = os.path.join(job_dir, f"user_video_{file.filename}")
+
+        # Inicializar estado del trabajo
+        jobs_state[job_id] = {
+            "status": "processing",
+            "completed_steps": [],
+            "current_step": "saving_video",
+            "assets_ready": {
+                "radar": False,
+                "video": False,
+                "feedback": False,
+                "report": False,
+            },
+            "urls": {},
+            "created_at": datetime.now(),
+            "job_dir": job_dir,
+            "user_video": user_video_path,
+            "exercise_name": exercise_name,
+            "error": None,
+        }
 
     try:
-        extract_landmarks_from_video(input_video_path, landmarks_csv_path)
-        print("[INFO] Landmarks extraídos correctamente.")
+        # Guardar video
+        with open(user_video_path, "wb") as buffer:
+            buffer.write(await file.read())
+
+        # Construir ruta al CSV del experto
+        expert_csv_name = f"{exercise_name}_Expert.csv"
+        expert_csv_path = os.path.join(DATA_DIR, expert_csv_name)
+
+        if not os.path.exists(expert_csv_path):
+            with jobs_lock:
+                jobs_state[job_id]["status"] = "error"
+                jobs_state[job_id]["error"] = f"Expert CSV not found: {expert_csv_name}"
+            raise HTTPException(
+                status_code=404,
+                detail=f"Expert CSV not found: media/data/{expert_csv_name}",
+            )
+
+        # Añadir ruta del experto al estado
+        with jobs_lock:
+            jobs_state[job_id]["expert_csv"] = expert_csv_path
+            jobs_state[job_id]["current_step"] = "initializing"
+
+        # Iniciar procesamiento asíncrono
+        asyncio.create_task(process_exercise_async(job_id))
+
+        return {"job_id": job_id, "status": "processing"}
+
     except Exception as e:
-        print(f"[ERROR] Error durante la extracción de landmarks: {e}")
-        raise HTTPException(
-            status_code=500, detail="Error durante la extracción de landmarks."
-        )
+        # Cleanup en caso de error
+        with jobs_lock:
+            jobs_state[job_id]["status"] = "error"
+            jobs_state[job_id]["error"] = str(e)
+
+        logger.error(f"Error inicializando job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/jobs/{job_id}")
+async def get_job_status(job_id: str):
+    """Obtiene estado actual del trabajo (thread-safe)."""
+    with jobs_lock:
+        if job_id not in jobs_state:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        job = jobs_state[job_id].copy()  # Crear copia para evitar race conditions
+
+    # Construir URLs para assets listos
+    urls = {}
+    if job["assets_ready"]["radar"]:
+        urls["radar"] = f"/assets/{job_id}/radar.png"
+    if job["assets_ready"]["video"]:
+        urls["video"] = f"/assets/{job_id}/video.mp4"
+    if job["assets_ready"]["feedback"]:
+        urls["feedback"] = f"/assets/{job_id}/feedback.txt"
+    if job["assets_ready"]["report"]:
+        urls["report"] = f"/assets/{job_id}/report.json"
+
+    return {
+        "status": job["status"],
+        "completed_steps": job["completed_steps"],
+        "current_step": job["current_step"],
+        "assets_ready": job["assets_ready"],
+        "urls": urls,
+        "error": job.get("error"),
+    }
+
+
+@router.get("/assets/{job_id}/radar.png")
+async def get_radar_asset(job_id: str):
+    """Devuelve el gráfico radar del análisis."""
+    with jobs_lock:
+        if job_id not in jobs_state:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job_dir = jobs_state[job_id]["job_dir"]
+
+    radar_path = os.path.join(job_dir, "analysis", "radar_analysis.png")
+    if not os.path.exists(radar_path):
+        raise HTTPException(status_code=404, detail="Radar not ready")
+    return FileResponse(radar_path, media_type="image/png")
+
+
+@router.get("/assets/{job_id}/video.mp4")
+async def get_video_asset(job_id: str):
+    """Devuelve el video comparativo."""
+    with jobs_lock:
+        if job_id not in jobs_state:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job_dir = jobs_state[job_id]["job_dir"]
+
+    video_path = os.path.join(job_dir, "comparison_video.mp4")
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="Video not ready")
+
+    def iterfile():
+        with open(video_path, mode="rb") as video:
+            yield from video
+
+    return StreamingResponse(iterfile(), media_type="video/mp4")
+
+
+@router.get("/assets/{job_id}/feedback.txt")
+async def get_feedback_asset(job_id: str):
+    """Devuelve el feedback personalizado."""
+    with jobs_lock:
+        if job_id not in jobs_state:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job_dir = jobs_state[job_id]["job_dir"]
+
+    feedback_path = os.path.join(job_dir, "analysis", "personalized_feedback.txt")
+    if not os.path.exists(feedback_path):
+        raise HTTPException(status_code=404, detail="Feedback not ready")
+    return FileResponse(feedback_path, media_type="text/plain")
+
+
+@router.get("/assets/{job_id}/report.json")
+async def get_report_asset(job_id: str):
+    """Devuelve el reporte de análisis."""
+    with jobs_lock:
+        if job_id not in jobs_state:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job_dir = jobs_state[job_id]["job_dir"]
+        exercise_name = jobs_state[job_id]["exercise_name"]
+
+    report_path = os.path.join(job_dir, "analysis", f"{exercise_name}_report.json")
+    if not os.path.exists(report_path):
+        raise HTTPException(status_code=404, detail="Report not ready")
+    return FileResponse(report_path, media_type="application/json")
+
+
+@router.delete("/jobs/{job_id}")
+async def cleanup_job(job_id: str):
+    """Limpia archivos temporales de un trabajo."""
+    with jobs_lock:
+        if job_id not in jobs_state:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        job_dir = jobs_state[job_id]["job_dir"]
+
+        # Eliminar directorio y archivos
+        if os.path.exists(job_dir):
+            shutil.rmtree(job_dir)
+
+        # Remover del estado
+        del jobs_state[job_id]
+
+    return {"message": "Job cleaned up successfully"}
+
+
+# ===============================
+# LÓGICA DE PROCESAMIENTO THREAD-SAFE
+# ===============================
+
+
+async def process_exercise_async(job_id: str):
+    """
+    Procesa el ejercicio de forma asíncrona con thread safety completo.
+    """
+    processor = None
 
     try:
-        user_data = pd.read_csv(landmarks_csv_path)
-        example_data_path = os.path.join(data_folder, "press_example.csv")
-        if not os.path.exists(example_data_path):
-            raise FileNotFoundError("Archivo de ejemplo no encontrado.")
+        # Obtener datos del job de forma thread-safe
+        with jobs_lock:
+            if job_id not in jobs_state:
+                return
+            job = jobs_state[job_id].copy()
 
-        example_data = pd.read_csv(example_data_path)
-        print("[INFO] Landmarks cargados correctamente.")
-
-        reference_lengths = [
-            (("landmark_right_wrist", "landmark_right_elbow"), 0.26),
-            (("landmark_right_elbow", "landmark_right_shoulder"), 0.34),
-            (("landmark_right_shoulder", "landmark_left_shoulder"), 0.44),
-            (("landmark_left_shoulder", "landmark_left_elbow"), 0.34),
-            (("landmark_left_elbow", "landmark_left_wrist"), 0.26),
-            (("landmark_right_shoulder", "landmark_right_hip"), 0.48),
-            (("landmark_left_shoulder", "landmark_left_hip"), 0.48),
-        ]
-
-        user_normalized_data = normalize_skeleton(user_data, reference_lengths)
-        example_normalized_data = normalize_skeleton(example_data, reference_lengths)
-        print("[INFO] Landmarks normalizados correctamente.")
-
-        user_processed_data, example_processed_data = synchronize_data_by_height(
-            user_normalized_data, example_normalized_data
+        # Crear processor con cleanup automático
+        processor = ExerciseProcessor(
+            job["user_video"],
+            job["expert_csv"],
+            job["exercise_name"],
+            job["job_dir"],
+            CONFIG_PATH,
+            MODEL_PATH,
         )
-        print("[INFO] Landmarks sincronizados correctamente.")
 
-        output_video_path = os.path.join(videos_folder, f"OUTPUT_{file_name}.mp4")
-        generate_dual_skeleton_video(
-            user_processed_data, example_processed_data, output_video_path
-        )
-        print(f"[INFO] Video generado en: {output_video_path}")
+        # Ejecutar pasos secuenciales
+        await run_sequential_steps(job_id, processor)
 
-        return output_video_path
+        # Ejecutar análisis
+        await run_analysis_step(job_id, processor)
+
+        # Ejecutar pasos paralelos
+        await run_parallel_steps(job_id, processor)
+
+        # Marcar como completado
+        with jobs_lock:
+            if job_id in jobs_state:
+                jobs_state[job_id]["status"] = "completed"
+                jobs_state[job_id]["current_step"] = "finished"
+
+        logger.info(f"✅ Job {job_id} completado exitosamente")
+
     except Exception as e:
-        print(
-            f"[ERROR] Error durante el procesamiento de landmarks o generación de video: {e}"
-        )
-        raise HTTPException(
-            status_code=500, detail="Error al procesar landmarks o generar video."
-        )
+        logger.error(f"❌ Error en job {job_id}: {e}")
+        with jobs_lock:
+            if job_id in jobs_state:
+                jobs_state[job_id]["status"] = "error"
+                jobs_state[job_id]["error"] = str(e)
+
     finally:
-        if os.path.exists(landmarks_csv_path):
-            os.remove(landmarks_csv_path)
-        if os.path.exists(input_video_path):
-            os.remove(input_video_path)
+        # CRÍTICO: Cleanup final del processor
+        if processor:
+            try:
+                processor.cleanup_all_resources()
+                logger.debug(f"🧹 Cleanup completado para job {job_id}")
+            except Exception as cleanup_error:
+                logger.warning(f"⚠️ Error en cleanup final: {cleanup_error}")
+
+
+def update_job_step(job_id: str, step_name: str, completed: bool = False):
+    """Actualiza el estado del job de forma thread-safe."""
+    with jobs_lock:
+        if job_id in jobs_state:
+            jobs_state[job_id]["current_step"] = step_name
+            if completed:
+                jobs_state[job_id]["completed_steps"].append(step_name)
+
+
+async def run_sequential_steps(job_id: str, processor: ExerciseProcessor):
+    """Ejecuta pasos 1-6 secuencialmente con thread safety."""
+    steps = [
+        ("extraction", processor.extract_landmarks_user_only),
+        ("load_expert", processor.load_expert_data),
+        ("repetition_detection", processor.detect_repetitions),
+        ("synchronization", processor.synchronize_data),
+        ("normalization", processor.normalize_skeletons),
+        ("alignment", processor.align_skeletons),
+    ]
+
+    for step_name, step_func in steps:
+        update_job_step(job_id, step_name)
+
+        # Ejecutar en thread con manejo de errores
+        loop = asyncio.get_event_loop()
+        try:
+            await loop.run_in_executor(executor, step_func)
+            update_job_step(job_id, step_name, completed=True)
+            logger.debug(f"✅ Paso {step_name} completado para job {job_id}")
+        except Exception as e:
+            logger.error(f"❌ Error en paso {step_name} para job {job_id}: {e}")
+            raise
+
+
+async def run_analysis_step(job_id: str, processor: ExerciseProcessor):
+    """Ejecuta paso 7: análisis detallado con thread safety."""
+    update_job_step(job_id, "analysis")
+
+    loop = asyncio.get_event_loop()
+    try:
+        await loop.run_in_executor(executor, processor.run_analysis)
+
+        # Marcar assets como listos
+        with jobs_lock:
+            if job_id in jobs_state:
+                jobs_state[job_id]["assets_ready"]["radar"] = True
+                jobs_state[job_id]["assets_ready"]["report"] = True
+
+        update_job_step(job_id, "analysis", completed=True)
+        logger.debug(f"✅ Análisis completado para job {job_id}")
+
+    except Exception as e:
+        logger.error(f"❌ Error en análisis para job {job_id}: {e}")
+        raise
+
+
+async def run_parallel_steps(job_id: str, processor: ExerciseProcessor):
+    """Ejecuta pasos 6 y 8 en paralelo con thread safety."""
+    update_job_step(job_id, "generating_assets")
+
+    loop = asyncio.get_event_loop()
+
+    # Tasks paralelos
+    video_task = loop.run_in_executor(executor, processor.generate_video)
+    feedback_task = loop.run_in_executor(executor, processor.generate_feedback)
+
+    # Esperar resultados
+    video_result, feedback_result = await asyncio.gather(
+        video_task, feedback_task, return_exceptions=True
+    )
+
+    # Actualizar estado según resultados
+    with jobs_lock:
+        if job_id in jobs_state:
+            if not isinstance(video_result, Exception):
+                jobs_state[job_id]["assets_ready"]["video"] = True
+                jobs_state[job_id]["completed_steps"].append("video_generation")
+                logger.debug(f"✅ Video generado para job {job_id}")
+            else:
+                logger.error(
+                    f"❌ Error generando video para job {job_id}: {video_result}"
+                )
+
+            if not isinstance(feedback_result, Exception):
+                jobs_state[job_id]["assets_ready"]["feedback"] = True
+                jobs_state[job_id]["completed_steps"].append("feedback_generation")
+                logger.debug(f"✅ Feedback generado para job {job_id}")
+            else:
+                logger.error(
+                    f"❌ Error generando feedback para job {job_id}: {feedback_result}"
+                )
+
+
+# ===============================
+# FUNCIONES AUXILIARES ORIGINALES
+# ===============================
 
 
 def load_recovery_template(token: str) -> str:
-    # Aquí cargamos y preparamos la plantilla HTML con el token.
+    """Carga plantilla de recuperación de contraseña."""
     with open(
         os.path.join(os.path.dirname(__file__), "..", "templates", "recovery.html"), "r"
     ) as f:
         template = f.read()
-
-    # Usar Jinja2 para reemplazar el token en la plantilla
     t = Template(template)
     return t.render(token=token)
 
 
-# Función para generar un token con expiración
 def generate_token(email):
+    """Genera token con expiración."""
     token = str(uuid.uuid4())
     expiration_time = datetime.now() + timedelta(minutes=5)
     token_dict[token] = {"email": email, "expires_at": expiration_time}
     return token
 
 
-# Función para verificar si el token está expirado
 def is_token_expired(token):
+    """Verifica si el token está expirado."""
     if token in token_dict:
         expiration_time = token_dict[token]["expires_at"]
         return datetime.now() > expiration_time
     return False
+
+
+# ===============================
+# CLEANUP AUTOMÁTICO
+# ===============================
+
+
+async def periodic_cleanup():
+    """Limpia trabajos antiguos periódicamente."""
+    while True:
+        try:
+            current_time = datetime.now()
+            jobs_to_remove = []
+
+            with jobs_lock:
+                for job_id, job in jobs_state.items():
+                    # Eliminar trabajos de más de 1 hora
+                    if current_time - job["created_at"] > timedelta(hours=1):
+                        jobs_to_remove.append(job_id)
+
+                for job_id in jobs_to_remove:
+                    try:
+                        job_dir = jobs_state[job_id]["job_dir"]
+                        if os.path.exists(job_dir):
+                            shutil.rmtree(job_dir)
+                        del jobs_state[job_id]
+                        logger.info(f"🧹 Job {job_id} limpiado automáticamente")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Error limpiando job {job_id}: {e}")
+
+        except Exception as e:
+            logger.error(f"❌ Error en cleanup periódico: {e}")
+
+        # Ejecutar cada 30 minutos
+        await asyncio.sleep(1800)
+
+
+# Iniciar cleanup al cargar el módulo
+@router.on_event("startup")
+async def startup_cleanup():
+    """Inicia cleanup automático."""
+    asyncio.create_task(periodic_cleanup())
+    logger.info("🧹 Cleanup automático iniciado")

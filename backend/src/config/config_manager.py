@@ -1,8 +1,9 @@
-# config_manager.py
+# config_manager.py - THREAD-SAFE VERSION
 import json
 import os
 import logging
 import sys
+import threading
 
 # Configurar rutas absolutas para importaciones
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -12,39 +13,52 @@ logger = logging.getLogger(__name__)
 
 class ConfigManager:
     """
-    Gestor de configuración implementado como un Singleton real.
+    Gestor de configuración implementado como un Singleton real THREAD-SAFE.
     Carga archivos de configuración una sola vez y mantiene
     configuraciones persistentes como atributos.
     """
 
     # Instancia única (singleton)
     _instance = None
+    _lock = threading.Lock()  # Lock para thread safety
 
     def __new__(cls, config_path=None):
-        """Crea o devuelve la instancia singleton."""
+        """Crea o devuelve la instancia singleton de forma thread-safe."""
+        # Double-checked locking pattern
         if cls._instance is None:
-            logger.debug("Creating new ConfigManager instance")
-            cls._instance = super(ConfigManager, cls).__new__(cls)
-            cls._instance._initialized = False
+            with cls._lock:
+                if cls._instance is None:
+                    logger.debug("Creating new ConfigManager instance (thread-safe)")
+                    cls._instance = super(ConfigManager, cls).__new__(cls)
+                    cls._instance._initialized = False
         return cls._instance
 
     def __init__(self, config_path=None):
-        """Inicializa el ConfigManager solo una vez."""
+        """Inicializa el ConfigManager solo una vez de forma thread-safe."""
         # Evitar inicialización múltiple
         if self._initialized:
             return
 
         logger.info(f"Initializing ConfigManager with configuration: {config_path}")
-        self._initialized = True
 
-        # Atributos de estado interno
-        self._loaded_files = {}  # Archivos completos cargados
-        self._exercise_configs = {}  # Configuraciones de ejercicios procesadas
-        self._landmark_mapping = self._init_landmark_mapping()
+        with self._lock:
+            if self._initialized:
+                return
 
-        # Cargar configuración inicial si se proporciona
-        if config_path:
-            self.load_config_file(config_path)
+            self._initialized = True
+
+            # Atributos de estado interno con locks individuales
+            self._loaded_files = {}  # Archivos completos cargados
+            self._exercise_configs = {}  # Configuraciones de ejercicios procesadas
+            self._landmark_mapping = self._init_landmark_mapping()
+
+            # Lock para operaciones de archivos
+            self._files_lock = threading.Lock()
+            self._configs_lock = threading.Lock()
+
+            # Cargar configuración inicial si se proporciona
+            if config_path:
+                self.load_config_file(config_path)
 
     def _init_landmark_mapping(self):
         """Inicializa el mapeo de landmarks (solo una vez)."""
@@ -86,7 +100,7 @@ class ConfigManager:
 
     def load_config_file(self, config_path):
         """
-        Carga un archivo de configuración en memoria.
+        Carga un archivo de configuración en memoria de forma thread-safe.
 
         Args:
             config_path: Ruta al archivo de configuración
@@ -98,38 +112,41 @@ class ConfigManager:
             FileNotFoundError: Si el archivo no existe
             ValueError: Si el archivo tiene formato inválido
         """
-        # Verificar si ya se cargó este archivo
-        if config_path in self._loaded_files:
-            logger.debug(f"File already loaded: {config_path}")
-            return True
+        with self._files_lock:
+            # Verificar si ya se cargó este archivo
+            if config_path in self._loaded_files:
+                logger.debug(f"File already loaded: {config_path}")
+                return True
 
-        # Verificar existencia del archivo
-        if not os.path.exists(config_path):
-            alt_path = os.path.join(os.path.dirname(__file__), config_path)
-            if not os.path.exists(alt_path):
-                raise FileNotFoundError(
-                    f"Configuration file not found at '{config_path}' or '{alt_path}'"
+            # Verificar existencia del archivo
+            if not os.path.exists(config_path):
+                alt_path = os.path.join(os.path.dirname(__file__), config_path)
+                if not os.path.exists(alt_path):
+                    raise FileNotFoundError(
+                        f"Configuration file not found at '{config_path}' or '{alt_path}'"
+                    )
+                config_path = alt_path
+
+            # Cargar el archivo
+            try:
+                logger.info(f"Loading configuration file: {config_path}")
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config_data = json.load(f)
+
+                # Almacenar el archivo cargado
+                self._loaded_files[config_path] = config_data
+                return True
+
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Invalid JSON in configuration file {config_path}: {e}"
                 )
-            config_path = alt_path
-
-        # Cargar el archivo
-        try:
-            logger.info(f"Loading configuration file: {config_path}")
-            with open(config_path, "r", encoding="utf-8") as f:
-                config_data = json.load(f)
-
-            # Almacenar el archivo cargado
-            self._loaded_files[config_path] = config_data
-            return True
-
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in configuration file {config_path}: {e}")
-        except Exception as e:
-            raise ValueError(f"Error loading configuration from {config_path}: {e}")
+            except Exception as e:
+                raise ValueError(f"Error loading configuration from {config_path}: {e}")
 
     def get_exercise_config(self, exercise_name, config_path):
         """
-        Obtiene la configuración de un ejercicio específico.
+        Obtiene la configuración de un ejercicio específico de forma thread-safe.
 
         Args:
             exercise_name: Nombre del ejercicio
@@ -147,16 +164,18 @@ class ConfigManager:
         # Clave única para cada combinación de ejercicio y archivo
         config_key = f"{exercise_name}:{config_path}"
 
-        # Verificar si ya tenemos esta configuración
-        if config_key in self._exercise_configs:
-            return self._exercise_configs[config_key]
+        with self._configs_lock:
+            # Verificar si ya tenemos esta configuración
+            if config_key in self._exercise_configs:
+                return self._exercise_configs[config_key]
 
         # Cargar archivo si es necesario
         if config_path not in self._loaded_files:
             self.load_config_file(config_path)
 
-        # Obtener datos del archivo
-        config_data = self._loaded_files[config_path]
+        with self._files_lock:
+            # Obtener datos del archivo
+            config_data = self._loaded_files[config_path]
 
         # Verificar si el ejercicio existe
         if exercise_name not in config_data:
@@ -181,32 +200,24 @@ class ConfigManager:
         # Validar configuración completa
         self._validate_complete_exercise_config(exercise_config, exercise_name)
 
-        # Guardar en atributos internos y retornar
-        self._exercise_configs[config_key] = exercise_config
+        with self._configs_lock:
+            # Guardar en atributos internos y retornar
+            self._exercise_configs[config_key] = exercise_config
+
         return exercise_config
 
     def get_exercise_landmarks_config(self, exercise_name, config_path):
         """
-        Obtiene la configuración de landmarks para un ejercicio específico.
-
-        Args:
-            exercise_name: Nombre del ejercicio
-            config_path: Ruta al archivo de configuración
-
-        Returns:
-            dict: Configuración de landmarks por métrica
-
-        Raises:
-            ValueError: Si el ejercicio no existe o la configuración está incompleta
+        Obtiene la configuración de landmarks para un ejercicio específico de forma thread-safe.
         """
-        # Normalizar nombre de ejercicio
         exercise_name = exercise_name.strip().lower().replace(" ", "_")
 
         # Cargar archivo si es necesario
         if config_path not in self._loaded_files:
             self.load_config_file(config_path)
 
-        config_data = self._loaded_files[config_path]
+        with self._files_lock:
+            config_data = self._loaded_files[config_path]
 
         # Verificar que existe exercise_landmarks_config
         if "exercise_landmarks_config" not in config_data:
@@ -227,25 +238,14 @@ class ConfigManager:
 
     def get_penalty_config(self, exercise_name, metric_type, metric_name, config_path):
         """
-        Obtiene la configuración de penalty para una métrica específica.
-
-        Args:
-            exercise_name: Nombre del ejercicio ("military_press", "squat", etc.)
-            metric_type: Tipo de métrica ("universal" o "specific")
-            metric_name: Nombre específico de la métrica
-            config_path: Ruta al archivo de configuración
-
-        Returns:
-            int: Valor de penalty configurado
-
-        Raises:
-            ValueError: Si no se encuentra la configuración de penalty
+        Obtiene la configuración de penalty para una métrica específica de forma thread-safe.
         """
         # Cargar archivo si es necesario
         if config_path not in self._loaded_files:
             self.load_config_file(config_path)
 
-        config_data = self._loaded_files[config_path]
+        with self._files_lock:
+            config_data = self._loaded_files[config_path]
 
         # Verificar que existe penalty_config
         if "penalty_config" not in config_data:
@@ -302,18 +302,7 @@ class ConfigManager:
 
     def get_sensitivity_factor(self, metric_name, exercise_name, config_path):
         """
-        Obtiene el factor de sensibilidad para una métrica específica.
-
-        Args:
-            metric_name: Nombre de la métrica
-            exercise_name: Nombre del ejercicio
-            config_path: Ruta al archivo de configuración
-
-        Returns:
-            float: Factor de sensibilidad
-
-        Raises:
-            ValueError: Si no se encuentra el factor de sensibilidad
+        Obtiene el factor de sensibilidad para una métrica específica de forma thread-safe.
         """
         exercise_config = self.get_exercise_config(exercise_name, config_path)
 
@@ -347,17 +336,7 @@ class ConfigManager:
 
     def get_scoring_weights(self, exercise_name, config_path):
         """
-        Obtiene los pesos de scoring para un ejercicio.
-
-        Args:
-            exercise_name: Nombre del ejercicio
-            config_path: Ruta al archivo de configuración
-
-        Returns:
-            dict: Diccionario con pesos de scoring
-
-        Raises:
-            ValueError: Si no se encuentran los pesos de scoring
+        Obtiene los pesos de scoring para un ejercicio de forma thread-safe.
         """
         exercise_config = self.get_exercise_config(exercise_name, config_path)
 
@@ -374,7 +353,8 @@ class ConfigManager:
         if config_path not in self._loaded_files:
             self.load_config_file(config_path)
 
-        config_data = self._loaded_files[config_path]
+        with self._files_lock:
+            config_data = self._loaded_files[config_path]
 
         if "scoring_weights" in config_data:
             weights = config_data["scoring_weights"]
@@ -390,18 +370,7 @@ class ConfigManager:
 
     def get_analysis_threshold(self, threshold_name, exercise_name, config_path):
         """
-        Obtiene un umbral específico de análisis.
-
-        Args:
-            threshold_name: Nombre del umbral (ej: "rom_threshold", "symmetry_threshold")
-            exercise_name: Nombre del ejercicio
-            config_path: Ruta al archivo de configuración
-
-        Returns:
-            float: Valor del umbral
-
-        Raises:
-            ValueError: Si no se encuentra el umbral
+        Obtiene un umbral específico de análisis de forma thread-safe.
         """
         exercise_config = self.get_exercise_config(exercise_name, config_path)
 
@@ -421,7 +390,8 @@ class ConfigManager:
         if config_path not in self._loaded_files:
             self.load_config_file(config_path)
 
-        config_data = self._loaded_files[config_path]
+        with self._files_lock:
+            config_data = self._loaded_files[config_path]
 
         if (
             "global_analysis_config" in config_data
@@ -438,16 +408,113 @@ class ConfigManager:
             f"Threshold '{threshold_name}' not found for exercise '{exercise_name}' or globally"
         )
 
+    def get_global_visualization_config(self, config_path):
+        """
+        Obtiene la configuración global de visualización de forma thread-safe.
+        """
+        # Cargar el archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        with self._files_lock:
+            config_data = self._loaded_files[config_path]
+
+        # Verificar que existe la configuración global de visualización
+        if "global_visualization" not in config_data:
+            raise ValueError("'global_visualization' not found in configuration file")
+
+        viz_config = config_data["global_visualization"]
+
+        # Verificar campos obligatorios
+        required_fields = [
+            "user_color",
+            "expert_color",
+            "user_alpha",
+            "expert_alpha",
+            "user_thickness",
+            "expert_thickness",
+            "show_labels",
+            "show_progress",
+            "text_info",
+            "resize_factor",
+        ]
+
+        missing_fields = [field for field in required_fields if field not in viz_config]
+        if missing_fields:
+            raise ValueError(
+                f"Missing required fields in 'global_visualization': {', '.join(missing_fields)}"
+            )
+
+        return viz_config
+
+    def get_global_connections(self, config_path):
+        """
+        Obtiene las conexiones globales para dibujar esqueletos de forma thread-safe.
+        """
+        # Cargar el archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        with self._files_lock:
+            config_data = self._loaded_files[config_path]
+
+        # Verificar que existe la configuración de conexiones globales
+        if "global_connections" not in config_data:
+            raise ValueError("'global_connections' not found in configuration file")
+
+        connections_data = config_data["global_connections"]
+
+        # Verificar que es una lista y no está vacía
+        if not isinstance(connections_data, list) or len(connections_data) == 0:
+            raise ValueError("'global_connections' must be a non-empty list")
+
+        # Verificar que cada conexión tiene exactamente 2 elementos
+        for i, conn in enumerate(connections_data):
+            if not isinstance(conn, list) or len(conn) != 2:
+                raise ValueError(f"Connection {i} must be a list of exactly 2 elements")
+            if not all(isinstance(item, str) for item in conn):
+                raise ValueError(f"Connection {i} must contain only strings")
+
+        # Convertir listas a tuplas
+        return [tuple(conn) for conn in connections_data]
+
+    def get_available_exercises(self, config_path):
+        """
+        Devuelve la lista de ejercicios disponibles en un archivo de configuración de forma thread-safe.
+        """
+        # Cargar el archivo si es necesario
+        if config_path not in self._loaded_files:
+            self.load_config_file(config_path)
+
+        with self._files_lock:
+            # Filtrar solo ejercicios (excluir configuraciones globales)
+            config_data = self._loaded_files[config_path]
+
+        excluded_keys = {
+            "global_visualization",
+            "global_connections",
+            "global_analysis_config",
+            "penalty_config",
+            "scoring_weights",
+            "skill_levels",
+            "exercise_landmarks_config",
+        }
+
+        return [k for k in config_data.keys() if k not in excluded_keys]
+
+    def clear_cache(self):
+        """Limpia todas las configuraciones cargadas de forma thread-safe (útil para pruebas)."""
+        with self._files_lock:
+            self._loaded_files.clear()
+
+        with self._configs_lock:
+            self._exercise_configs.clear()
+
+        logger.info("🧹 Configuration cache cleared (thread-safe)")
+
     def _validate_complete_exercise_config(self, exercise_config, exercise_name):
         """
         Valida que la configuración del ejercicio esté completa y sea válida.
-
-        Args:
-            exercise_config: Configuración del ejercicio
-            exercise_name: Nombre del ejercicio para mensajes de error
-
-        Raises:
-            ValueError: Si faltan campos obligatorios o son inválidos
         """
         # Campos obligatorios de primer nivel
         required_fields = [
@@ -560,126 +627,6 @@ class ConfigManager:
             for idx in landmark_indices
             if idx in self._landmark_mapping
         ]
-
-    def get_available_exercises(self, config_path):
-        """
-        Devuelve la lista de ejercicios disponibles en un archivo de configuración.
-
-        Args:
-            config_path: Ruta al archivo de configuración
-
-        Returns:
-            list: Lista de nombres de ejercicios disponibles
-        """
-        # Cargar el archivo si es necesario
-        if config_path not in self._loaded_files:
-            self.load_config_file(config_path)
-
-        # Filtrar solo ejercicios (excluir configuraciones globales)
-        config_data = self._loaded_files[config_path]
-        excluded_keys = {
-            "global_visualization",
-            "global_connections",
-            "global_analysis_config",
-            "penalty_config",
-            "scoring_weights",
-            "skill_levels",
-            "exercise_landmarks_config",
-        }
-
-        return [k for k in config_data.keys() if k not in excluded_keys]
-
-    def get_global_visualization_config(self, config_path):
-        """
-        Obtiene la configuración global de visualización.
-
-        Args:
-            config_path: Ruta al archivo de configuración
-
-        Returns:
-            dict: Configuración de visualización global
-
-        Raises:
-            ValueError: Si no se encuentra la configuración requerida
-        """
-        # Cargar el archivo si es necesario
-        if config_path not in self._loaded_files:
-            self.load_config_file(config_path)
-
-        config_data = self._loaded_files[config_path]
-
-        # Verificar que existe la configuración global de visualización
-        if "global_visualization" not in config_data:
-            raise ValueError("'global_visualization' not found in configuration file")
-
-        viz_config = config_data["global_visualization"]
-
-        # Verificar campos obligatorios
-        required_fields = [
-            "user_color",
-            "expert_color",
-            "user_alpha",
-            "expert_alpha",
-            "user_thickness",
-            "expert_thickness",
-            "show_labels",
-            "show_progress",
-            "text_info",
-            "resize_factor",
-        ]
-
-        missing_fields = [field for field in required_fields if field not in viz_config]
-        if missing_fields:
-            raise ValueError(
-                f"Missing required fields in 'global_visualization': {', '.join(missing_fields)}"
-            )
-
-        return viz_config
-
-    def get_global_connections(self, config_path):
-        """
-        Obtiene las conexiones globales para dibujar esqueletos.
-
-        Args:
-            config_path: Ruta al archivo de configuración
-
-        Returns:
-            list: Lista de tuplas con conexiones entre landmarks
-
-        Raises:
-            ValueError: Si no se encuentra la configuración requerida
-        """
-        # Cargar el archivo si es necesario
-        if config_path not in self._loaded_files:
-            self.load_config_file(config_path)
-
-        config_data = self._loaded_files[config_path]
-
-        # Verificar que existe la configuración de conexiones globales
-        if "global_connections" not in config_data:
-            raise ValueError("'global_connections' not found in configuration file")
-
-        connections_data = config_data["global_connections"]
-
-        # Verificar que es una lista y no está vacía
-        if not isinstance(connections_data, list) or len(connections_data) == 0:
-            raise ValueError("'global_connections' must be a non-empty list")
-
-        # Verificar que cada conexión tiene exactamente 2 elementos
-        for i, conn in enumerate(connections_data):
-            if not isinstance(conn, list) or len(conn) != 2:
-                raise ValueError(f"Connection {i} must be a list of exactly 2 elements")
-            if not all(isinstance(item, str) for item in conn):
-                raise ValueError(f"Connection {i} must contain only strings")
-
-        # Convertir listas a tuplas
-        return [tuple(conn) for conn in connections_data]
-
-    def clear_cache(self):
-        """Limpia todas las configuraciones cargadas (útil para pruebas)."""
-        self._loaded_files.clear()
-        self._exercise_configs.clear()
-        logger.info("Configuration cache cleared")
 
 
 # Instancia global para facilitar el uso
