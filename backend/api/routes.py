@@ -224,7 +224,7 @@ async def analyze_exercise(
             "created_at": datetime.now(),
             "job_dir": job_dir,
             "user_video": user_video_path,
-            "exercise_name": exercise_name,
+            "exercise_name": mapped_exercise_name,
             "error": None,
         }
 
@@ -234,7 +234,19 @@ async def analyze_exercise(
             buffer.write(await file.read())
 
         # Construir ruta al CSV del experto
-        expert_csv_name = f"{exercise_name}_Expert.csv"
+        exercise_mapping = {
+            "press_militar_con_mancuernas": "military_press",
+            "military_press": "military_press",
+            "bench_press": "bench_press",
+            "squat": "squat",
+            "pull_up": "pull_up",
+        }
+
+        # Mapear el nombre del ejercicio
+        mapped_exercise_name = exercise_mapping.get(exercise_name, "military_press")
+
+        # Construir ruta al CSV del experto
+        expert_csv_name = f"{mapped_exercise_name}_Expert.csv"
         expert_csv_path = os.path.join(DATA_DIR, expert_csv_name)
 
         if not os.path.exists(expert_csv_path):
