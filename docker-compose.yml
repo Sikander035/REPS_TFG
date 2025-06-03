@@ -29,6 +29,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
       MONGO_CONTAINER_NAME: "reps-mongo-container"
       MONGO_DB_NAME: "${MONGO_DB_NAME}"
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY}"
     depends_on:
       - mongodb
 
