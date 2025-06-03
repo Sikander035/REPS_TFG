@@ -62,7 +62,6 @@ const About = () => {
                     } />
                     <div className='author-section'>
                         <GitHubLink username={"Sikander035"} />
-                        <GitHubLink username={"AntonioGomez03"} />
                     </div>
                 </div>
             </div>

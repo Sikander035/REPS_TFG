@@ -4,7 +4,7 @@ import React from 'react';
 const Footer = () => {
     return (
         <div className='footer'>
-            <p>© 2024 Marcelo Chinarro y Antonio Gómez</p>
+            <p>© 2024 Marcelo Chinarro Cabrero</p>
         </div>
     );
 };
