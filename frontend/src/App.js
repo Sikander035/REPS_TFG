@@ -7,6 +7,7 @@ import FAQ from './pages/FAQ';
 import Exercises from './pages/Exercises';
 import ResetPassword from './pages/ResetPassword';
 import ForgotPassword from './pages/ForgotPassword';
+import Feedback from './pages/Feedback';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/exercises" element={<Exercises />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/feedback" element={<Feedback />} />
       </Routes>
     </Router>
   );
