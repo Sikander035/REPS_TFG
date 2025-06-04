@@ -1,4 +1,5 @@
-# Dependencias principales
+# Requirements SIN opencv ni mediapipe (se instalan por separado)
+
 pymongo==4.10.1
 fastapi==0.115.5
 uvicorn==0.32.1
@@ -14,6 +15,8 @@ moviepy==1.0.3
 imageio>=2.5.0
 openai
 
-# MediaPipe y OpenCV con versiones específicas
-opencv-python==4.10.0.84
-mediapipe==0.10.20
+
+# Nota: opencv-python y mediapipe se instalan en el Dockerfile
+# Si deseas instalarlo localmente, descomenta las siguientes líneas:
+# opencv-python==4.10.0.84
+# mediapipe==0.10.20
