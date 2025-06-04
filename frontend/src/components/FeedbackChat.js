@@ -10,6 +10,44 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
     const typingIntervalRef = useRef(null);
     const typingSpeedRef = useRef(20); // milisegundos entre caracteres (ajustable)
     
+    // Función para limpiar el texto eliminando el último párrafo si termina en ")."
+    const cleanFeedbackText = (text) => {
+        if (!text) return text;
+        
+        // Buscar la última ocurrencia de ")."
+        const lastParenDotIndex = text.lastIndexOf(').');
+        
+        if (lastParenDotIndex === -1) {
+            // No hay ")." en el texto, devolver como está
+            return text;
+        }
+        
+        // Verificar si ")." está al final del texto (puede haber espacios o saltos de línea después)
+        const afterParenDot = text.substring(lastParenDotIndex + 2).trim();
+        
+        if (afterParenDot === '') {
+            // ")." está al final, buscar el punto anterior
+            const textBeforeParenDot = text.substring(0, lastParenDotIndex);
+            const previousDotIndex = textBeforeParenDot.lastIndexOf('.');
+            
+            if (previousDotIndex !== -1) {
+                // Encontró un punto anterior, cortar hasta ahí (incluyendo el punto)
+                return text.substring(0, previousDotIndex + 1);
+            } else {
+                // No hay punto anterior, devolver el texto sin el párrafo que termina en ")."
+                // Buscar el inicio del último párrafo
+                const paragraphs = text.split('\n\n');
+                if (paragraphs.length > 1) {
+                    paragraphs.pop(); // Eliminar el último párrafo
+                    return paragraphs.join('\n\n');
+                }
+            }
+        }
+        
+        // Si no cumple las condiciones, devolver el texto original
+        return text;
+    };
+    
     // Detectar cuando llega el feedback y empezar a escribir
     useEffect(() => {
         console.log('🔍 FeedbackChat useEffect triggered:', {
@@ -23,13 +61,22 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
         // Iniciar typewriter si hay texto y no ha empezado
         if (feedbackText && feedbackText.length > 0 && !hasStartedTyping && !error) {
             console.log('🎯 Starting typewriter effect...');
+            
+            // Limpiar el texto antes de procesarlo
+            const cleanedText = cleanFeedbackText(feedbackText);
+            console.log('🧹 Text cleaned:', {
+                originalLength: feedbackText.length,
+                cleanedLength: cleanedText.length,
+                removed: feedbackText.length - cleanedText.length
+            });
+            
             setIsTyping(true);
             setHasStartedTyping(true);
             setDisplayedText(''); // Asegurar que empiece vacío
             
             // Usar setTimeout para asegurar que el estado se actualice primero
             setTimeout(() => {
-                startTypewriterEffect(feedbackText);
+                startTypewriterEffect(cleanedText);
             }, 50);
         }
         
@@ -103,7 +150,9 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
             if (typingIntervalRef.current) {
                 clearTimeout(typingIntervalRef.current);
             }
-            setDisplayedText(feedbackText);
+            // Usar el texto limpio al saltar la animación
+            const cleanedText = cleanFeedbackText(feedbackText);
+            setDisplayedText(cleanedText);
             setIsTyping(false);
         }
     };
@@ -115,13 +164,16 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
         }
         
         if (feedbackText) {
+            // Limpiar el texto para mostrar
+            const cleanedText = cleanFeedbackText(feedbackText);
+            
             // Si está escribiendo o ya empezó a escribir, mostrar el texto parcial
             if (hasStartedTyping) {
-                console.log('📖 Showing partial text:', displayedText.length, 'of', feedbackText.length);
+                console.log('📖 Showing partial text:', displayedText.length, 'of', cleanedText.length);
                 return displayedText;
             }
-            // Si no ha empezado a escribir, mostrar el texto completo (fallback)
-            return feedbackText;
+            // Si no ha empezado a escribir, mostrar el texto limpio completo (fallback)
+            return cleanedText;
         }
         
         if (isLoading) {
@@ -249,12 +301,12 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
                                             <span className="feedback-typing-cursor">|</span>
                                         </div>
                                     ) : (
-                                        // Fallback: mostrar todo el texto
+                                        // Fallback: mostrar todo el texto limpio
                                         <ReactMarkdown 
                                             components={markdownComponents}
                                             remarkPlugins={[remarkGfm]}
                                         >
-                                            {feedbackText}
+                                            {cleanFeedbackText(feedbackText)}
                                         </ReactMarkdown>
                                     )}
                                     
