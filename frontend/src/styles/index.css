@@ -953,19 +953,21 @@ body {
 }
 
 /* ===============================
-   COMPONENTE CHAT DE FEEDBACK
+   FEEDBACK CHAT - CONTENEDOR PRINCIPAL
    =============================== */
 
 .feedback-chat-container {
   background-color: var(--primary-color);
   border-radius: 12px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   padding: 20px;
-  min-height: 200px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .feedback-chat-header {
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
 .feedback-chat-header h3 {
@@ -978,7 +980,7 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 15px;
-  margin-bottom: 15px;
+  flex: 1;
 }
 
 .feedback-chat-avatar {
@@ -990,44 +992,99 @@ body {
   height: 50px;
   border-radius: 50%;
   border: 2px solid var(--secondary-color);
-  object-fit: cover;
+}
+
+/* ===============================
+   EFECTO MÁQUINA DE ESCRIBIR
+   =============================== */
+
+.feedback-typing-cursor {
+  display: inline;
+  color: var(--secondary-color);
+  font-weight: bold;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.feedback-skip-hint {
+  position: absolute;
+  bottom: -25px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: var(--font-color);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  opacity: 0.7;
+  animation: fadeInOut 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.7; }
 }
 
 .feedback-chat-bubble {
-  position: relative;
   background-color: var(--background-color);
   border-radius: 15px 15px 15px 5px;
-  padding: 15px;
+  padding: 20px;
+  position: relative;
   flex: 1;
-  min-height: 60px;
-  display: flex;
-  align-items: center;
+  max-width: calc(100% - 80px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer; /* Indicar que es clickeable */
+  transition: background-color 0.2s ease;
+}
+
+.feedback-chat-bubble:hover {
+  background-color: rgba(35, 37, 41, 0.95);
 }
 
 .feedback-bubble-arrow {
   position: absolute;
   left: -8px;
-  top: 15px;
+  top: 20px;
   width: 0;
   height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 8px solid var(--background-color);
+  border-style: solid;
+  border-width: 8px 8px 8px 0;
+  border-color: transparent var(--background-color) transparent transparent;
 }
 
-.feedback-message-content p {
+.feedback-trainer-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.feedback-trainer-name {
+  color: var(--secondary-color);
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.feedback-trainer-status {
   color: var(--font-color);
-  margin: 0;
-  line-height: 1.5;
-  font-size: 14px;
+  font-size: 0.8rem;
+  opacity: 0.7;
 }
 
-/* Animación de escritura (puntos parpadeando) */
+/* ===============================
+   ANIMACIÓN DE ESCRITURA
+   =============================== */
+
 .feedback-typing-indicator {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
 .feedback-typing-dots {
@@ -1038,16 +1095,15 @@ body {
 .feedback-typing-dots .dot {
   width: 8px;
   height: 8px;
-  background-color: var(--secondary-color);
   border-radius: 50%;
-  animation: feedbackTyping 1.4s infinite ease-in-out;
+  background-color: var(--secondary-color);
+  animation: typing 1.4s infinite ease-in-out;
 }
 
 .feedback-typing-dots .dot:nth-child(1) { animation-delay: -0.32s; }
 .feedback-typing-dots .dot:nth-child(2) { animation-delay: -0.16s; }
-.feedback-typing-dots .dot:nth-child(3) { animation-delay: 0s; }
 
-@keyframes feedbackTyping {
+@keyframes typing {
   0%, 80%, 100% {
     transform: scale(0.8);
     opacity: 0.5;
@@ -1060,31 +1116,232 @@ body {
 
 .feedback-typing-text {
   color: var(--font-color);
-  font-size: 12px;
-  opacity: 0.7;
-  font-style: italic;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+/* ===============================
+   CONTENIDO DE MENSAJE
+   =============================== */
+
+.feedback-message-content {
+  line-height: 1.6;
 }
 
 .feedback-error-message {
-  color: #ff6b6b !important;
-}
-
-.feedback-trainer-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-}
-
-.feedback-trainer-name {
-  color: var(--font-color);
-  font-weight: 600;
-}
-
-.feedback-trainer-status {
-  color: var(--secondary-color);
+  color: #ff6b6b;
   font-style: italic;
+  margin: 0;
 }
+
+.feedback-placeholder-message {
+  color: var(--font-color);
+  opacity: 0.7;
+  margin: 0;
+}
+
+/* ===============================
+   ESTILOS MARKDOWN ESPECÍFICOS
+   =============================== */
+
+.feedback-markdown-container {
+  color: var(--font-color);
+  line-height: 1.6;
+}
+
+.feedback-markdown-content {
+  margin: 0;
+}
+
+/* Headers */
+.feedback-md-h1 {
+  color: var(--secondary-color);
+  font-size: 1.4rem;
+  margin: 0 0 15px 0;
+  border-bottom: 2px solid var(--secondary-color);
+  padding-bottom: 8px;
+  font-weight: bold;
+}
+
+.feedback-md-h2 {
+  color: var(--secondary-color);
+  font-size: 1.2rem;
+  margin: 20px 0 12px 0;
+  font-weight: bold;
+}
+
+.feedback-md-h3 {
+  color: var(--font-color);
+  font-size: 1.1rem;
+  margin: 15px 0 10px 0;
+  font-weight: bold;
+}
+
+/* Párrafos */
+.feedback-md-paragraph {
+  margin: 0 0 12px 0;
+  color: var(--font-color);
+}
+
+.feedback-md-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+/* Texto énfasis */
+.feedback-md-strong {
+  color: var(--secondary-color);
+  font-weight: bold;
+}
+
+.feedback-md-emphasis {
+  color: var(--font-color);
+  font-style: italic;
+  opacity: 0.9;
+}
+
+/* Listas */
+.feedback-md-list, 
+.feedback-md-ordered-list {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+.feedback-md-list-item {
+  margin: 6px 0;
+  color: var(--font-color);
+}
+
+.feedback-md-list-item::marker {
+  color: var(--secondary-color);
+}
+
+/* Código */
+.feedback-md-code-inline {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--secondary-color);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.feedback-md-code-block {
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #f8f8f2;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  display: block;
+  margin: 12px 0;
+  border-left: 3px solid var(--secondary-color);
+  overflow-x: auto;
+}
+
+.feedback-md-code-block code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Blockquotes */
+.feedback-md-blockquote {
+  border-left: 4px solid var(--secondary-color);
+  margin: 15px 0;
+  padding: 12px 16px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+  color: var(--font-color);
+  opacity: 0.9;
+}
+
+.feedback-md-blockquote p {
+  margin: 0;
+}
+
+/* Enlaces */
+.feedback-md-link {
+  color: var(--secondary-color);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.feedback-md-link:hover {
+  border-bottom-color: var(--secondary-color);
+}
+
+/* Separadores */
+.feedback-md-divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--secondary-color), transparent);
+  margin: 20px 0;
+}
+
+/* Tablas */
+.feedback-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+  font-size: 0.9rem;
+}
+
+.feedback-md-table-header {
+  background-color: var(--secondary-color);
+  color: white;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: bold;
+}
+
+.feedback-md-table-cell {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--font-color);
+}
+
+.feedback-md-table-row:nth-child(even) .feedback-md-table-cell {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* ===============================
+   RESPONSIVE
+   =============================== */
+
+@media (max-width: 768px) {
+  .feedback-chat-bubble {
+    padding: 15px;
+  }
+  
+  .feedback-md-h1 {
+    font-size: 1.2rem;
+  }
+  
+  .feedback-md-h2 {
+    font-size: 1.1rem;
+  }
+  
+  .feedback-md-code-block {
+    font-size: 0.8em;
+    padding: 10px;
+  }
+}
+
+/* ===============================
+   EFECTOS ESPECIALES PARA EMOJIS
+   =============================== */
+
+.feedback-markdown-content em:first-child {
+  font-size: 1.2em;
+  margin-right: 5px;
+}
+
 
 /* ===============================
    COMPONENTE VIDEO PLAYER
