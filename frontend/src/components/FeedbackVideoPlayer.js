@@ -1,8 +1,9 @@
 import React from 'react';
 import ReactPlayer from 'react-player';
 
-const FeedbackVideoPlayer = ({ isLoading, videoReady, videoData, originalFile, jobId }) => {
-    // TODO: Construir URL real del video comparativo cuando esté listo
+const FeedbackVideoPlayer = ({ isLoading, videoReady, jobId, error }) => {
+    
+    // Construir URL real del video comparativo cuando esté listo
     const getVideoUrl = () => {
         if (jobId && videoReady) {
             return `http://localhost:8000/assets/${jobId}/video.mp4`;
@@ -10,39 +11,85 @@ const FeedbackVideoPlayer = ({ isLoading, videoReady, videoData, originalFile, j
         return null;
     };
 
+    // Determinar el estado a mostrar
+    const getVideoState = () => {
+        if (error) {
+            return 'error';
+        }
+        if (videoReady) {
+            return 'ready';
+        }
+        if (isLoading) {
+            return 'loading';
+        }
+        return 'waiting';
+    };
+
+    const videoState = getVideoState();
+    const videoUrl = getVideoUrl();
+
     return (
         <div className="feedback-video-container">
             <div className="feedback-video-header">
                 <h3>Video Comparativo</h3>
                 <span className="feedback-video-status">
-                    {isLoading ? 'Generando...' : videoReady ? 'Listo' : 'Pendiente'}
+                    {videoState === 'loading' && 'Generando...'}
+                    {videoState === 'ready' && 'Listo'}
+                    {videoState === 'error' && 'Error'}
+                    {videoState === 'waiting' && 'En espera'}
                 </span>
             </div>
 
             <div className="feedback-video-content">
-                {isLoading ? (
+                {videoState === 'loading' && (
                     // Estado de carga - cuadro oscuro con spinner
                     <div className="feedback-video-loading">
                         <div className="loading-spinner"></div>
                         <p>Generando video comparativo...</p>
+                        <small>Este proceso puede tomar varios minutos</small>
                     </div>
-                ) : videoReady ? (
+                )}
+
+                {videoState === 'ready' && videoUrl && (
                     // Video listo - mostrar player
                     <div className="feedback-video-player-wrapper">
                         <ReactPlayer
                             className="feedback-video-player"
-                            url={getVideoUrl()}
+                            url={videoUrl}
                             controls={true}
                             width="100%"
                             height="100%"
                             light={false}
                             playing={false}
+                            config={{
+                                file: {
+                                    attributes: {
+                                        controlsList: 'nodownload'
+                                    }
+                                }
+                            }}
+                            onError={(error) => {
+                                console.error('Error loading video:', error);
+                            }}
+                            onReady={() => {
+                                console.log('✅ Video loaded successfully');
+                            }}
                         />
                     </div>
-                ) : (
-                    // Estado de error o fallback
+                )}
+
+                {videoState === 'error' && (
+                    // Estado de error
                     <div className="feedback-video-placeholder">
-                        <p>Video no disponible</p>
+                        <p>❌ Error generando el video</p>
+                        <small>{error}</small>
+                    </div>
+                )}
+
+                {videoState === 'waiting' && (
+                    // Estado de espera
+                    <div className="feedback-video-placeholder">
+                        <p>⏳ Esperando a que comience la generación del video</p>
                     </div>
                 )}
             </div>
@@ -51,7 +98,7 @@ const FeedbackVideoPlayer = ({ isLoading, videoReady, videoData, originalFile, j
             {videoReady && (
                 <div className="feedback-video-info">
                     <span className="feedback-video-description">
-                        Comparación entre tu técnica y la técnica ideal
+                        Comparación entre tu técnica (izquierda) y la técnica ideal (derecha)
                     </span>
                 </div>
             )}

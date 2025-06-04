@@ -853,6 +853,41 @@ body {
    ESTILOS PARA PÁGINA DE FEEDBACK
    =============================== */
 
+/* Información de estado en el header */
+.feedback-status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.feedback-current-step {
+  color: var(--secondary-color);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.feedback-completed-steps {
+  color: var(--font-color);
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* Banner de error */
+.feedback-error-banner {
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 1px solid #ff6b6b;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.feedback-error-banner p {
+  color: #ff6b6b;
+  margin: 0;
+  font-size: 14px;
+}
+
 /* Contenedor principal del análisis */
 .feedback-analysis-container {
   max-width: 1400px;
@@ -1030,6 +1065,10 @@ body {
   font-style: italic;
 }
 
+.feedback-error-message {
+  color: #ff6b6b !important;
+}
+
 .feedback-trainer-info {
   display: flex;
   justify-content: space-between;
@@ -1102,6 +1141,13 @@ body {
   margin: 0;
   font-size: 14px;
   opacity: 0.7;
+}
+
+.feedback-video-loading small,
+.feedback-video-placeholder small {
+  color: var(--font-color);
+  opacity: 0.5;
+  font-size: 12px;
 }
 
 .feedback-video-player-wrapper {
