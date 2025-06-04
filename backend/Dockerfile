@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     libsm6 \
     libxext6 \
     libxrender1 \
+    ffmpeg \
+    libavcodec-extra \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Actualizar pip

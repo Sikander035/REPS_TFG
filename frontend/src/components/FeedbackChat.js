@@ -30,12 +30,12 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
             const textBeforeParenDot = text.substring(0, lastParenDotIndex);
             const previousDotIndex = textBeforeParenDot.lastIndexOf('.');
             
-            if (previousDotIndex !== -1) {
-                // Encontró un punto anterior, cortar hasta ahí (incluyendo el punto)
-                return text.substring(0, previousDotIndex + 1);
+            // Cortar directamente hasta el último "(" antes de ")."
+            const lastOpenParenIndex = textBeforeParenDot.lastIndexOf('(');
+            if (lastOpenParenIndex !== -1) {
+                return text.substring(0, lastOpenParenIndex).trimEnd();
             } else {
-                // No hay punto anterior, devolver el texto sin el párrafo que termina en ")."
-                // Buscar el inicio del último párrafo
+                // Si no hay "(", eliminar el último párrafo como fallback
                 const paragraphs = text.split('\n\n');
                 if (paragraphs.length > 1) {
                     paragraphs.pop(); // Eliminar el último párrafo
