@@ -15,13 +15,20 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
         if (!text) return text;
         
         // Buscar patrones de notas al final entre paréntesis o asteriscos
-        // Patrón más simple y directo: buscar desde el último paréntesis hasta el final
+        // Incluye múltiples variaciones de notas del LLM
         const notePatterns = [
-            /\s*\*?\s*\([^)]*[Nn]ota[^)]*\)\s*\.?\s*$/,  // *(Nota: ...)
-            /\s*\*?\s*\([^)]*no se mencionan[^)]*\)\s*\.?\s*$/i,  // *(... no se mencionan ...)
-            /\s*\*?\s*\([^)]*se evitan[^)]*\)\s*\.?\s*$/i,  // *(... se evitan ...)
-            /\s*\*?\s*\([^)]*disclaimer[^)]*\)\s*\.?\s*$/i,  // *(Disclaimer: ...)
-            /\s*\*?\s*\([^)]*aclaración[^)]*\)\s*\.?\s*$/i   // *(Aclaración: ...)
+            /\s*\*?\s*\([^)]*[Nn]ota[^)]*\)\s*\.?\s*\.?\s*$/,  // *(Nota: ...)
+            /\s*\*?\s*\([^)]*no se mencionan[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(... no se mencionan ...)
+            /\s*\*?\s*\([^)]*se evitan[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(... se evitan ...)
+            /\s*\*?\s*\([^)]*disclaimer[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(Disclaimer: ...)
+            /\s*\*?\s*\([^)]*aclaración[^)]*\)\s*\.?\s*\.?\s*$/i,   // *(Aclaración: ...)
+            /\s*\*?\s*\([^)]*notas explicativas[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(... notas explicativas ...)
+            /\s*\*?\s*\([^)]*preguntas adicionales[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(... preguntas adicionales ...)
+            /\s*\*?\s*\([^)]*tal como se solicita[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(... tal como se solicita ...)
+            /\s*\*?\s*\([^)]*como se solicita[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(... como se solicita ...)
+            /\s*\*?\s*\([^)]*no incluyo[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(No incluyo ...)
+            /\s*\*?\s*\([^)]*evito[^)]*\)\s*\.?\s*\.?\s*$/i,  // *(Evito ...)
+            /\s*\*?\s*\([^)]*según las instrucciones[^)]*\)\s*\.?\s*\.?\s*$/i   // *(... según las instrucciones ...)
         ];
         
         let cleanedText = text;
@@ -30,10 +37,11 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
         for (const pattern of notePatterns) {
             if (pattern.test(cleanedText)) {
                 const originalLength = cleanedText.length;
+                const matchedText = cleanedText.match(pattern)[0];
                 cleanedText = cleanedText.replace(pattern, '').trim();
                 
                 console.log('🧹 Nota eliminada del feedback:', {
-                    pattern: pattern.toString(),
+                    matchedText: matchedText.substring(0, 80) + '...',
                     originalLength,
                     cleanedLength: cleanedText.length,
                     removed: originalLength - cleanedText.length

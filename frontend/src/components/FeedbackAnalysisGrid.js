@@ -17,7 +17,7 @@ const FeedbackAnalysisGrid = ({ exerciseName, originalFile, fileName, jobId }) =
         assets: {
             feedback: { ready: false, loading: true, data: null, error: null },
             video: { ready: false, loading: true, data: null, error: null },
-            radar: { ready: false, loading: true, error: null }, // ← Ya no necesita data
+            radar: { ready: false, loading: true, error: null }, // ← CORREGIDO: Ya no necesita data
             report: { ready: false, loading: true, data: null, error: null }
         },
         error: null
@@ -128,13 +128,10 @@ const FeedbackAnalysisGrid = ({ exerciseName, originalFile, fileName, jobId }) =
         }
 
         // ========================================
-        // SECCIÓN DEL RADAR ELIMINADA
-        // Ya no cargamos datos del radar aquí porque
-        // FeedbackRadarChart lo hace directamente
+        // RADAR DATA LOADING ELIMINADO
+        // FeedbackRadarChart ahora carga sus propios datos
+        // usando jobId directamente
         // ========================================
-        
-        // TODO: Aquí cargaremos los datos del radar chart más tarde
-        // Por ahora mantenemos los datos mock en el componente FeedbackRadarChart
     };
 
     // Iniciar polling
@@ -260,22 +257,22 @@ const FeedbackAnalysisGrid = ({ exerciseName, originalFile, fileName, jobId }) =
                 </div>
             )}
 
-            {/* Grid principal de dos columnas */}
-            <div className="feedback-main-grid">
-                {/* Columna izquierda */}
-                <div className="feedback-left-column">
-                    {/* Chat de feedback */}
-                    <div className="feedback-chat-section">
-                        <FeedbackChat 
-                            isLoading={analysisState.assets.feedback.loading}
-                            feedbackText={analysisState.assets.feedback.data}
-                            error={analysisState.assets.feedback.error}
-                            currentStep={analysisState.currentStep}
-                        />
-                    </div>
+            {/* NUEVO LAYOUT: Chat arriba ocupando todo el ancho */}
+            <div className="feedback-main-grid-new">
+                {/* Sección del chat - ocupa todo el ancho superior */}
+                <div className="feedback-chat-section-full">
+                    <FeedbackChat 
+                        isLoading={analysisState.assets.feedback.loading}
+                        feedbackText={analysisState.assets.feedback.data}
+                        error={analysisState.assets.feedback.error}
+                        currentStep={analysisState.currentStep}
+                    />
+                </div>
 
-                    {/* Video del análisis */}
-                    <div className="feedback-video-section">
+                {/* Sección inferior - dos columnas */}
+                <div className="feedback-bottom-grid">
+                    {/* Video a la izquierda */}
+                    <div className="feedback-video-section-left">
                         <FeedbackVideoPlayer 
                             isLoading={analysisState.assets.video.loading}
                             videoReady={analysisState.assets.video.ready}
@@ -283,38 +280,35 @@ const FeedbackAnalysisGrid = ({ exerciseName, originalFile, fileName, jobId }) =
                             error={analysisState.assets.video.error}
                         />
                     </div>
-                </div>
 
-                {/* Columna derecha */}
-                <div className="feedback-right-column">
-                    {/* Gráfico radar */}
-                    <div className="feedback-radar-section">
+                    {/* Radar a la derecha */}
+                    <div className="feedback-radar-section-right">
                         <FeedbackRadarChart 
                             isLoading={analysisState.assets.radar.loading}
                             jobId={jobId}
                             error={analysisState.assets.radar.error}
                         />
-                    </div>
-
-                    {/* Botón de descarga de reporte */}
-                    <div className="feedback-report-section">
-                        <button 
-                            className="feedback-download-button"
-                            disabled={!analysisState.assets.report.ready}
-                            onClick={handleDownloadReport}
-                            title="Descargar reporte completo"
-                        >
-                            {analysisState.assets.report.loading ? (
-                                <>
-                                    <div className="loading-spinner"></div>
-                                    Generando reporte...
-                                </>
-                            ) : analysisState.assets.report.ready ? (
-                                '📄 Descargar Reporte JSON'
-                            ) : (
-                                'Reporte no disponible'
-                            )}
-                        </button>
+                        
+                        {/* Botón de descarga de reporte integrado */}
+                        <div className="feedback-report-section-integrated">
+                            <button 
+                                className="feedback-download-button"
+                                disabled={!analysisState.assets.report.ready}
+                                onClick={handleDownloadReport}
+                                title="Descargar reporte completo"
+                            >
+                                {analysisState.assets.report.loading ? (
+                                    <>
+                                        <div className="loading-spinner"></div>
+                                        Generando reporte...
+                                    </>
+                                ) : analysisState.assets.report.ready ? (
+                                    '📄 Descargar Reporte JSON'
+                                ) : (
+                                    'Reporte no disponible'
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
