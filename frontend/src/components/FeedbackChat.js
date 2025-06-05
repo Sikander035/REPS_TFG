@@ -10,42 +10,45 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
     const typingIntervalRef = useRef(null);
     const typingSpeedRef = useRef(20); // milisegundos entre caracteres (ajustable)
     
-    // Función para limpiar el texto eliminando el último párrafo si termina en ")."
+    // Función mejorada para limpiar el texto eliminando notas entre paréntesis al final
     const cleanFeedbackText = (text) => {
         if (!text) return text;
         
-        // Buscar la última ocurrencia de ")."
-        const lastParenDotIndex = text.lastIndexOf(').');
+        // Buscar patrones de notas al final entre paréntesis o asteriscos
+        // Patrón más simple y directo: buscar desde el último paréntesis hasta el final
+        const notePatterns = [
+            /\s*\*?\s*\([^)]*[Nn]ota[^)]*\)\s*\.?\s*$/,  // *(Nota: ...)
+            /\s*\*?\s*\([^)]*no se mencionan[^)]*\)\s*\.?\s*$/i,  // *(... no se mencionan ...)
+            /\s*\*?\s*\([^)]*se evitan[^)]*\)\s*\.?\s*$/i,  // *(... se evitan ...)
+            /\s*\*?\s*\([^)]*disclaimer[^)]*\)\s*\.?\s*$/i,  // *(Disclaimer: ...)
+            /\s*\*?\s*\([^)]*aclaración[^)]*\)\s*\.?\s*$/i   // *(Aclaración: ...)
+        ];
         
-        if (lastParenDotIndex === -1) {
-            // No hay ")." en el texto, devolver como está
-            return text;
-        }
+        let cleanedText = text;
         
-        // Verificar si ")." está al final del texto (puede haber espacios o saltos de línea después)
-        const afterParenDot = text.substring(lastParenDotIndex + 2).trim();
-        
-        if (afterParenDot === '') {
-            // ")." está al final, buscar el punto anterior
-            const textBeforeParenDot = text.substring(0, lastParenDotIndex);
-            const previousDotIndex = textBeforeParenDot.lastIndexOf('.');
-            
-            // Cortar directamente hasta el último "(" antes de ")."
-            const lastOpenParenIndex = textBeforeParenDot.lastIndexOf('(');
-            if (lastOpenParenIndex !== -1) {
-                return text.substring(0, lastOpenParenIndex).trimEnd();
-            } else {
-                // Si no hay "(", eliminar el último párrafo como fallback
-                const paragraphs = text.split('\n\n');
-                if (paragraphs.length > 1) {
-                    paragraphs.pop(); // Eliminar el último párrafo
-                    return paragraphs.join('\n\n');
-                }
+        // Intentar cada patrón
+        for (const pattern of notePatterns) {
+            if (pattern.test(cleanedText)) {
+                const originalLength = cleanedText.length;
+                cleanedText = cleanedText.replace(pattern, '').trim();
+                
+                console.log('🧹 Nota eliminada del feedback:', {
+                    pattern: pattern.toString(),
+                    originalLength,
+                    cleanedLength: cleanedText.length,
+                    removed: originalLength - cleanedText.length
+                });
+                
+                break; // Solo eliminar una nota por vez
             }
         }
         
-        // Si no cumple las condiciones, devolver el texto original
-        return text;
+        // Si no termina en punto después de la limpieza, añadir uno
+        if (cleanedText && !cleanedText.endsWith('.') && !cleanedText.endsWith('!') && !cleanedText.endsWith('?')) {
+            cleanedText += '.';
+        }
+        
+        return cleanedText;
     };
     
     // Detectar cuando llega el feedback y empezar a escribir
@@ -54,8 +57,7 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
             feedbackText: !!feedbackText,
             hasStartedTyping,
             error: !!error,
-            textLength: feedbackText?.length || 0,
-            displayedTextLength: displayedText.length
+            textLength: feedbackText?.length || 0
         });
         
         // Iniciar typewriter si hay texto y no ha empezado
@@ -112,7 +114,6 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
                 
                 setDisplayedText(prev => {
                     const newText = prev + nextChar;
-                    console.log(`📄 New displayed text length: ${newText.length}`);
                     return newText;
                 });
                 
@@ -169,7 +170,7 @@ const FeedbackChat = ({ isLoading, feedbackText, error, currentStep }) => {
             
             // Si está escribiendo o ya empezó a escribir, mostrar el texto parcial
             if (hasStartedTyping) {
-                console.log('📖 Showing partial text:', displayedText.length, 'of', cleanedText.length);
+                console.log('📖 Showing partial text - typing in progress');
                 return displayedText;
             }
             // Si no ha empezado a escribir, mostrar el texto limpio completo (fallback)
