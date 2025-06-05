@@ -30,7 +30,7 @@ def analyze_elbow_abduction_angle_press(
     """
     MILITARY PRESS: Elbow abduction analysis using config_manager.
     """
-    exercise_name = "military_press"
+    exercise_name = "military_press_dumbbell"
 
     # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
@@ -306,7 +306,7 @@ def analyze_scapular_stability_press(
     """
     MILITARY PRESS: Scapular stability analysis using config_manager.
     """
-    exercise_name = "military_press"
+    exercise_name = "military_press_dumbbell"
 
     # Get sensitivity factor using config_manager
     sensitivity_factor = config_manager.get_sensitivity_factor(
@@ -848,7 +848,7 @@ def get_specific_metrics_for_exercise(exercise_name):
     """
     exercise_name = exercise_name.lower().replace(" ", "_")
 
-    if exercise_name == "military_press":
+    if exercise_name == "military_press_dumbbell":
         return {
             "specific_metric_a": analyze_elbow_abduction_angle_press,
             "specific_metric_b": analyze_scapular_stability_press,
@@ -879,7 +879,7 @@ def get_specific_metric_names_for_exercise(exercise_name):
     """
     exercise_name = exercise_name.lower().replace(" ", "_")
 
-    if exercise_name == "military_press":
+    if exercise_name == "military_press_dumbbell":
         return {
             "specific_metric_a": "abduction_score",
             "specific_metric_b": "scapular_score",

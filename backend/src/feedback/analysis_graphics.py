@@ -239,7 +239,7 @@ def _create_abduction_chart(user_data, expert_data, exercise_name, output_dir):
 
     # Only create for exercises that use elbows
     exercise_name_clean = exercise_name.lower().replace(" ", "_")
-    if exercise_name_clean not in ["military_press", "pull_up"]:
+    if exercise_name_clean not in ["military_press_dumbbell", "pull_up"]:
         logger.info(f"Skipping abduction chart for exercise {exercise_name_clean}")
         return None
 
@@ -571,7 +571,7 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
         # Dynamic categories and scores according to exercise
         exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-        if exercise_name_clean == "military_press":
+        if exercise_name_clean == "military_press_dumbbell":
             categories_radar = [
                 "Amplitude",
                 "Elbow\nAbduction",
@@ -709,7 +709,7 @@ def generate_radar_data(analysis_results, exercise_name, output_dir):
         # Misma lógica que tenías en _create_radar_chart para categorías dinámicas
         exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-        if exercise_name_clean == "military_press":
+        if exercise_name_clean == "military_press_dumbbell":
             categories_data = [
                 {"metric": "Amplitud", "score": individual_scores.get("rom_score", 0)},
                 {
@@ -820,7 +820,7 @@ def _create_scores_chart(analysis_results, exercise_name, output_dir):
     # Dynamic categories according to exercise
     exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-    if exercise_name_clean == "military_press":
+    if exercise_name_clean == "military_press_dumbbell":
         categories = [
             "Amplitude",
             "Elbow\nAbduction",
@@ -1019,7 +1019,7 @@ def _get_fallback_landmarks_config(exercise_name):
     """Fallback landmarks configuration if config_manager fails."""
     exercise_name_clean = exercise_name.lower().replace(" ", "_")
 
-    if exercise_name_clean == "military_press":
+    if exercise_name_clean == "military_press_dumbbell":
         return {
             "amplitude": {
                 "left_landmark": "landmark_left_elbow",

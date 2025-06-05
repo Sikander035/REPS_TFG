@@ -33,7 +33,8 @@ def test_exercise_analysis():
 
     # Parámetros del ejercicio
     exercise_name = (
-        input("🏋️ Nombre del ejercicio [military_press]: ").strip() or "military_press"
+        input("🏋️ Nombre del ejercicio [military_press_dumbbell]: ").strip()
+        or "military_press_dumbbell"
     )
 
     print(f"✅ Video: {test_video_path}")
@@ -247,10 +248,10 @@ def test_simple_curl_example():
 
     print("\n1. Subir video:")
     print(
-        'curl -X POST "http://localhost:8000/analyze-exercise?exercise_name=military_press" \\'
+        'curl -X POST "http://localhost:8000/analyze-exercise?exercise_name=military_press_dumbbell" \\'
     )
     print('  -F "file=@tu_video.mp4"')
-    print("   (Buscará automáticamente: media/data/military_press_Expert.csv)")
+    print("   (Buscará automáticamente: media/data/military_press_dumbbell_Expert.csv)")
 
     print("\n2. Consultar estado (reemplaza JOB_ID):")
     print('curl "http://localhost:8000/jobs/TU_JOB_ID"')

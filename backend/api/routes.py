@@ -209,7 +209,8 @@ async def get_image(image_name: str = Query(...)):
 
 @router.post("/analyze-exercise")
 async def analyze_exercise(
-    file: UploadFile = File(...), exercise_name: str = Query(default="military_press")
+    file: UploadFile = File(...),
+    exercise_name: str = Query(default="military_press_dumbbell"),
 ):
     """
     Inicia análisis completo de ejercicio.
@@ -219,13 +220,15 @@ async def analyze_exercise(
 
     # MAPEAR EL EJERCICIO PRIMERO (MOVER AQUÍ)
     exercise_mapping = {
-        "press_militar_con_mancuernas": "military_press",
-        "military_press": "military_press",
+        "press_militar_con_mancuernas": "military_press_dumbbell",
+        "military_press": "military_press_dumbbell",
         "bench_press": "bench_press",
         "squat": "squat",
         "pull_up": "pull_up",
     }
-    mapped_exercise_name = exercise_mapping.get(exercise_name, "military_press")
+    mapped_exercise_name = exercise_mapping.get(
+        exercise_name, "military_press_dumbbell"
+    )
 
     # Thread-safe job creation
     with jobs_lock:

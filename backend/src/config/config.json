@@ -7,7 +7,7 @@
             "speed": 25
         },
         "specific_metrics": {
-            "military_press": {
+            "military_press_dumbbell": {
                 "elbow_abduction": 25,
                 "scapular_stability": 35
             },
@@ -76,7 +76,7 @@
         "needs_improvement": 50
     },
     "exercise_landmarks_config": {
-        "military_press": {
+        "military_press_dumbbell": {
             "amplitude": {
                 "left_landmark": "landmark_left_elbow",
                 "right_landmark": "landmark_right_elbow",
@@ -152,7 +152,7 @@
             }
         }
     },
-    "military_press": {
+    "military_press_dumbbell": {
         "landmarks": [11, 12, 13, 14, 15, 16, 23, 24],
         "sync_config": {
             "landmarks": ["landmark_right_wrist", "landmark_left_wrist"],

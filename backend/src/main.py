@@ -27,7 +27,7 @@ MODEL_PATH = os.path.join(BASE_DIR, "models", "pose_landmarker_lite.task")
 PROMPT_PATH = os.path.join(BASE_DIR, "src", "config", "trainer_prompt.txt")
 
 # Read exercise name from config.json
-exercise_name = "military_press"
+exercise_name = "military_press_dumbbell"
 OUTPUT_DIR = os.path.join(BASE_DIR, "media", "output", f"results_{exercise_name}")
 
 # Add path to project root directory (backend)

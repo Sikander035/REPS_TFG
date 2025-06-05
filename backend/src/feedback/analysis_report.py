@@ -175,7 +175,7 @@ def run_exercise_analysis(
     # Use original score names for compatibility
     individual_scores = {}
 
-    if exercise_name.lower() == "military_press":
+    if exercise_name.lower() == "military_press_dumbbell":
         individual_scores = {
             "rom_score": amplitude_result["score"],
             "abduction_score": specific_a_result["score"],

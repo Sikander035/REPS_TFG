@@ -95,7 +95,9 @@ def calculate_deviation_score(
     return base_score
 
 
-def get_exercise_config(exercise_name="military_press", config_path="config.json"):
+def get_exercise_config(
+    exercise_name="military_press_dumbbell", config_path="config.json"
+):
     """
     Gets specific configuration for the exercise from config.json.
     USES SINGLETON + READS CONFIGURATION FROM JSON FILE.
