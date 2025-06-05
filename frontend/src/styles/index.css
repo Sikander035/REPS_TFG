@@ -694,7 +694,7 @@ body {
 .upload-card-grid {
   display: grid;
   width: 100%;
-  height: 75%;
+  height: 84.5%;
   padding-top: 16px;
 }
 
@@ -2152,5 +2152,159 @@ body {
   .feedback-video-main {
     padding: 8px;
     height: 350px; /* Altura más grande que antes pero apropiada para pantallas pequeñas */
+  }
+}
+
+/* ...existing code... */
+
+.exercise-video-tips-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  justify-content: center;
+}
+
+.tips-icon {
+  font-size: 1.5rem;
+}
+
+.exercise-video-tips-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.tip-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.tip-item:hover {
+  background-color: rgba(233, 78, 79, 0.1);
+  border: 1px solid var(--secondary-color);
+}
+
+.tip-emoji {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.exercise-video-card-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr; /* 50% para consejos, 50% para video */
+  gap: 30px;
+  padding: 20px;
+  align-items: stretch; /* Igualar alturas */
+}
+
+.exercise-video-tips-container {
+  background-color: var(--background-color);
+  border-radius: 12px;
+  padding: 20px;
+  border: 2px solid var(--secondary-color);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Distribuir verticalmente */
+  order: 1; /* Forzar que aparezca primero (izquierda) */
+}
+
+.exercise-video-card-player-container {
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  order: 2; /* Forzar que aparezca segundo (derecha) */
+}
+
+.exercise-video-tips-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: center;
+  flex-shrink: 0; /* No se encoge */
+}
+
+.tips-icon {
+  font-size: 1.5rem;
+}
+
+.exercise-video-tips-title {
+  color: var(--secondary-color);
+  font-size: 1.1rem;
+  margin: 0;
+  font-weight: bold;
+}
+
+.exercise-video-tips-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  flex: 1; /* Ocupa el espacio restante */
+  justify-content: space-evenly; /* Distribuye los elementos uniformemente */
+}
+
+.tip-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  flex: 1; /* Cada tip ocupa el mismo espacio */
+}
+
+.tip-item:hover {
+  background-color: rgba(233, 78, 79, 0.1);
+  border: 1px solid var(--secondary-color);
+}
+
+.tip-emoji {
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+
+.tip-item span:last-child {
+  color: var(--font-color);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+  .exercise-video-card-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .exercise-video-tips-container {
+    order: 1; /* Consejos primero en móviles */
+  }
+  
+  .exercise-video-card-player-container {
+    order: 2; /* Video después en móviles */
+  }
+  
+  .exercise-video-tips-grid {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .tip-item {
+    padding: 12px;
+  }
+}
+
+/* Para tablets */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .exercise-video-card-content {
+    grid-template-columns: 1fr 1fr; /* Mantener 50%-50% en tablets */
   }
 }

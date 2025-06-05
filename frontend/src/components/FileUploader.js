@@ -29,7 +29,7 @@ const FileUploader = () => {
             // Determinar ejercicio basado en URL actual
             const urlParams = new URLSearchParams(window.location.search);
             const exerciseParam = urlParams.get('exercise');
-            const exerciseName = exerciseParam || 'military_press';
+            const exerciseName = exerciseParam || 'military_press_dumbbell';
             
             console.log('📝 Exercise name:', exerciseName);
             console.log('📁 File:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
