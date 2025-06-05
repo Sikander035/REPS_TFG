@@ -622,7 +622,9 @@ body {
 .info-card-text {
   padding-left: 20px;
   padding-right: 20px;
-  color: var(--font-color)
+  padding-bottom: 5px;
+  color: var(--font-color);
+  text-align: justify; /* Justificar el texto */
 }
 
 .exercise-video-card-player-container {
@@ -1607,6 +1609,9 @@ body {
 
 /* Header solo con título FORZADAMENTE a la izquierda */
 .feedback-video-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 15px;
   width: 100%;
 }
@@ -1616,12 +1621,14 @@ body {
   margin: 0 !important;
   font-size: 1.2rem !important;
   font-weight: bold !important;
-  text-align: left !important;
-  display: block !important;
-  width: 100% !important;
-  text-indent: 0 !important;
-  padding-left: 0 !important;
 }
+
+.feedback-video-status {
+  font-size: 12px;
+  color: var(--secondary-color);
+  font-weight: 600;
+}
+
 
 /* Contenedor principal - CONSISTENTE CON RADAR */
 .feedback-video-main {
@@ -1659,6 +1666,7 @@ body {
   justify-content: center;
   gap: 15px;
   border-radius: 8px;
+  box-sizing: border-box !important;
 }
 
 .feedback-video-loading p {
@@ -1671,6 +1679,7 @@ body {
 .feedback-video-placeholder {
   /* Mismo estilo que loading */
   height: 100%;
+  width: 100% !important;
   background-color: var(--background-color);
   display: flex;
   flex-direction: column;
@@ -1678,6 +1687,7 @@ body {
   justify-content: center;
   gap: 15px;
   border-radius: 8px;
+  box-sizing: border-box !important;
 }
 
 .feedback-video-placeholder p {
@@ -1690,6 +1700,7 @@ body {
 .feedback-video-error {
   /* Mismo estilo que loading pero con color de error */
   height: 100%;
+  width: 100% !important;
   background-color: rgba(255, 107, 107, 0.1);
   display: flex;
   flex-direction: column;
@@ -1698,6 +1709,7 @@ body {
   gap: 15px;
   border-radius: 8px;
   border: 1px solid #ff6b6b;
+  box-sizing: border-box !important;
 }
 
 .feedback-video-error p {
