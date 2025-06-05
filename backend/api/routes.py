@@ -1,7 +1,7 @@
 """Module for API routes - THREAD-SAFE VERSION"""
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Header
+from fastapi.responses import StreamingResponse, FileResponse, Response
 import os, sys
 from dotenv import load_dotenv
 from email.message import EmailMessage
@@ -160,6 +160,23 @@ def get_users():
     return get_all_users()
 
 
+@router.get("/assets/{job_id}/radar.json")
+async def get_radar_data(job_id: str):
+    """Devuelve datos del radar chart en formato JSON."""
+    with jobs_lock:
+        if job_id not in jobs_state:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job_dir = jobs_state[job_id]["job_dir"]
+        exercise_name = jobs_state[job_id]["exercise_name"]
+
+    radar_data_path = os.path.join(
+        job_dir, "analysis", f"{exercise_name}_radar_data.json"
+    )
+    if not os.path.exists(radar_data_path):
+        raise HTTPException(status_code=404, detail="Radar data not ready")
+    return FileResponse(radar_data_path, media_type="application/json")
+
+
 @router.get("/video")
 def get_video(video_name: str = Query(...)):
     """Get exercise video"""
@@ -200,6 +217,16 @@ async def analyze_exercise(
     """
     job_id = str(uuid.uuid4())
 
+    # MAPEAR EL EJERCICIO PRIMERO (MOVER AQUÍ)
+    exercise_mapping = {
+        "press_militar_con_mancuernas": "military_press",
+        "military_press": "military_press",
+        "bench_press": "bench_press",
+        "squat": "squat",
+        "pull_up": "pull_up",
+    }
+    mapped_exercise_name = exercise_mapping.get(exercise_name, "military_press")
+
     # Thread-safe job creation
     with jobs_lock:
         # Crear directorio para este trabajo
@@ -224,7 +251,7 @@ async def analyze_exercise(
             "created_at": datetime.now(),
             "job_dir": job_dir,
             "user_video": user_video_path,
-            "exercise_name": exercise_name,
+            "exercise_name": mapped_exercise_name,  # AHORA YA EXISTE
             "error": None,
         }
 
@@ -233,8 +260,8 @@ async def analyze_exercise(
         with open(user_video_path, "wb") as buffer:
             buffer.write(await file.read())
 
-        # Construir ruta al CSV del experto
-        expert_csv_name = f"{exercise_name}_Expert.csv"
+        # Construir ruta al CSV del experto (YA NO REPETIR EL MAPEO)
+        expert_csv_name = f"{mapped_exercise_name}_Expert.csv"
         expert_csv_path = os.path.join(DATA_DIR, expert_csv_name)
 
         if not os.path.exists(expert_csv_path):
@@ -278,7 +305,7 @@ async def get_job_status(job_id: str):
     # Construir URLs para assets listos
     urls = {}
     if job["assets_ready"]["radar"]:
-        urls["radar"] = f"/assets/{job_id}/radar.png"
+        urls["radar"] = f"/assets/{job_id}/radar.json"
     if job["assets_ready"]["video"]:
         urls["video"] = f"/assets/{job_id}/video.mp4"
     if job["assets_ready"]["feedback"]:
@@ -296,23 +323,10 @@ async def get_job_status(job_id: str):
     }
 
 
-@router.get("/assets/{job_id}/radar.png")
-async def get_radar_asset(job_id: str):
-    """Devuelve el gráfico radar del análisis."""
-    with jobs_lock:
-        if job_id not in jobs_state:
-            raise HTTPException(status_code=404, detail="Job not found")
-        job_dir = jobs_state[job_id]["job_dir"]
-
-    radar_path = os.path.join(job_dir, "analysis", "radar_analysis.png")
-    if not os.path.exists(radar_path):
-        raise HTTPException(status_code=404, detail="Radar not ready")
-    return FileResponse(radar_path, media_type="image/png")
-
-
 @router.get("/assets/{job_id}/video.mp4")
-async def get_video_asset(job_id: str):
-    """Devuelve el video comparativo."""
+async def get_video_asset(job_id: str, range: str = Header(None)):
+    """Video endpoint con CORS obligatorio para cross-origin."""
+
     with jobs_lock:
         if job_id not in jobs_state:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -322,11 +336,71 @@ async def get_video_asset(job_id: str):
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Video not ready")
 
-    def iterfile():
-        with open(video_path, mode="rb") as video:
-            yield from video
+    file_size = os.path.getsize(video_path)
 
-    return StreamingResponse(iterfile(), media_type="video/mp4")
+    # CORS headers OBLIGATORIOS para video cross-origin
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",  # Permitir todos los orígenes
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Headers": "Range, Content-Type",
+        "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+    }
+
+    # Sin Range header - archivo completo
+    if not range:
+        return FileResponse(
+            video_path,
+            media_type="video/mp4",
+            headers={
+                **cors_headers,
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600",
+            },
+        )
+
+    # Con Range header - partial content
+    try:
+        range_str = range.replace("bytes=", "").strip()
+
+        if range_str.endswith("-"):
+            start = int(range_str[:-1])
+            end = file_size - 1
+        else:
+            parts = range_str.split("-")
+            start = int(parts[0])
+            end = int(parts[1]) if parts[1] else file_size - 1
+
+        start = max(0, start)
+        end = min(end, file_size - 1)
+        content_length = end - start + 1
+
+        def generate_range():
+            with open(video_path, "rb") as f:
+                f.seek(start)
+                remaining = content_length
+                while remaining > 0:
+                    chunk_size = min(8192, remaining)
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+
+        return StreamingResponse(
+            generate_range(),
+            status_code=206,
+            media_type="video/mp4",
+            headers={
+                **cors_headers,
+                "Accept-Ranges": "bytes",
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Content-Length": str(content_length),
+                "Cache-Control": "public, max-age=3600",
+            },
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid range")
 
 
 @router.get("/assets/{job_id}/feedback.txt")
