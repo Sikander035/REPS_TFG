@@ -160,6 +160,23 @@ def get_users():
     return get_all_users()
 
 
+@router.get("/assets/{job_id}/radar.json")
+async def get_radar_data(job_id: str):
+    """Devuelve datos del radar chart en formato JSON."""
+    with jobs_lock:
+        if job_id not in jobs_state:
+            raise HTTPException(status_code=404, detail="Job not found")
+        job_dir = jobs_state[job_id]["job_dir"]
+        exercise_name = jobs_state[job_id]["exercise_name"]
+
+    radar_data_path = os.path.join(
+        job_dir, "analysis", f"{exercise_name}_radar_data.json"
+    )
+    if not os.path.exists(radar_data_path):
+        raise HTTPException(status_code=404, detail="Radar data not ready")
+    return FileResponse(radar_data_path, media_type="application/json")
+
+
 @router.get("/video")
 def get_video(video_name: str = Query(...)):
     """Get exercise video"""
@@ -288,7 +305,7 @@ async def get_job_status(job_id: str):
     # Construir URLs para assets listos
     urls = {}
     if job["assets_ready"]["radar"]:
-        urls["radar"] = f"/assets/{job_id}/radar.png"
+        urls["radar"] = f"/assets/{job_id}/radar.json"
     if job["assets_ready"]["video"]:
         urls["video"] = f"/assets/{job_id}/video.mp4"
     if job["assets_ready"]["feedback"]:

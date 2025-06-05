@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import os
 import logging
+import json
 
 # CRÍTICO: Configurar matplotlib ANTES que cualquier otro import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -690,6 +691,117 @@ def _create_radar_chart(analysis_results, exercise_name, output_dir):
 
     except Exception as e:
         logger.error(f"Error creating radar chart: {e}")
+        return None
+
+
+def generate_radar_data(analysis_results, exercise_name, output_dir):
+    """
+    Genera datos JSON para el radar chart del frontend.
+    Reemplaza la generación de imagen PNG.
+    """
+    try:
+        individual_scores = analysis_results.get("individual_scores", {})
+
+        if not individual_scores:
+            logger.error("No individual scores found in analysis_results")
+            return None
+
+        # Misma lógica que tenías en _create_radar_chart para categorías dinámicas
+        exercise_name_clean = exercise_name.lower().replace(" ", "_")
+
+        if exercise_name_clean == "military_press":
+            categories_data = [
+                {"metric": "Amplitud", "score": individual_scores.get("rom_score", 0)},
+                {
+                    "metric": "Abducción Codo",
+                    "score": individual_scores.get("abduction_score", 0),
+                },
+                {"metric": "Simetría", "score": individual_scores.get("sym_score", 0)},
+                {
+                    "metric": "Trayectoria",
+                    "score": individual_scores.get("path_score", 0),
+                },
+                {
+                    "metric": "Velocidad",
+                    "score": individual_scores.get("speed_score", 0),
+                },
+                {
+                    "metric": "Estabilidad",
+                    "score": individual_scores.get("scapular_score", 0),
+                },
+            ]
+        elif exercise_name_clean == "squat":
+            categories_data = [
+                {"metric": "Amplitud", "score": individual_scores.get("rom_score", 0)},
+                {
+                    "metric": "Profundidad",
+                    "score": individual_scores.get("depth_score", 0),
+                },
+                {"metric": "Simetría", "score": individual_scores.get("sym_score", 0)},
+                {
+                    "metric": "Trayectoria",
+                    "score": individual_scores.get("path_score", 0),
+                },
+                {
+                    "metric": "Velocidad",
+                    "score": individual_scores.get("speed_score", 0),
+                },
+                {
+                    "metric": "Seguimiento",
+                    "score": individual_scores.get("knee_score", 0),
+                },
+            ]
+        elif exercise_name_clean == "pull_up":
+            categories_data = [
+                {"metric": "Amplitud", "score": individual_scores.get("rom_score", 0)},
+                {
+                    "metric": "Control Balanceo",
+                    "score": individual_scores.get("swing_score", 0),
+                },
+                {"metric": "Simetría", "score": individual_scores.get("sym_score", 0)},
+                {
+                    "metric": "Trayectoria",
+                    "score": individual_scores.get("path_score", 0),
+                },
+                {
+                    "metric": "Velocidad",
+                    "score": individual_scores.get("speed_score", 0),
+                },
+                {
+                    "metric": "Retracción",
+                    "score": individual_scores.get("retraction_score", 0),
+                },
+            ]
+        else:
+            # Fallback para ejercicios desconocidos
+            score_keys = list(individual_scores.keys())
+            categories_data = []
+            for score_key in score_keys:
+                metric_name = score_key.replace("_score", "").replace("_", " ").title()
+                categories_data.append(
+                    {"metric": metric_name, "score": individual_scores[score_key]}
+                )
+
+        # DEBUG: Log para verificación
+        logger.info("=== DEBUG RADAR DATA GENERATION ===")
+        for item in categories_data:
+            logger.info(f"{item['metric']}: {item['score']:.1f}")
+
+        # Guardar como JSON
+        if output_dir:
+            radar_data_path = os.path.join(
+                output_dir, f"{exercise_name}_radar_data.json"
+            )
+            with open(radar_data_path, "w", encoding="utf-8") as f:
+                json.dump(categories_data, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"✅ Radar data JSON generated: {radar_data_path}")
+            return radar_data_path
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Error generating radar data: {e}")
         return None
 
 

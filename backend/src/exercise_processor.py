@@ -39,7 +39,7 @@ from src.feedback.analysis_report import (
     run_exercise_analysis,
     generate_analysis_report,
 )
-from src.feedback.analysis_graphics import visualize_analysis_results
+from src.feedback.analysis_graphics import generate_radar_data
 from src.feedback.analysis_llm import generate_trainer_feedback
 
 logger = logging.getLogger(__name__)
@@ -314,13 +314,10 @@ class ExerciseProcessor:
             )
 
             # Generar visualizaciones (thread-safe)
-            visualize_analysis_results(
+            generate_radar_data(
                 analysis_results=self.analysis_results,
-                user_data=self.synchronized_user_data,
-                expert_data=self.aligned_expert_data,
                 exercise_name=self.exercise_name,
                 output_dir=self.analysis_dir,
-                config_path=self.config_path,
             )
 
             logger.info(
