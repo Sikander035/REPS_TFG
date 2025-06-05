@@ -570,40 +570,57 @@ async def run_analysis_step(job_id: str, processor: ExerciseProcessor):
 
 
 async def run_parallel_steps(job_id: str, processor: ExerciseProcessor):
-    """Ejecuta pasos 6 y 8 en paralelo con thread safety."""
+    """
+    VERSIÓN MÁS LIMPIA: Con nombres de tasks para mejor tracking.
+    """
     update_job_step(job_id, "generating_assets")
 
-    loop = asyncio.get_event_loop()
+    async def generate_video_with_callback():
+        """Genera video y actualiza estado inmediatamente."""
+        try:
+            logger.info(f"🎬 Iniciando generación de video para job {job_id}")
+            result = await asyncio.get_event_loop().run_in_executor(
+                executor, processor.generate_video
+            )
 
-    # Tasks paralelos
-    video_task = loop.run_in_executor(executor, processor.generate_video)
-    feedback_task = loop.run_in_executor(executor, processor.generate_feedback)
+            with jobs_lock:
+                if job_id in jobs_state:
+                    jobs_state[job_id]["assets_ready"]["video"] = True
+                    jobs_state[job_id]["completed_steps"].append("video_generation")
 
-    # Esperar resultados
-    video_result, feedback_result = await asyncio.gather(
-        video_task, feedback_task, return_exceptions=True
+            logger.info(f"✅ Video DISPONIBLE para job {job_id}")
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ Error generando video para job {job_id}: {e}")
+            raise
+
+    async def generate_feedback_with_callback():
+        """Genera feedback y actualiza estado inmediatamente."""
+        try:
+            logger.info(f"🤖 Iniciando generación de feedback para job {job_id}")
+            result = await asyncio.get_event_loop().run_in_executor(
+                executor, processor.generate_feedback
+            )
+
+            with jobs_lock:
+                if job_id in jobs_state:
+                    jobs_state[job_id]["assets_ready"]["feedback"] = True
+                    jobs_state[job_id]["completed_steps"].append("feedback_generation")
+
+            logger.info(f"✅ Feedback DISPONIBLE para job {job_id}")
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ Error generando feedback para job {job_id}: {e}")
+            raise
+
+    # EJECUTAR EN PARALELO REAL
+    await asyncio.gather(
+        generate_video_with_callback(),
+        generate_feedback_with_callback(),
+        return_exceptions=True,
     )
-
-    # Actualizar estado según resultados
-    with jobs_lock:
-        if job_id in jobs_state:
-            if not isinstance(video_result, Exception):
-                jobs_state[job_id]["assets_ready"]["video"] = True
-                jobs_state[job_id]["completed_steps"].append("video_generation")
-                logger.debug(f"✅ Video generado para job {job_id}")
-            else:
-                logger.error(
-                    f"❌ Error generando video para job {job_id}: {video_result}"
-                )
-
-            if not isinstance(feedback_result, Exception):
-                jobs_state[job_id]["assets_ready"]["feedback"] = True
-                jobs_state[job_id]["completed_steps"].append("feedback_generation")
-                logger.debug(f"✅ Feedback generado para job {job_id}")
-            else:
-                logger.error(
-                    f"❌ Error generando feedback para job {job_id}: {feedback_result}"
-                )
 
 
 # ===============================
