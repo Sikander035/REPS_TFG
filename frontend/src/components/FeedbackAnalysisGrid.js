@@ -17,7 +17,7 @@ const FeedbackAnalysisGrid = ({ exerciseName, originalFile, fileName, jobId }) =
         assets: {
             feedback: { ready: false, loading: true, data: null, error: null },
             video: { ready: false, loading: true, data: null, error: null },
-            radar: { ready: false, loading: true, data: null, error: null },
+            radar: { ready: false, loading: true, error: null }, // ← Ya no necesita data
             report: { ready: false, loading: true, data: null, error: null }
         },
         error: null
@@ -127,6 +127,12 @@ const FeedbackAnalysisGrid = ({ exerciseName, originalFile, fileName, jobId }) =
             }
         }
 
+        // ========================================
+        // SECCIÓN DEL RADAR ELIMINADA
+        // Ya no cargamos datos del radar aquí porque
+        // FeedbackRadarChart lo hace directamente
+        // ========================================
+        
         // TODO: Aquí cargaremos los datos del radar chart más tarde
         // Por ahora mantenemos los datos mock en el componente FeedbackRadarChart
     };
@@ -285,7 +291,7 @@ const FeedbackAnalysisGrid = ({ exerciseName, originalFile, fileName, jobId }) =
                     <div className="feedback-radar-section">
                         <FeedbackRadarChart 
                             isLoading={analysisState.assets.radar.loading}
-                            radarData={analysisState.assets.radar.data}
+                            jobId={jobId}
                             error={analysisState.assets.radar.error}
                         />
                     </div>
